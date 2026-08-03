@@ -27,3 +27,23 @@ export function useCheckIn() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attendance'] }),
   })
 }
+
+export function useCheckOut() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (attendanceRecordId: string) => apiClient.post(`/api/attendance/${attendanceRecordId}/check-out`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attendance'] }),
+  })
+}
+
+export interface PeakHourBucket {
+  hourOfDay: number
+  checkInCount: number
+}
+
+export function usePeakHours(params: { branchId?: string | null; fromDate: string; toDate: string }) {
+  return useQuery({
+    queryKey: ['peak-hours', params],
+    queryFn: async () => (await apiClient.get<PeakHourBucket[]>('/api/attendance/peak-hours', { params })).data,
+  })
+}

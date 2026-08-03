@@ -1,9 +1,55 @@
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAttendanceHistory } from '@/modules/attendance/api/attendanceApi'
+import { useAttendanceHistory, useCheckOut, usePeakHours } from '@/modules/attendance/api/attendanceApi'
 import { CheckInPanel } from '@/modules/attendance/components/CheckInPanel'
+import { SimpleBarChart } from '@/modules/reports/components/SimpleBarChart'
 import { useUiStore } from '@/stores/uiStore'
+
+const toDateOnlyString = (d: Date) => d.toISOString().slice(0, 10)
+
+function CheckOutButton({ attendanceRecordId }: { attendanceRecordId: string }) {
+  const checkOut = useCheckOut()
+
+  return (
+    <Button size="sm" variant="outline" disabled={checkOut.isPending} onClick={() => checkOut.mutate(attendanceRecordId)}>
+      Check Out
+    </Button>
+  )
+}
+
+function PeakHoursCard() {
+  const branchId = useUiStore((s) => s.selectedBranchId)
+  const toDate = new Date()
+  const fromDate = new Date(toDate)
+  fromDate.setDate(fromDate.getDate() - 29)
+
+  const { data, isLoading } = usePeakHours({
+    branchId,
+    fromDate: toDateOnlyString(fromDate),
+    toDate: toDateOnlyString(toDate),
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Peak Hours (last 30 days)</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <SimpleBarChart
+            data={(data ?? []).map((b) => ({ label: `${b.hourOfDay}:00`, value: b.checkInCount }))}
+            valueFormatter={(v) => `${v} check-in${v === 1 ? '' : 's'}`}
+          />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function AttendancePage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
@@ -17,8 +63,9 @@ export default function AttendancePage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
+        <div className="space-y-6 lg:col-span-1">
           <CheckInPanel />
+          <PeakHoursCard />
         </div>
 
         <div className="lg:col-span-2 rounded-lg border">
@@ -29,13 +76,14 @@ export default function AttendancePage() {
                 <TableHead>Check-in</TableHead>
                 <TableHead>Check-out</TableHead>
                 <TableHead>Method</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading &&
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={4}>
+                    <TableCell colSpan={5}>
                       <Skeleton className="h-6 w-full" />
                     </TableCell>
                   </TableRow>
@@ -43,7 +91,7 @@ export default function AttendancePage() {
 
               {!isLoading && data?.items.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                     No attendance records yet.
                   </TableCell>
                 </TableRow>
@@ -58,6 +106,9 @@ export default function AttendancePage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{record.method === 'QrSimulated' ? 'QR' : 'Manual'}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {!record.checkOutAt && <CheckOutButton attendanceRecordId={record.id} />}
                   </TableCell>
                 </TableRow>
               ))}
