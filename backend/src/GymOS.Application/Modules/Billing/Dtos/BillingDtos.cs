@@ -16,4 +16,5 @@ public record InvoiceDetailDto(
     Guid Id, string InvoiceNumber, Guid MemberId, string MemberName, DateOnly IssueDate, DateOnly DueDate,
     InvoiceStatus Status, decimal Subtotal, decimal TaxAmount, decimal DiscountAmount, decimal TotalAmount,
     string Currency, string? Notes,
-    IReadOnlyList<InvoiceLineDto> Lines, IReadOnlyList<PaymentDto> Payments, decimal AmountPaid, decimal AmountOutstanding);
+    IReadOnlyList<InvoiceLineDto> Lines, IReadOnlyList<PaymentDto> Payments, IReadOnlyList<RefundDto> Refunds,
+    decimal AmountPaid, decimal AmountOutstanding);

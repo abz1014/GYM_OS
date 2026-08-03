@@ -27,6 +27,7 @@ export interface InvoiceDetail extends InvoiceListItem {
   notes: string | null
   lines: { id: string; itemType: string; description: string; quantity: number; unitPrice: number; lineTotal: number }[]
   payments: { id: string; method: PaymentMethod; amount: number; paidAt: string; status: string }[]
+  refunds: { id: string; paymentId: string; amount: number; reason: string; refundedAt: string; status: string }[]
 }
 
 export function useInvoicesList(params: { memberId?: string; status?: InvoiceStatus; page?: number; pageSize?: number }) {
@@ -69,6 +70,18 @@ export function useRecordPayment(invoiceId: string) {
   return useMutation({
     mutationFn: async (input: { method: PaymentMethod; amount: number }) =>
       (await apiClient.post(`/api/invoices/${invoiceId}/payments`, input)).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] })
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+    },
+  })
+}
+
+export function useIssueRefund(invoiceId: string, paymentId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { amount: number; reason: string }) =>
+      (await apiClient.post<string>(`/api/invoices/payments/${paymentId}/refund`, input)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] })
       queryClient.invalidateQueries({ queryKey: ['invoices'] })

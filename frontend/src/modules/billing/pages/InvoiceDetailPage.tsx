@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useInvoice } from '@/modules/billing/api/billingApi'
+import { IssueRefundDialog } from '@/modules/billing/components/IssueRefundDialog'
 import { RecordPaymentDialog } from '@/modules/billing/components/RecordPaymentDialog'
 
 const currency = (amount: number, code: string) => amount.toLocaleString('en-US', { style: 'currency', currency: code })
@@ -109,6 +110,7 @@ export default function InvoiceDetailPage() {
                   <TableHead>Amount</TableHead>
                   <TableHead>Paid At</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -119,6 +121,41 @@ export default function InvoiceDetailPage() {
                     <TableCell className="text-muted-foreground">{new Date(p.paidAt).toLocaleString()}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{p.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {p.status === 'Completed' && (
+                        <IssueRefundDialog invoiceId={invoice.id} paymentId={p.id} maxAmount={p.amount} />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {invoice.refunds.length > 0 && (
+        <Card>
+          <CardContent>
+            <h2 className="mb-3 font-medium">Refunds</h2>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Refunded At</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invoice.refunds.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{currency(r.amount, invoice.currency)}</TableCell>
+                    <TableCell className="text-muted-foreground">{r.reason}</TableCell>
+                    <TableCell className="text-muted-foreground">{new Date(r.refundedAt).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{r.status}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}
