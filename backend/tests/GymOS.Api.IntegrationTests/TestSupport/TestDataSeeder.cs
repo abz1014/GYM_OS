@@ -72,6 +72,7 @@ public static class TestDataSeeder
         // query filter would otherwise silently match zero rows here (same reason DemoDataSeeder
         // and the background jobs use IgnoreQueryFilters() everywhere they run outside a request).
         var branchId = await db.Branches.IgnoreQueryFilters().Where(b => b.TenantId == tenantId).Select(b => b.Id).FirstAsync();
+        db.UserBranchAccesses.Add(new UserBranchAccess { UserId = userId, BranchId = branchId });
 
         var member = new Member
         {

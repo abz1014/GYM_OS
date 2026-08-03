@@ -1,5 +1,6 @@
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
+using GymOS.Application.Common.Security;
 using GymOS.Application.Modules.Crm.Dtos;
 using GymOS.Domain.Crm;
 using MediatR;
@@ -9,11 +10,13 @@ namespace GymOS.Application.Modules.Crm.Queries;
 
 public record GetLeadsListQuery(LeadStage? Stage, Guid? BranchId) : IQuery<List<LeadListItemDto>>;
 
-public class GetLeadsListQueryHandler(IApplicationDbContext db) : IRequestHandler<GetLeadsListQuery, List<LeadListItemDto>>
+public class GetLeadsListQueryHandler(IApplicationDbContext db, ICurrentUserService currentUser)
+    : IRequestHandler<GetLeadsListQuery, List<LeadListItemDto>>
 {
-    public Task<List<LeadListItemDto>> Handle(GetLeadsListQuery request, CancellationToken cancellationToken)
+    public async Task<List<LeadListItemDto>> Handle(GetLeadsListQuery request, CancellationToken cancellationToken)
     {
-        var query = db.Leads.AsNoTracking().AsQueryable();
+        var accessibleBranchIds = await BranchAccessResolver.GetAccessibleBranchIdsAsync(db, currentUser, cancellationToken);
+        var query = db.Leads.AsNoTracking().Where(l => accessibleBranchIds.Contains(l.BranchId));
 
         if (request.Stage is not null)
         {
@@ -25,7 +28,7 @@ public class GetLeadsListQueryHandler(IApplicationDbContext db) : IRequestHandle
             query = query.Where(l => l.BranchId == request.BranchId);
         }
 
-        return query
+        return await query
             .OrderByDescending(l => l.CreatedAt)
             .Select(l => new LeadListItemDto(
                 l.Id, l.FirstName + " " + l.LastName, l.Email, l.Phone, l.Source, l.Stage, l.AssignedToUserId, l.CreatedAt))

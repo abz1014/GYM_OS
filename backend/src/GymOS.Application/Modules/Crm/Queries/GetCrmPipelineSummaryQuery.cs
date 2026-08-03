@@ -1,5 +1,6 @@
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
+using GymOS.Application.Common.Security;
 using GymOS.Application.Modules.Crm.Dtos;
 using GymOS.Domain.Crm;
 using MediatR;
@@ -9,11 +10,13 @@ namespace GymOS.Application.Modules.Crm.Queries;
 
 public record GetCrmPipelineSummaryQuery(Guid? BranchId) : IQuery<CrmPipelineSummaryDto>;
 
-public class GetCrmPipelineSummaryQueryHandler(IApplicationDbContext db) : IRequestHandler<GetCrmPipelineSummaryQuery, CrmPipelineSummaryDto>
+public class GetCrmPipelineSummaryQueryHandler(IApplicationDbContext db, ICurrentUserService currentUser)
+    : IRequestHandler<GetCrmPipelineSummaryQuery, CrmPipelineSummaryDto>
 {
     public async Task<CrmPipelineSummaryDto> Handle(GetCrmPipelineSummaryQuery request, CancellationToken cancellationToken)
     {
-        var query = db.Leads.AsNoTracking().AsQueryable();
+        var accessibleBranchIds = await BranchAccessResolver.GetAccessibleBranchIdsAsync(db, currentUser, cancellationToken);
+        var query = db.Leads.AsNoTracking().Where(l => accessibleBranchIds.Contains(l.BranchId));
         if (request.BranchId is not null)
         {
             query = query.Where(l => l.BranchId == request.BranchId);

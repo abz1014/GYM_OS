@@ -1,5 +1,6 @@
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
+using GymOS.Application.Common.Security;
 using GymOS.Application.Modules.Maintenance.Dtos;
 using GymOS.Domain.Maintenance;
 using MediatR;
@@ -9,12 +10,13 @@ namespace GymOS.Application.Modules.Maintenance.Queries;
 
 public record GetWorkOrdersListQuery(Guid? BranchId, WorkOrderStatus? Status) : IQuery<List<WorkOrderListItemDto>>;
 
-public class GetWorkOrdersListQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider)
+public class GetWorkOrdersListQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, ICurrentUserService currentUser)
     : IRequestHandler<GetWorkOrdersListQuery, List<WorkOrderListItemDto>>
 {
     public async Task<List<WorkOrderListItemDto>> Handle(GetWorkOrdersListQuery request, CancellationToken cancellationToken)
     {
-        var query = db.WorkOrders.AsNoTracking().Include(w => w.Asset).AsQueryable();
+        var accessibleBranchIds = await BranchAccessResolver.GetAccessibleBranchIdsAsync(db, currentUser, cancellationToken);
+        var query = db.WorkOrders.AsNoTracking().Include(w => w.Asset).Where(w => accessibleBranchIds.Contains(w.BranchId));
 
         if (request.BranchId is not null)
         {

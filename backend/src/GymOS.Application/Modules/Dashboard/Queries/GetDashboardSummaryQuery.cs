@@ -1,5 +1,6 @@
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
+using GymOS.Application.Common.Security;
 using GymOS.Application.Modules.Dashboard.Dtos;
 using GymOS.Domain.Billing;
 using GymOS.Domain.Equipment;
@@ -12,7 +13,7 @@ namespace GymOS.Application.Modules.Dashboard.Queries;
 
 public record GetDashboardSummaryQuery(Guid? BranchId) : IQuery<DashboardSummaryDto>;
 
-public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider)
+public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, ICurrentUserService currentUser)
     : IRequestHandler<GetDashboardSummaryQuery, DashboardSummaryDto>
 {
     public async Task<DashboardSummaryDto> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
@@ -24,8 +25,14 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var sevenDaysOut = today.AddDays(7);
 
+        // Every figure below used to be tenant-wide with no branch restriction unless the caller
+        // opted in to one — found live via a Receptionist seeded with access to a single branch
+        // reading company-wide revenue and cash-collected figures with a plain GET, no params.
+        var accessibleBranchIds = await BranchAccessResolver.GetAccessibleBranchIdsAsync(db, currentUser, cancellationToken);
+
         var payments = db.Payments.AsNoTracking()
-            .Where(p => p.Status == PaymentStatus.Completed && p.PaidAt >= todayStart && p.PaidAt < todayEnd);
+            .Where(p => p.Status == PaymentStatus.Completed && p.PaidAt >= todayStart && p.PaidAt < todayEnd
+                && accessibleBranchIds.Contains(p.Invoice!.BranchId));
 
         if (request.BranchId is not null)
         {
@@ -36,7 +43,7 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
         var todayCash = await payments.Where(p => p.Method == PaymentMethod.Cash)
             .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
 
-        var members = db.Members.AsNoTracking().AsQueryable();
+        var members = db.Members.AsNoTracking().Where(m => accessibleBranchIds.Contains(m.BranchId));
         if (request.BranchId is not null)
         {
             members = members.Where(m => m.BranchId == request.BranchId);
@@ -46,7 +53,8 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
         var newMembersThisMonth = await members.CountAsync(m => m.JoinDate >= monthStart, cancellationToken);
 
         var expiringMemberships = db.MemberMemberships.AsNoTracking()
-            .Where(mm => mm.EndDate >= today && mm.EndDate <= sevenDaysOut && mm.Status == MemberMembershipStatus.Active);
+            .Where(mm => mm.EndDate >= today && mm.EndDate <= sevenDaysOut && mm.Status == MemberMembershipStatus.Active
+                && accessibleBranchIds.Contains(mm.Member!.BranchId));
 
         if (request.BranchId is not null)
         {
@@ -56,7 +64,7 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
         var expiringCount = await expiringMemberships.CountAsync(cancellationToken);
 
         var attendanceToday = db.AttendanceRecords.AsNoTracking()
-            .Where(a => a.CheckInAt >= todayStart && a.CheckInAt < todayEnd);
+            .Where(a => a.CheckInAt >= todayStart && a.CheckInAt < todayEnd && accessibleBranchIds.Contains(a.BranchId));
 
         if (request.BranchId is not null)
         {
@@ -66,7 +74,8 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
         var todayAttendanceCount = await attendanceToday.CountAsync(cancellationToken);
 
         var trainerSchedulesToday = db.TrainerSchedules.AsNoTracking()
-            .Where(s => s.DayOfWeek == now.DayOfWeek && s.IsAvailable && s.Trainer!.IsActive);
+            .Where(s => s.DayOfWeek == now.DayOfWeek && s.IsAvailable && s.Trainer!.IsActive
+                && accessibleBranchIds.Contains(s.Trainer!.BranchId));
 
         if (request.BranchId is not null)
         {
@@ -76,7 +85,8 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
         var trainerScheduleTodayCount = await trainerSchedulesToday.Select(s => s.TrainerId).Distinct().CountAsync(cancellationToken);
 
         var equipmentAlerts = db.Assets.AsNoTracking()
-            .Where(a => a.Status == AssetStatus.UnderMaintenance || a.Status == AssetStatus.OutOfService);
+            .Where(a => (a.Status == AssetStatus.UnderMaintenance || a.Status == AssetStatus.OutOfService)
+                && accessibleBranchIds.Contains(a.BranchId));
 
         if (request.BranchId is not null)
         {
@@ -87,7 +97,8 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
 
         var maintenanceReminders = db.WorkOrders.AsNoTracking()
             .Where(w => w.ScheduledDate != null && w.ScheduledDate < today
-                && w.Status != WorkOrderStatus.Completed && w.Status != WorkOrderStatus.Cancelled);
+                && w.Status != WorkOrderStatus.Completed && w.Status != WorkOrderStatus.Cancelled
+                && accessibleBranchIds.Contains(w.BranchId));
 
         if (request.BranchId is not null)
         {
@@ -96,7 +107,8 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
 
         var maintenanceRemindersCount = await maintenanceReminders.CountAsync(cancellationToken);
 
-        var inventoryAlerts = db.InventoryItems.AsNoTracking().Where(i => i.QuantityOnHand <= i.ReorderLevel);
+        var inventoryAlerts = db.InventoryItems.AsNoTracking()
+            .Where(i => i.QuantityOnHand <= i.ReorderLevel && accessibleBranchIds.Contains(i.BranchId));
 
         if (request.BranchId is not null)
         {

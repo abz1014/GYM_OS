@@ -18,6 +18,7 @@ public static class DependencyInjection
 
         // Order = execution order, outermost first.
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TenantScopeBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(BranchScopeBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));

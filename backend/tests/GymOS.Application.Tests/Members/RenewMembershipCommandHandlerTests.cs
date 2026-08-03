@@ -137,6 +137,7 @@ public class RenewMembershipCommandHandlerTests : ApplicationTestBase
             LastName = "User"
         };
         db.Users.Add(staffUser);
+        db.UserBranchAccesses.Add(new UserBranchAccess { UserId = staffUser.Id, BranchId = branch.Id });
 
         var member = new Member
         {
