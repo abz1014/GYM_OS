@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/authStore'
 import { useLogin } from '@/modules/auth/api/authApi'
+import { resolveLandingRoute } from '@/shared/nav/landingRoute'
 
 const DEMO_ROLES = ['owner', 'manager', 'receptionist', 'trainer', 'nutritionist', 'accountant', 'maintenance', 'member']
 
@@ -30,7 +31,7 @@ export default function LoginPage() {
         onSuccess: (data) => {
           setSession(data)
           toast.success(`Welcome back, ${data.user.firstName}`)
-          navigate('/dashboard')
+          navigate(resolveLandingRoute((code) => data.user.permissions.includes(code)))
         },
         onError: (error) => {
           const problem = (error as AxiosError<{ title?: string }>).response?.data

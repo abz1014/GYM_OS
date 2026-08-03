@@ -58,6 +58,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
 
         await SeedAttendanceAsync(tenant.Id, branches, members, cancellationToken);
         await SeedInvoicesAndPaymentsAsync(tenant.Id, branches, members, demoUsers, cancellationToken);
+        await LinkDemoMemberAccountAsync(demoUsers, cancellationToken);
 
         var trainers = await SeedTrainersAsync(tenant.Id, branches, demoUsers, cancellationToken);
         await SeedTrainerAssignmentsAsync(trainers, members, cancellationToken);
@@ -154,7 +155,10 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
             [
                 PermissionCodes.Dashboard.View, PermissionCodes.Maintenance.View, PermissionCodes.Maintenance.Manage, PermissionCodes.Equipment.View
             ],
-            [RoleNames.Member] = [PermissionCodes.Dashboard.View, PermissionCodes.Attendance.View, PermissionCodes.Workouts.View, PermissionCodes.Nutrition.View]
+            // Deliberately NOT Attendance/Workouts/Nutrition/Dashboard.View — those grant staff-wide
+            // access to every member's records and every member's business figures. A gym member
+            // gets Portal.View instead, which only ever resolves to their own data server-side.
+            [RoleNames.Member] = [PermissionCodes.Portal.View]
         };
 
         foreach (var (roleName, codes) in rolePermissionMap)
@@ -190,6 +194,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         (PermissionCodes.Attendance.View, "attendance", "View attendance history"),
         (PermissionCodes.Attendance.CheckIn, "attendance", "Check members in/out"),
         (PermissionCodes.Dashboard.View, "dashboard", "View executive dashboard"),
+        (PermissionCodes.Portal.View, "portal", "View own member profile, attendance, workouts, and nutrition"),
         (PermissionCodes.Settings.View, "settings", "View gym settings"),
         (PermissionCodes.Settings.ManageBranches, "settings", "Manage branches"),
         (PermissionCodes.Settings.ManagePermissions, "settings", "Manage the role permission matrix"),

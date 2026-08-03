@@ -6,6 +6,7 @@ using GymOS.Domain.Memberships;
 using GymOS.Domain.Tenancy;
 using GymOS.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace GymOS.Infrastructure.Seeding;
 
@@ -151,6 +152,32 @@ public partial class DemoDataSeeder
 
         await db.SaveChangesAsync(cancellationToken);
         return members;
+    }
+
+    /// <summary>
+    /// Links the "member@titanfitness.demo" login to a real seeded Member row (Member.UserId is
+    /// otherwise never populated by seeding) so the self-service portal has real attendance,
+    /// membership status, and invoice history to show instead of an empty state. Picked after
+    /// attendance/invoices are seeded so the chosen member demonstrably has both, rather than
+    /// guessing a fixed index against the member-seeding RNG's output.
+    /// </summary>
+    private async Task LinkDemoMemberAccountAsync(Dictionary<string, User> demoUsers, CancellationToken cancellationToken)
+    {
+        var candidate = await db.Members.IgnoreQueryFilters()
+            .Where(m => m.Status == MemberStatus.Active)
+            .Where(m => db.AttendanceRecords.IgnoreQueryFilters().Any(a => a.MemberId == m.Id))
+            .Where(m => db.Invoices.IgnoreQueryFilters().Any(inv => inv.MemberId == m.Id))
+            .OrderBy(m => m.MemberCode)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (candidate is null)
+        {
+            logger.LogWarning("No eligible member found to link to the demo Member login — portal will show an empty state.");
+            return;
+        }
+
+        candidate.UserId = demoUsers[RoleNames.Member].Id;
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private static (DateOnly Start, DateOnly End) RollForwardToFuture(DateOnly startDate, int durationDays, DateOnly today)

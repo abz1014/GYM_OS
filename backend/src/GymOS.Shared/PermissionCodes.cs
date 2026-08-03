@@ -51,6 +51,15 @@ public static class PermissionCodes
         public const string View = "dashboard.view";
     }
 
+    /// <summary>Gates the member self-service portal (own profile/attendance/workouts/nutrition
+    /// only — every Portal query resolves "whose data" server-side from the JWT, never from a
+    /// caller-supplied id). Deliberately separate from Attendance/Workouts/Nutrition.View, which
+    /// grant staff-wide access to every member's records.</summary>
+    public static class Portal
+    {
+        public const string View = "portal.view";
+    }
+
     public static class Settings
     {
         public const string View = "settings.view";

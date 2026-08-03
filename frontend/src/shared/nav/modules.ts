@@ -16,6 +16,7 @@ import {
   Bell,
   Settings,
   UploadCloud,
+  UserCircle,
 } from 'lucide-react'
 
 export interface NavModule {
@@ -29,6 +30,7 @@ export interface NavModule {
 
 export const NAV_MODULES: NavModule[] = [
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, permission: 'dashboard.view', wave: 1 },
+  { key: 'portal', label: 'My Account', path: '/portal', icon: UserCircle, permission: 'portal.view', wave: 1 },
   { key: 'members', label: 'Members', path: '/members', icon: Users, permission: 'members.view', wave: 1 },
   { key: 'memberships', label: 'Memberships', path: '/memberships', icon: CreditCard, permission: 'memberships.view', wave: 1 },
   { key: 'attendance', label: 'Attendance', path: '/attendance', icon: QrCode, permission: 'attendance.view', wave: 1 },
