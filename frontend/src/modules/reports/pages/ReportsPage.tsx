@@ -368,7 +368,7 @@ export default function ReportsPage() {
       </div>
 
       <Tabs defaultValue="revenue">
-        <TabsList className="flex-wrap">
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="membership">Membership</TabsTrigger>

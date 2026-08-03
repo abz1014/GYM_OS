@@ -6,12 +6,16 @@ import { useAuthStore } from '@/stores/authStore'
 import { NAV_MODULES } from '@/shared/nav/modules'
 import { Badge } from '@/components/ui/badge'
 
-export function Sidebar() {
+/**
+ * The brand header + module nav list, shared by the desktop sidebar and the mobile drawer
+ * (MobileNav) so there is exactly one definition of what navigation looks like.
+ */
+export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const permissions = useAuthStore((s) => s.user?.permissions ?? [])
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
-      <div className="flex h-14 items-center gap-2 border-b px-4">
+    <>
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
         <Dumbbell className="size-5 text-primary" />
         <span className="font-semibold tracking-tight">Titan Fitness</span>
       </div>
@@ -47,6 +51,7 @@ export function Sidebar() {
             <NavLink
               key={module.key}
               to={module.path}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
@@ -62,6 +67,14 @@ export function Sidebar() {
           )
         })}
       </nav>
+    </>
+  )
+}
+
+export function Sidebar() {
+  return (
+    <aside className="hidden w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
+      <SidebarNav />
     </aside>
   )
 }

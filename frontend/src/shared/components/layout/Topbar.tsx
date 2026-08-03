@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { BranchSwitcher } from '@/shared/components/layout/BranchSwitcher'
+import { MobileNav } from '@/shared/components/layout/MobileNav'
 
 export function Topbar() {
   const user = useAuthStore((s) => s.user)
@@ -33,7 +34,8 @@ export function Topbar() {
 
   return (
     <header className="flex h-14 items-center justify-between gap-4 border-b bg-background px-4">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
+        <MobileNav />
         <BranchSwitcher />
       </div>
 
