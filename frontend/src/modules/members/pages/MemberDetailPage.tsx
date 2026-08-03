@@ -90,7 +90,7 @@ export default function MemberDetailPage() {
       </Card>
 
       <Tabs defaultValue="memberships">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="memberships">Memberships</TabsTrigger>
           <TabsTrigger value="measurements">Measurements</TabsTrigger>
           <TabsTrigger value="medical">Medical Notes</TabsTrigger>

@@ -92,7 +92,7 @@ export default function TrainerDetailPage() {
       </Card>
 
       <Tabs defaultValue="clients">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="clients">Clients</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>

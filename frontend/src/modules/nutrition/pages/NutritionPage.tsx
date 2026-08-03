@@ -162,7 +162,7 @@ export default function NutritionPage() {
       </div>
 
       <Tabs defaultValue="food">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="food">Food Library</TabsTrigger>
           <TabsTrigger value="member">Member Nutrition</TabsTrigger>
         </TabsList>

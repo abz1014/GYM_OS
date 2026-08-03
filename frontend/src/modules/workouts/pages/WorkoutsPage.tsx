@@ -94,7 +94,7 @@ export default function WorkoutsPage() {
       </div>
 
       <Tabs defaultValue="exercises">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="exercises">Exercise Library</TabsTrigger>
           <TabsTrigger value="templates">Workout Templates</TabsTrigger>
           <TabsTrigger value="logs">Member Logs</TabsTrigger>

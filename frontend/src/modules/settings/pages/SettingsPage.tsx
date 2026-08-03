@@ -150,7 +150,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="profile">Gym Profile</TabsTrigger>
           <TabsTrigger value="branches">Branches</TabsTrigger>
           <TabsTrigger value="permissions">Permission Matrix</TabsTrigger>

@@ -94,7 +94,7 @@ export default function MembershipsPage() {
       </div>
 
       <Tabs defaultValue="plans">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="plans">Plans</TabsTrigger>
           <TabsTrigger value="discounts">Discounts &amp; Coupons</TabsTrigger>
         </TabsList>

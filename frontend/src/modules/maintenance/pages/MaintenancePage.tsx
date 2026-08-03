@@ -51,7 +51,7 @@ export default function MaintenancePage() {
       </div>
 
       <Tabs defaultValue="work-orders">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
           <TabsTrigger value="schedules">Recurring Schedules</TabsTrigger>
         </TabsList>

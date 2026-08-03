@@ -180,7 +180,7 @@ export default function NotificationsPage() {
       </div>
 
       <Tabs defaultValue="mailbox">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="mailbox">Dev Mailbox</TabsTrigger>
           <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
