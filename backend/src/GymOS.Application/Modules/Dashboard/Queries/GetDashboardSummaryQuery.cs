@@ -2,6 +2,8 @@ using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Dashboard.Dtos;
 using GymOS.Domain.Billing;
+using GymOS.Domain.Equipment;
+using GymOS.Domain.Maintenance;
 using GymOS.Domain.Members;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -63,8 +65,48 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
 
         var todayAttendanceCount = await attendanceToday.CountAsync(cancellationToken);
 
+        var trainerSchedulesToday = db.TrainerSchedules.AsNoTracking()
+            .Where(s => s.DayOfWeek == now.DayOfWeek && s.IsAvailable && s.Trainer!.IsActive);
+
+        if (request.BranchId is not null)
+        {
+            trainerSchedulesToday = trainerSchedulesToday.Where(s => s.Trainer!.BranchId == request.BranchId);
+        }
+
+        var trainerScheduleTodayCount = await trainerSchedulesToday.Select(s => s.TrainerId).Distinct().CountAsync(cancellationToken);
+
+        var equipmentAlerts = db.Assets.AsNoTracking()
+            .Where(a => a.Status == AssetStatus.UnderMaintenance || a.Status == AssetStatus.OutOfService);
+
+        if (request.BranchId is not null)
+        {
+            equipmentAlerts = equipmentAlerts.Where(a => a.BranchId == request.BranchId);
+        }
+
+        var equipmentAlertsCount = await equipmentAlerts.CountAsync(cancellationToken);
+
+        var maintenanceReminders = db.WorkOrders.AsNoTracking()
+            .Where(w => w.ScheduledDate != null && w.ScheduledDate < today
+                && w.Status != WorkOrderStatus.Completed && w.Status != WorkOrderStatus.Cancelled);
+
+        if (request.BranchId is not null)
+        {
+            maintenanceReminders = maintenanceReminders.Where(w => w.BranchId == request.BranchId);
+        }
+
+        var maintenanceRemindersCount = await maintenanceReminders.CountAsync(cancellationToken);
+
+        var inventoryAlerts = db.InventoryItems.AsNoTracking().Where(i => i.QuantityOnHand <= i.ReorderLevel);
+
+        if (request.BranchId is not null)
+        {
+            inventoryAlerts = inventoryAlerts.Where(i => i.BranchId == request.BranchId);
+        }
+
+        var inventoryAlertsCount = await inventoryAlerts.CountAsync(cancellationToken);
+
         return new DashboardSummaryDto(
             todayRevenue, todayCash, activeMembersCount, newMembersThisMonth, expiringCount, todayAttendanceCount,
-            TrainerScheduleTodayCount: 0, EquipmentAlertsCount: 0, MaintenanceRemindersCount: 0, InventoryAlertsCount: 0);
+            trainerScheduleTodayCount, equipmentAlertsCount, maintenanceRemindersCount, inventoryAlertsCount);
     }
 }

@@ -1,4 +1,4 @@
-import { DollarSign, Wallet, Users, UserPlus, CalendarClock, QrCode } from 'lucide-react'
+import { DollarSign, Wallet, Users, UserPlus, CalendarClock, QrCode, Dumbbell, Wrench, Hammer, Package } from 'lucide-react'
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/shared/components/StatCard'
@@ -22,7 +22,7 @@ export default function DashboardPage() {
 
       {isLoading || !data ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: 10 }).map((_, i) => (
             <Skeleton key={i} className="h-28 w-full" />
           ))}
         </div>
@@ -39,13 +39,27 @@ export default function DashboardPage() {
             tone={data.expiringMembershipsNext7DaysCount > 0 ? 'warning' : 'default'}
           />
           <StatCard label="Check-ins Today" value={data.todayAttendanceCount.toLocaleString()} icon={QrCode} />
+          <StatCard label="Trainers Scheduled Today" value={data.trainerScheduleTodayCount.toLocaleString()} icon={Dumbbell} />
+          <StatCard
+            label="Equipment Alerts"
+            value={data.equipmentAlertsCount.toLocaleString()}
+            icon={Wrench}
+            tone={data.equipmentAlertsCount > 0 ? 'warning' : 'default'}
+          />
+          <StatCard
+            label="Maintenance Reminders"
+            value={data.maintenanceRemindersCount.toLocaleString()}
+            icon={Hammer}
+            tone={data.maintenanceRemindersCount > 0 ? 'warning' : 'default'}
+          />
+          <StatCard
+            label="Inventory Alerts"
+            value={data.inventoryAlertsCount.toLocaleString()}
+            icon={Package}
+            tone={data.inventoryAlertsCount > 0 ? 'warning' : 'default'}
+          />
         </div>
       )}
-
-      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        Trainer schedule, equipment alerts, maintenance reminders, and inventory alerts widgets arrive with the
-        Trainers/Equipment/Maintenance/Inventory modules (Wave 2).
-      </div>
     </div>
   )
 }
