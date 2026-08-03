@@ -78,6 +78,22 @@ export function useCreateAsset() {
   })
 }
 
+interface CreateSupplierInput {
+  name: string
+  contactName?: string
+  phone?: string
+  email?: string
+  address?: string
+}
+
+export function useCreateSupplier() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateSupplierInput) => (await apiClient.post<string>('/api/equipment/suppliers', input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suppliers'] }),
+  })
+}
+
 export function useUpdateAssetStatus(assetId: string) {
   const queryClient = useQueryClient()
   return useMutation({

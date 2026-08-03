@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useAssetsList, useUpdateAssetStatus, type AssetStatus } from '@/modules/equipment/api/equipmentApi'
 import { CreateAssetDialog } from '@/modules/equipment/components/CreateAssetDialog'
+import { CreateSupplierDialog } from '@/modules/equipment/components/CreateSupplierDialog'
 import { useUiStore } from '@/stores/uiStore'
 
 const STATUSES: AssetStatus[] = ['Active', 'UnderMaintenance', 'OutOfService', 'Retired']
@@ -49,7 +50,10 @@ export default function EquipmentPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Equipment</h1>
           <p className="text-sm text-muted-foreground">{assets?.length ?? '—'} assets</p>
         </div>
-        <CreateAssetDialog />
+        <div className="flex items-center gap-2">
+          <CreateSupplierDialog />
+          <CreateAssetDialog />
+        </div>
       </div>
 
       <div className="rounded-lg border">
