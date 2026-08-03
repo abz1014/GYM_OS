@@ -29,6 +29,7 @@ export interface MemberMembership {
   pricePaid: number
   currency: string
   invoiceId: string | null
+  cancellationReason: string | null
 }
 
 export interface MemberDetail extends MemberListItem {
@@ -107,6 +108,23 @@ export function useResumeMembership(memberId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (memberMembershipId: string) => apiClient.post(`/api/members/memberships/${memberMembershipId}/resume`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
+  })
+}
+
+export function useCancelMembership(memberId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ memberMembershipId, reason }: { memberMembershipId: string; reason?: string }) =>
+      apiClient.post(`/api/members/memberships/${memberMembershipId}/cancel`, { reason: reason ?? null }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
+  })
+}
+
+export function useReactivateMembership(memberId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (memberMembershipId: string) => apiClient.post(`/api/members/memberships/${memberMembershipId}/reactivate`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
   })
 }

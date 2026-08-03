@@ -32,30 +32,25 @@ public class MaintenanceDueCheckJob(GymOsDbContext db, IDateTimeProvider dateTim
                 continue;
             }
 
+            // LastNotifiedDueDate (not notification history) drives the dedup check: a schedule's Id
+            // never changes, so keying dedup only on Id — as the old logic did — meant a schedule
+            // notified once stayed silent forever, even after its NextDueDate later advanced to a
+            // new due cycle. Comparing against the current NextDueDate lets each cycle notify once.
             var dueSchedules = await db.MaintenanceSchedules.IgnoreQueryFilters()
-                .Where(s => s.IsActive && s.NextDueDate <= today && s.Asset!.TenantId == tenantId)
-                .Select(s => new { s.Id, s.Asset!.BranchId })
+                .Include(s => s.Asset)
+                .Where(s => s.IsActive && s.NextDueDate <= today && s.LastNotifiedDueDate != s.NextDueDate && s.Asset!.TenantId == tenantId)
                 .ToListAsync(cancellationToken);
 
             foreach (var schedule in dueSchedules)
             {
-                var alreadyScheduled = await db.ScheduledNotifications.IgnoreQueryFilters().AnyAsync(
-                    n => n.RelatedEntityType == nameof(MaintenanceSchedule) && n.RelatedEntityId == schedule.Id,
-                    cancellationToken);
-
-                if (alreadyScheduled)
-                {
-                    continue;
-                }
-
-                var recipientUserIds = await GetUsersWithPermissionInBranchAsync(schedule.BranchId, PermissionCodes.Maintenance.Manage, cancellationToken);
+                var recipientUserIds = await GetUsersWithPermissionInBranchAsync(schedule.Asset!.BranchId, PermissionCodes.Maintenance.Manage, cancellationToken);
 
                 foreach (var userId in recipientUserIds)
                 {
                     db.ScheduledNotifications.Add(new ScheduledNotification
                     {
                         TenantId = tenantId,
-                        BranchId = schedule.BranchId,
+                        BranchId = schedule.Asset.BranchId,
                         NotificationTemplateId = template.Id,
                         RecipientUserId = userId,
                         ScheduledFor = dateTimeProvider.UtcNow,
@@ -63,6 +58,14 @@ public class MaintenanceDueCheckJob(GymOsDbContext db, IDateTimeProvider dateTim
                         RelatedEntityType = nameof(MaintenanceSchedule),
                         RelatedEntityId = schedule.Id
                     });
+                }
+
+                // Only mark this cycle notified if someone was actually notified — an empty
+                // recipient list (no staff hold Maintenance.Manage in this branch yet) should keep
+                // retrying daily rather than silently giving up on the cycle.
+                if (recipientUserIds.Count > 0)
+                {
+                    schedule.LastNotifiedDueDate = schedule.NextDueDate;
                 }
             }
         }

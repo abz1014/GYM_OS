@@ -32,4 +32,6 @@ public class MemberMembership : BaseEntity
     /// <summary>The invoice generated for this membership period's fee, so Payment is a real,
     /// trackable step of the signup/renewal workflow rather than just a recorded price.</summary>
     public Guid? InvoiceId { get; set; }
+
+    public string? CancellationReason { get; set; }
 }

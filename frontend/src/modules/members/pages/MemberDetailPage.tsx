@@ -17,6 +17,8 @@ import { AddMedicalNoteDialog } from '@/modules/members/components/AddMedicalNot
 import { AddMeasurementDialog } from '@/modules/members/components/AddMeasurementDialog'
 import { AddProgressPhotoDialog } from '@/modules/members/components/AddProgressPhotoDialog'
 import { ResumeMembershipButton } from '@/modules/members/components/ResumeMembershipButton'
+import { CancelMembershipDialog } from '@/modules/members/components/CancelMembershipDialog'
+import { ReactivateMembershipButton } from '@/modules/members/components/ReactivateMembershipButton'
 
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -111,6 +113,9 @@ export default function MemberDetailPage() {
                   <p className="text-sm text-muted-foreground">
                     {new Date(mm.startDate).toLocaleDateString()} → {new Date(mm.endDate).toLocaleDateString()}
                   </p>
+                  {mm.status === 'Cancelled' && mm.cancellationReason && (
+                    <p className="text-xs text-muted-foreground">Reason: {mm.cancellationReason}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{mm.status}</Badge>
@@ -124,6 +129,10 @@ export default function MemberDetailPage() {
                   )}
                   {mm.status === 'Active' && <FreezeMembershipDialog memberId={member.id} memberMembershipId={mm.id} />}
                   {mm.status === 'Frozen' && <ResumeMembershipButton memberId={member.id} memberMembershipId={mm.id} />}
+                  {(mm.status === 'Active' || mm.status === 'Frozen' || mm.status === 'PendingActivation') && (
+                    <CancelMembershipDialog memberId={member.id} memberMembershipId={mm.id} />
+                  )}
+                  {mm.status === 'Cancelled' && <ReactivateMembershipButton memberId={member.id} memberMembershipId={mm.id} />}
                 </div>
               </CardContent>
             </Card>

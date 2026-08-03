@@ -14,4 +14,9 @@ public class MaintenanceSchedule : BaseEntity
     public DateOnly NextDueDate { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>The NextDueDate value that was last notified on. Compared against NextDueDate
+    /// (rather than checking notification history) so a fresh due-cycle always re-notifies once,
+    /// even though the schedule's Id — and therefore any notification keyed only on it — never changes.</summary>
+    public DateOnly? LastNotifiedDueDate { get; set; }
 }
