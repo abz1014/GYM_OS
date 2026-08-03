@@ -5,6 +5,7 @@ using GymOS.Infrastructure.Messaging;
 using GymOS.Infrastructure.Payments;
 using GymOS.Infrastructure.Persistence;
 using GymOS.Infrastructure.RealTime;
+using GymOS.Infrastructure.Reports;
 using GymOS.Infrastructure.Seeding;
 using GymOS.Infrastructure.Storage;
 using Hangfire;
@@ -37,6 +38,7 @@ public static class DependencyInjection
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<ITotpService, TotpService>();
         services.AddSingleton<IPaymentGateway, NoOpPaymentGateway>();
+        services.AddSingleton<IReportExporter, ClosedXmlReportExporter>();
 
         services.AddScoped<IEmailSender, NoOpEmailSender>();
         services.AddScoped<ISmsSender, NoOpSmsSender>();
