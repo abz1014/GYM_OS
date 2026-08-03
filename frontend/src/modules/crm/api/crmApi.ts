@@ -116,3 +116,11 @@ export function useAddLeadActivity(leadId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lead', leadId] }),
   })
 }
+
+export function useCompleteLeadActivity(leadId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (activityId: string) => apiClient.post(`/api/leads/activities/${activityId}/complete`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lead', leadId] }),
+  })
+}

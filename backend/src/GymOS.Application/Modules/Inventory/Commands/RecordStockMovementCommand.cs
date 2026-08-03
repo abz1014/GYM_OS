@@ -34,6 +34,11 @@ public class RecordStockMovementCommandHandler(IApplicationDbContext db, ICurren
 
         item.QuantityOnHand += request.Type == StockMovementType.In ? request.Quantity : -request.Quantity;
 
+        if (item.QuantityOnHand > item.ReorderLevel)
+        {
+            item.LowStockNotified = false;
+        }
+
         var movement = new StockMovement
         {
             InventoryItemId = item.Id,

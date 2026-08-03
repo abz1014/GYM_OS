@@ -31,4 +31,9 @@ public class InventoryItem : BaseEntity, IBranchScoped, IAuditable
     public Guid? UpdatedByUserId { get; set; }
 
     public bool IsLowStock => QuantityOnHand <= ReorderLevel;
+
+    /// <summary>Set when a low-stock notification has gone out for the current shortfall, and
+    /// cleared once stock is replenished above ReorderLevel — so the next time it dips low, it
+    /// notifies again instead of staying silent forever after the first alert.</summary>
+    public bool LowStockNotified { get; set; }
 }

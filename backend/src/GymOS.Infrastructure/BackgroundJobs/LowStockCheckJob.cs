@@ -30,22 +30,16 @@ public class LowStockCheckJob(GymOsDbContext db, IDateTimeProvider dateTimeProvi
                 continue;
             }
 
+            // LowStockNotified (not notification history) drives the dedup check — an item's Id
+            // never changes, so keying dedup only on Id meant an item notified once stayed silent
+            // forever, even after being restocked and dipping low again. RecordStockMovementCommand
+            // clears the flag once QuantityOnHand rises back above ReorderLevel.
             var lowStockItems = await db.InventoryItems.IgnoreQueryFilters()
-                .Where(i => i.TenantId == tenantId && i.QuantityOnHand <= i.ReorderLevel)
-                .Select(i => new { i.Id, i.BranchId })
+                .Where(i => i.TenantId == tenantId && i.QuantityOnHand <= i.ReorderLevel && !i.LowStockNotified)
                 .ToListAsync(cancellationToken);
 
             foreach (var item in lowStockItems)
             {
-                var alreadyScheduled = await db.ScheduledNotifications.IgnoreQueryFilters().AnyAsync(
-                    n => n.RelatedEntityType == nameof(InventoryItem) && n.RelatedEntityId == item.Id,
-                    cancellationToken);
-
-                if (alreadyScheduled)
-                {
-                    continue;
-                }
-
                 var recipientUserIds = await GetUsersWithPermissionInBranchAsync(item.BranchId, PermissionCodes.Inventory.Manage, cancellationToken);
 
                 foreach (var userId in recipientUserIds)
@@ -61,6 +55,13 @@ public class LowStockCheckJob(GymOsDbContext db, IDateTimeProvider dateTimeProvi
                         RelatedEntityType = nameof(InventoryItem),
                         RelatedEntityId = item.Id
                     });
+                }
+
+                // Only mark notified if someone was actually notified — no staff holding
+                // Inventory.Manage in this branch yet should keep retrying daily, not give up.
+                if (recipientUserIds.Count > 0)
+                {
+                    item.LowStockNotified = true;
                 }
             }
         }

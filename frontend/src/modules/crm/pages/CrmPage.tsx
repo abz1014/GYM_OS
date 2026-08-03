@@ -1,4 +1,5 @@
 import { TrendingUp } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -85,8 +86,10 @@ export default function CrmPage() {
                 {leadsByStage(stage).map((lead) => (
                   <Card key={lead.id}>
                     <CardContent className="space-y-2 p-3">
-                      <p className="text-sm font-medium">{lead.fullName}</p>
-                      <p className="truncate text-xs text-muted-foreground">{lead.email}</p>
+                      <Link to={`/crm/${lead.id}`} className="block hover:underline">
+                        <p className="text-sm font-medium">{lead.fullName}</p>
+                        <p className="truncate text-xs text-muted-foreground">{lead.email}</p>
+                      </Link>
                       <Badge variant="secondary" className="text-[10px]">
                         {lead.source}
                       </Badge>

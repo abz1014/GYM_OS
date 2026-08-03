@@ -51,4 +51,12 @@ public class CrmController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Crm.ManageLeads)]
     public async Task<ActionResult<Guid>> AddActivity(Guid id, AddLeadActivityCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command with { LeadId = id }, cancellationToken));
+
+    [HttpPost("activities/{activityId:guid}/complete")]
+    [RequirePermission(PermissionCodes.Crm.ManageLeads)]
+    public async Task<IActionResult> CompleteActivity(Guid activityId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new CompleteLeadActivityCommand(activityId), cancellationToken);
+        return NoContent();
+    }
 }
