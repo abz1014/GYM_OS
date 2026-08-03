@@ -1,4 +1,5 @@
 using GymOS.Domain.Common;
+using GymOS.Domain.Members;
 
 namespace GymOS.Domain.Trainers;
 
@@ -9,6 +10,8 @@ public class TrainerRating : BaseEntity
     public Trainer? Trainer { get; set; }
 
     public Guid MemberId { get; set; }
+
+    public Member? Member { get; set; }
 
     public int Score { get; set; }
 
