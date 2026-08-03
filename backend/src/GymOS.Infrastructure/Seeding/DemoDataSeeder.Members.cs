@@ -182,7 +182,11 @@ public partial class DemoDataSeeder
             var member = attendingMembers[rng.Next(attendingMembers.Count)];
             var daysAgo = rng.Next(0, 60);
             var hour = rng.Next(100) < 70 ? peakHours[rng.Next(peakHours.Length)] : rng.Next(5, 22);
-            var checkIn = DateTimeOffset.UtcNow.AddDays(-daysAgo).Date.AddHours(hour).AddMinutes(rng.Next(0, 60));
+            var baseDate = DateTimeOffset.UtcNow.AddDays(-daysAgo);
+            // Built explicitly as a UTC DateTimeOffset rather than via .Date (which downgrades to
+            // DateTime and then implicitly reattaches the machine's LOCAL offset on assignment —
+            // Npgsql rejects any non-zero offset for timestamptz columns).
+            var checkIn = new DateTimeOffset(baseDate.Year, baseDate.Month, baseDate.Day, hour, rng.Next(0, 60), 0, TimeSpan.Zero);
 
             var record = new AttendanceRecord
             {

@@ -43,8 +43,12 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
 
         Randomizer.Seed = new Random(20260803);
 
+        // Wrapped in one transaction so a failure partway through (e.g. a bug in a later step)
+        // can't leave a half-seeded tenant behind that then fools the AnyAsync check above on retry.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
         var tenant = await SeedTenantAndBranchesAsync(cancellationToken);
-        var branches = await db.Branches.Where(b => b.TenantId == tenant.Id).ToListAsync(cancellationToken);
+        var branches = await db.Branches.IgnoreQueryFilters().Where(b => b.TenantId == tenant.Id).ToListAsync(cancellationToken);
 
         var (roles, permissions) = await SeedRolesAndPermissionsAsync(tenant.Id, cancellationToken);
         var demoUsers = await SeedDemoUsersAsync(tenant.Id, branches, roles, cancellationToken);
@@ -65,6 +69,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         await SeedNotificationTemplatesAsync(tenant.Id, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         logger.LogInformation("Demo data seed complete for tenant {TenantId}.", tenant.Id);
     }
 

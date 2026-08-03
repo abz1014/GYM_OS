@@ -14,6 +14,7 @@ const MembershipsPage = lazy(() => import('@/modules/memberships/pages/Membershi
 const AttendancePage = lazy(() => import('@/modules/attendance/pages/AttendancePage'))
 const InvoicesListPage = lazy(() => import('@/modules/billing/pages/InvoicesListPage'))
 const InvoiceDetailPage = lazy(() => import('@/modules/billing/pages/InvoiceDetailPage'))
+const CrmPage = lazy(() => import('@/modules/crm/pages/CrmPage'))
 
 function withSuspense(element: React.ReactNode) {
   return <Suspense fallback={<PageLoader />}>{element}</Suspense>
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
           { path: 'attendance', element: withSuspense(<AttendancePage />) },
           { path: 'billing', element: withSuspense(<InvoicesListPage />) },
           { path: 'billing/:id', element: withSuspense(<InvoiceDetailPage />) },
+          { path: 'crm', element: withSuspense(<CrmPage />) },
         ],
       },
     ],

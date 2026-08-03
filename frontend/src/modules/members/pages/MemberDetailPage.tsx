@@ -9,6 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useMember } from '@/modules/members/api/membersApi'
 import { RenewMembershipDialog } from '@/modules/members/components/RenewMembershipDialog'
+import { FreezeMembershipDialog } from '@/modules/members/components/FreezeMembershipDialog'
+import { TransferMemberDialog } from '@/modules/members/components/TransferMemberDialog'
 
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -68,9 +70,12 @@ export default function MemberDetailPage() {
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-1 rounded-lg border p-3">
-            <QrCode className="size-16 text-foreground" />
-            <span className="font-mono text-[10px] text-muted-foreground">{member.qrCodeToken.slice(0, 12)}…</span>
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-1 rounded-lg border p-3">
+              <QrCode className="size-16 text-foreground" />
+              <span className="font-mono text-[10px] text-muted-foreground">{member.qrCodeToken.slice(0, 12)}…</span>
+            </div>
+            <TransferMemberDialog memberId={member.id} currentBranchId={member.branchId} />
           </div>
         </CardContent>
       </Card>
@@ -105,6 +110,7 @@ export default function MemberDetailPage() {
                   <span className="text-sm text-muted-foreground">
                     {mm.pricePaid.toLocaleString('en-US', { style: 'currency', currency: mm.currency })}
                   </span>
+                  {mm.status === 'Active' && <FreezeMembershipDialog memberId={member.id} memberMembershipId={mm.id} />}
                 </div>
               </CardContent>
             </Card>

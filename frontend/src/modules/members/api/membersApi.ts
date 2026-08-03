@@ -101,3 +101,14 @@ export function useFreezeMembership(memberId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
   })
 }
+
+export function useTransferMember(memberId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { newBranchId: string }) => apiClient.post(`/api/members/${memberId}/transfer`, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+    },
+  })
+}

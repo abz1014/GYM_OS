@@ -1,21 +1,29 @@
 using GymOS.Domain.Attendance;
+using GymOS.Domain.Auditing;
 using GymOS.Domain.Billing;
+using GymOS.Domain.Crm;
+using GymOS.Domain.Equipment;
 using GymOS.Domain.Identity;
+using GymOS.Domain.Inventory;
+using GymOS.Domain.Maintenance;
 using GymOS.Domain.Members;
 using GymOS.Domain.Memberships;
+using GymOS.Domain.Migration;
 using GymOS.Domain.Notifications;
+using GymOS.Domain.Nutrition;
 using GymOS.Domain.Settings;
 using GymOS.Domain.Tenancy;
+using GymOS.Domain.Trainers;
+using GymOS.Domain.Workouts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace GymOS.Application.Common.Interfaces;
 
 /// <summary>
-/// Read-side query surface for Wave 1 modules — handlers query these DbSets directly via LINQ
-/// rather than going through IRepository, which is reserved for writes. Implemented by
-/// GymOsDbContext in Infrastructure, which also holds the DbSets for every other module so the
-/// full schema is scaffolded even though only Wave 1 has query handlers today.
+/// Query surface for every module — handlers query these DbSets directly via LINQ rather than
+/// going through IRepository, which is reserved for writes. Implemented by GymOsDbContext in
+/// Infrastructure.
 /// </summary>
 public interface IApplicationDbContext
 {
@@ -80,6 +88,70 @@ public interface IApplicationDbContext
     DbSet<GymProfile> GymProfiles { get; }
 
     DbSet<SystemPreference> SystemPreferences { get; }
+
+    DbSet<AuditLog> AuditLogs { get; }
+
+    // CRM (Wave 2)
+    DbSet<Lead> Leads { get; }
+
+    DbSet<LeadActivity> LeadActivities { get; }
+
+    // Trainers (Wave 2)
+    DbSet<Trainer> Trainers { get; }
+
+    DbSet<TrainerAssignment> TrainerAssignments { get; }
+
+    DbSet<TrainerSchedule> TrainerSchedules { get; }
+
+    DbSet<TrainerRating> TrainerRatings { get; }
+
+    DbSet<CommissionRecord> CommissionRecords { get; }
+
+    // Equipment (Wave 2)
+    DbSet<Asset> Assets { get; }
+
+    DbSet<Supplier> Suppliers { get; }
+
+    // Maintenance (Wave 2)
+    DbSet<WorkOrder> WorkOrders { get; }
+
+    DbSet<MaintenanceSchedule> MaintenanceSchedules { get; }
+
+    DbSet<DowntimeLog> DowntimeLogs { get; }
+
+    // Inventory (Wave 2)
+    DbSet<InventoryItem> InventoryItems { get; }
+
+    DbSet<StockMovement> StockMovements { get; }
+
+    DbSet<PurchaseRecord> PurchaseRecords { get; }
+
+    // Workouts (Wave 3)
+    DbSet<Exercise> Exercises { get; }
+
+    DbSet<WorkoutTemplate> WorkoutTemplates { get; }
+
+    DbSet<WorkoutTemplateExercise> WorkoutTemplateExercises { get; }
+
+    DbSet<WorkoutLog> WorkoutLogs { get; }
+
+    DbSet<WorkoutLogEntry> WorkoutLogEntries { get; }
+
+    // Nutrition (Wave 3)
+    DbSet<FoodItem> FoodItems { get; }
+
+    DbSet<DietPlan> DietPlans { get; }
+
+    DbSet<MealEntry> MealEntries { get; }
+
+    DbSet<WaterLog> WaterLogs { get; }
+
+    // Migration Center (Wave 3)
+    DbSet<ImportJob> ImportJobs { get; }
+
+    DbSet<ImportRow> ImportRows { get; }
+
+    DbSet<ImportFieldMapping> ImportFieldMappings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

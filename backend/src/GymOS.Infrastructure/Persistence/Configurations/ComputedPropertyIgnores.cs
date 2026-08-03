@@ -1,4 +1,3 @@
-using GymOS.Domain.Crm;
 using GymOS.Domain.Inventory;
 using GymOS.Domain.Maintenance;
 using Microsoft.EntityFrameworkCore;
@@ -17,9 +16,4 @@ public class InventoryItemConfiguration : IEntityTypeConfiguration<InventoryItem
 public class DowntimeLogConfiguration : IEntityTypeConfiguration<DowntimeLog>
 {
     public void Configure(EntityTypeBuilder<DowntimeLog> builder) => builder.Ignore(d => d.Duration);
-}
-
-public class LeadConfiguration : IEntityTypeConfiguration<Lead>
-{
-    public void Configure(EntityTypeBuilder<Lead> builder) => builder.Ignore(l => l.FullName);
 }

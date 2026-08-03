@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using GymOS.API.Authorization;
 using GymOS.API.Middleware;
 using GymOS.Application;
@@ -18,7 +19,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    // Enums serialize as their string names (e.g. "Active") rather than raw ints — the frontend's
+    // TypeScript types model every status/type field as a string union, not a magic number.
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

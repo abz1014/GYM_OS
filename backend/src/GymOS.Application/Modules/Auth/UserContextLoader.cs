@@ -10,7 +10,9 @@ internal static class UserContextLoader
 {
     public static async Task<CurrentUserDto> BuildAsync(IApplicationDbContext db, User user, CancellationToken cancellationToken)
     {
-        var roleNames = await db.UserRoles
+        // IgnoreQueryFilters: Login runs pre-auth with no ambient tenant, so the Role
+        // navigation's tenant-scoped global filter would otherwise silently drop every row.
+        var roleNames = await db.UserRoles.IgnoreQueryFilters()
             .Where(ur => ur.UserId == user.Id)
             .Select(ur => ur.Role!.Name)
             .ToListAsync(cancellationToken);
@@ -38,5 +40,5 @@ internal static class UserContextLoader
     }
 
     public static Task<List<string>> GetRoleNamesAsync(IApplicationDbContext db, Guid userId, CancellationToken cancellationToken)
-        => db.UserRoles.Where(ur => ur.UserId == userId).Select(ur => ur.Role!.Name).ToListAsync(cancellationToken);
+        => db.UserRoles.IgnoreQueryFilters().Where(ur => ur.UserId == userId).Select(ur => ur.Role!.Name).ToListAsync(cancellationToken);
 }
