@@ -78,3 +78,43 @@ export function useCreateWorkoutTemplate() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workout-templates'] }),
   })
 }
+
+export interface WorkoutLogEntry {
+  id: string
+  exerciseId: string
+  exerciseName: string
+  setsCompleted: number
+  repsCompleted: number
+  weightKg: number | null
+}
+
+export interface WorkoutLog {
+  id: string
+  memberId: string
+  workoutTemplateId: string | null
+  workoutTemplateName: string | null
+  loggedAt: string
+  entries: WorkoutLogEntry[]
+}
+
+export function useMemberWorkoutLogs(memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['workout-logs', memberId],
+    queryFn: async () => (await apiClient.get<WorkoutLog[]>(`/api/workouts/logs/member/${memberId}`)).data,
+    enabled: !!memberId,
+  })
+}
+
+interface LogWorkoutInput {
+  memberId: string
+  workoutTemplateId?: string
+  entries: { exerciseId: string; setsCompleted: number; repsCompleted: number; weightKg?: number }[]
+}
+
+export function useLogWorkout() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: LogWorkoutInput) => (await apiClient.post<string>('/api/workouts/logs', input)).data,
+    onSuccess: (_, variables) => queryClient.invalidateQueries({ queryKey: ['workout-logs', variables.memberId] }),
+  })
+}

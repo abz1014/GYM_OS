@@ -1,10 +1,86 @@
+import { useState } from 'react'
+
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useExercisesList, useWorkoutTemplatesList } from '@/modules/workouts/api/workoutsApi'
+import { useMembersList } from '@/modules/members/api/membersApi'
+import { useExercisesList, useMemberWorkoutLogs, useWorkoutTemplatesList } from '@/modules/workouts/api/workoutsApi'
 import { CreateExerciseDialog } from '@/modules/workouts/components/CreateExerciseDialog'
 import { CreateWorkoutTemplateDialog } from '@/modules/workouts/components/CreateWorkoutTemplateDialog'
+import { LogWorkoutDialog } from '@/modules/workouts/components/LogWorkoutDialog'
+
+function MemberWorkoutLogs() {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [memberId, setMemberId] = useState('')
+  const [memberName, setMemberName] = useState('')
+
+  const { data: members } = useMembersList({ searchTerm: searchTerm || undefined, status: 'Active', page: 1, pageSize: 6 })
+  const { data: logs, isLoading } = useMemberWorkoutLogs(memberId || undefined)
+
+  return (
+    <div className="space-y-3">
+      <Input
+        placeholder="Search member to view or log their workouts..."
+        value={memberId ? memberName : searchTerm}
+        onChange={(e) => {
+          setMemberId('')
+          setSearchTerm(e.target.value)
+        }}
+      />
+      {!memberId && searchTerm && (
+        <div className="divide-y rounded-md border">
+          {members?.items.length === 0 && <p className="p-3 text-sm text-muted-foreground">No members match.</p>}
+          {members?.items.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => {
+                setMemberId(m.id)
+                setMemberName(m.fullName)
+                setSearchTerm('')
+              }}
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent"
+            >
+              {m.fullName}
+              <span className="text-xs text-muted-foreground">{m.memberCode}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {memberId && (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">{memberName}'s workout logs</p>
+            <LogWorkoutDialog memberId={memberId} />
+          </div>
+          {isLoading && <Skeleton className="h-24 w-full" />}
+          {logs?.length === 0 && <p className="text-sm text-muted-foreground">No workouts logged yet.</p>}
+          {logs?.map((log) => (
+            <Card key={log.id}>
+              <CardContent className="space-y-2 p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{log.workoutTemplateName ?? 'Freeform workout'}</span>
+                  <span className="text-muted-foreground">{new Date(log.loggedAt).toLocaleString()}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {log.entries.map((e) => (
+                    <Badge key={e.id} variant="outline">
+                      {e.exerciseName}: {e.setsCompleted}×{e.repsCompleted}
+                      {e.weightKg ? ` @ ${e.weightKg}kg` : ''}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
 
 export default function WorkoutsPage() {
   const { data: exercises, isLoading: exercisesLoading } = useExercisesList()
@@ -21,6 +97,7 @@ export default function WorkoutsPage() {
         <TabsList>
           <TabsTrigger value="exercises">Exercise Library</TabsTrigger>
           <TabsTrigger value="templates">Workout Templates</TabsTrigger>
+          <TabsTrigger value="logs">Member Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="exercises" className="space-y-3">
@@ -75,6 +152,10 @@ export default function WorkoutsPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="logs">
+          <MemberWorkoutLogs />
         </TabsContent>
       </Tabs>
     </div>
