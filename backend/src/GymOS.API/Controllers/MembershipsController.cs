@@ -37,10 +37,20 @@ public class MembershipsController(ISender mediator) : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("discounts")]
+    [RequirePermission(PermissionCodes.Memberships.View)]
+    public async Task<ActionResult<List<DiscountDto>>> Discounts([FromQuery] bool includeInactive = false, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetDiscountsQuery(includeInactive), cancellationToken));
+
     [HttpPost("discounts")]
     [RequirePermission(PermissionCodes.Memberships.ManageDiscounts)]
     public async Task<ActionResult<Guid>> CreateDiscount(CreateDiscountCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpGet("coupons")]
+    [RequirePermission(PermissionCodes.Memberships.View)]
+    public async Task<ActionResult<List<CouponDto>>> Coupons([FromQuery] bool includeInactive = false, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetCouponsQuery(includeInactive), cancellationToken));
 
     [HttpPost("coupons")]
     [RequirePermission(PermissionCodes.Memberships.ManageDiscounts)]

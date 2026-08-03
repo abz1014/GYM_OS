@@ -40,3 +40,74 @@ export function useCreateMembershipPlan() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['membership-plans'] }),
   })
 }
+
+export type DiscountType = 'Percentage' | 'FixedAmount'
+
+export interface Discount {
+  id: string
+  name: string
+  type: DiscountType
+  value: number
+  membershipPlanId: string | null
+  validFrom: string | null
+  validTo: string | null
+  isActive: boolean
+}
+
+export interface Coupon {
+  id: string
+  code: string
+  discountId: string
+  maxRedemptions: number | null
+  timesRedeemed: number
+  validFrom: string | null
+  validTo: string | null
+  isActive: boolean
+}
+
+export function useDiscounts(includeInactive = false) {
+  return useQuery({
+    queryKey: ['discounts', includeInactive],
+    queryFn: async () => (await apiClient.get<Discount[]>('/api/membership-plans/discounts', { params: { includeInactive } })).data,
+  })
+}
+
+interface CreateDiscountInput {
+  name: string
+  type: DiscountType
+  value: number
+  membershipPlanId?: string
+  validFrom?: string
+  validTo?: string
+}
+
+export function useCreateDiscount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateDiscountInput) => (await apiClient.post<string>('/api/membership-plans/discounts', input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['discounts'] }),
+  })
+}
+
+export function useCoupons(includeInactive = false) {
+  return useQuery({
+    queryKey: ['coupons', includeInactive],
+    queryFn: async () => (await apiClient.get<Coupon[]>('/api/membership-plans/coupons', { params: { includeInactive } })).data,
+  })
+}
+
+interface CreateCouponInput {
+  code: string
+  discountId: string
+  maxRedemptions?: number
+  validFrom?: string
+  validTo?: string
+}
+
+export function useCreateCoupon() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateCouponInput) => (await apiClient.post<string>('/api/membership-plans/coupons', input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons'] }),
+  })
+}
