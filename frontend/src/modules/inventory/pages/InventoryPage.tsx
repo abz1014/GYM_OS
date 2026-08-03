@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useInventoryItemsList } from '@/modules/inventory/api/inventoryApi'
 import { CreateInventoryItemDialog } from '@/modules/inventory/components/CreateInventoryItemDialog'
+import { InventoryItemDetailDialog } from '@/modules/inventory/components/InventoryItemDetailDialog'
 import { StockAdjustButtons } from '@/modules/inventory/components/StockAdjustButtons'
 import { useUiStore } from '@/stores/uiStore'
 
@@ -76,7 +77,10 @@ export default function InventoryPage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{item.reorderLevel}</TableCell>
                 <TableCell>
-                  <StockAdjustButtons itemId={item.id} />
+                  <div className="flex items-center gap-1">
+                    <StockAdjustButtons itemId={item.id} />
+                    <InventoryItemDetailDialog itemId={item.id} itemName={item.name} />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

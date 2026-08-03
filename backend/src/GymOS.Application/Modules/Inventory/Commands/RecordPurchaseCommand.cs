@@ -21,7 +21,7 @@ public class RecordPurchaseCommandValidator : AbstractValidator<RecordPurchaseCo
     }
 }
 
-public class RecordPurchaseCommandHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider)
+public class RecordPurchaseCommandHandler(IApplicationDbContext db, ISender sender, IDateTimeProvider dateTimeProvider)
     : IRequestHandler<RecordPurchaseCommand, Guid>
 {
     public async Task<Guid> Handle(RecordPurchaseCommand request, CancellationToken cancellationToken)
@@ -29,7 +29,17 @@ public class RecordPurchaseCommandHandler(IApplicationDbContext db, IDateTimePro
         var item = await db.InventoryItems.FirstOrDefaultAsync(i => i.Id == request.InventoryItemId, cancellationToken)
             ?? throw new NotFoundException(nameof(InventoryItem), request.InventoryItemId);
 
-        item.QuantityOnHand += request.Quantity;
+        // Reuse the stock-movement command for the actual QuantityOnHand/StockMovement bookkeeping
+        // so there's a single source of truth for "how stock gets adjusted" (participates in the
+        // same DB transaction — TransactionBehavior short-circuits for nested commands).
+        await sender.Send(
+            new RecordStockMovementCommand(
+                item.Id,
+                StockMovementType.In,
+                request.Quantity,
+                "Purchase" + (request.InvoiceReference is not null ? $" ({request.InvoiceReference})" : string.Empty)),
+            cancellationToken);
+
         item.UnitCost = request.UnitCost;
 
         var purchase = new PurchaseRecord
@@ -43,16 +53,6 @@ public class RecordPurchaseCommandHandler(IApplicationDbContext db, IDateTimePro
         };
 
         db.PurchaseRecords.Add(purchase);
-
-        db.StockMovements.Add(new StockMovement
-        {
-            InventoryItemId = item.Id,
-            Type = StockMovementType.In,
-            Quantity = request.Quantity,
-            Reason = "Purchase" + (request.InvoiceReference is not null ? $" ({request.InvoiceReference})" : string.Empty),
-            MovedAt = dateTimeProvider.UtcNow
-        });
-
         await db.SaveChangesAsync(cancellationToken);
 
         return purchase.Id;
