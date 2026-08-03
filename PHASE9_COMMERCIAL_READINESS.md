@@ -74,8 +74,9 @@
   revenue manageable.
 - **CRM pipeline with measured conversion** (stage funnel + conversion rate report) turns lead
   handling into a number that can be improved.
-- **Retail-ready invoicing**: product-sale line items exist on invoices; inventory tracks unit
-  cost vs price.
+- **Product sales can be invoiced**: a `ProductSale` invoice line is accepted and billed
+  (verified live), and inventory tracks unit cost vs price — but see the retail caveat in gaps:
+  invoice lines are free text with no link to an inventory item, so a sale does **not** move stock.
 
 ## 7. What lowers maintenance cost?
 
@@ -90,7 +91,8 @@
 
 ## Gaps to close before charging money
 
-These are known and scoped, not discovered problems:
+Items 1–3 and 5 are known scope decisions. Item 4 was **discovered while fact-checking this
+document's own claims** — the first draft called invoicing "retail-ready", which overstated it:
 
 1. **Real integrations**: payment gateway, email/SMS/WhatsApp senders, and QR hardware are
    no-op demo implementations behind interfaces (by explicit scope decision).
@@ -98,5 +100,10 @@ These are known and scoped, not discovered problems:
    login has no brute-force lockout or failed-attempt audit (success-path auditing only).
 3. **Scale polish**: Leads / Work Orders / Assets lists need server-side pagination for large
    deployments; Workouts/Nutrition need aggregate reporting/export/import (Phase 8 verdict).
-4. **Compliance**: medical notes are stored unencrypted at the column level — flagged since the
+4. **Point-of-sale is not closed-loop**: `InvoiceLine` carries a free-text description with no
+   `InventoryItemId`, so billing a `ProductSale` line does not decrement stock. Selling retail
+   today means invoicing and adjusting inventory as two separate manual steps. Closing this
+   (an FK plus a nested `RecordStockMovementCommand`, mirroring how renewal nests invoice
+   creation) is the prerequisite for claiming true retail/POS capability.
+5. **Compliance**: medical notes are stored unencrypted at the column level — flagged since the
    original plan as a pre-real-data requirement.

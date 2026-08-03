@@ -16,6 +16,16 @@ public static class AuditLogWriter
 {
     private static readonly string[] SensitiveKeywords = ["password", "secret", "token", "code"];
 
+    /// <summary>
+    /// Business identifiers that contain a sensitive keyword as a substring but carry no secret.
+    /// Without this, the keyword rule redacted them permanently — e.g. every RenewMembershipCommand
+    /// recorded "CouponCode":"***REDACTED***", so the audit trail could never answer which promotion
+    /// drove a signup. Redaction stays deny-by-default: a new property matching a keyword is still
+    /// redacted unless it is deliberately listed here.
+    /// </summary>
+    private static readonly HashSet<string> NonSensitiveExceptions =
+        new(StringComparer.OrdinalIgnoreCase) { "CouponCode", "MemberCode", "TemplateCode" };
+
     public static async Task WriteAsync(
         IApplicationDbContext db, IDateTimeProvider dateTimeProvider,
         Guid tenantId, Guid? userId, string action, string entityType, Guid entityId, object request,
@@ -41,7 +51,8 @@ public static class AuditLogWriter
 
         foreach (var property in request.GetType().GetProperties())
         {
-            var isSensitive = SensitiveKeywords.Any(k => property.Name.Contains(k, StringComparison.OrdinalIgnoreCase));
+            var isSensitive = !NonSensitiveExceptions.Contains(property.Name)
+                && SensitiveKeywords.Any(k => property.Name.Contains(k, StringComparison.OrdinalIgnoreCase));
             redacted[property.Name] = isSensitive ? "***REDACTED***" : property.GetValue(request);
         }
 
