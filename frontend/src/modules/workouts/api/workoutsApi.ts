@@ -1,0 +1,80 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { apiClient } from '@/lib/apiClient'
+
+export interface Exercise {
+  id: string
+  name: string
+  muscleGroup: string | null
+  equipment: string | null
+  description: string | null
+  videoUrl: string | null
+}
+
+export interface WorkoutTemplateListItem {
+  id: string
+  name: string
+  description: string | null
+  exerciseCount: number
+}
+
+export interface WorkoutTemplateExerciseItem {
+  id: string
+  exerciseId: string
+  exerciseName: string
+  setsCount: number
+  repsCount: number
+  orderIndex: number
+}
+
+export interface WorkoutTemplateDetail {
+  id: string
+  name: string
+  description: string | null
+  exercises: WorkoutTemplateExerciseItem[]
+}
+
+export function useExercisesList() {
+  return useQuery({
+    queryKey: ['exercises'],
+    queryFn: async () => (await apiClient.get<Exercise[]>('/api/workouts/exercises')).data,
+  })
+}
+
+export function useCreateExercise() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { name: string; muscleGroup?: string; equipment?: string; description?: string }) =>
+      (await apiClient.post<string>('/api/workouts/exercises', input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['exercises'] }),
+  })
+}
+
+export function useWorkoutTemplatesList() {
+  return useQuery({
+    queryKey: ['workout-templates'],
+    queryFn: async () => (await apiClient.get<WorkoutTemplateListItem[]>('/api/workouts/templates')).data,
+  })
+}
+
+export function useWorkoutTemplate(id: string | undefined) {
+  return useQuery({
+    queryKey: ['workout-template', id],
+    queryFn: async () => (await apiClient.get<WorkoutTemplateDetail>(`/api/workouts/templates/${id}`)).data,
+    enabled: !!id,
+  })
+}
+
+interface CreateTemplateInput {
+  name: string
+  description?: string
+  exercises: { exerciseId: string; setsCount: number; repsCount: number; orderIndex: number }[]
+}
+
+export function useCreateWorkoutTemplate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateTemplateInput) => (await apiClient.post<string>('/api/workouts/templates', input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workout-templates'] }),
+  })
+}
