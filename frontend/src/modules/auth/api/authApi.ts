@@ -20,3 +20,9 @@ export function useForgotPassword() {
     mutationFn: async (email: string) => apiClient.post('/api/auth/forgot-password', { email }),
   })
 }
+
+export function useLogout() {
+  return useMutation({
+    mutationFn: async (refreshToken: string) => apiClient.post('/api/auth/logout', { refreshToken }),
+  })
+}

@@ -7,6 +7,7 @@ import { PageLoader } from '@/shared/components/PageLoader'
 
 const LoginPage = lazy(() => import('@/modules/auth/pages/LoginPage'))
 const ForgotPasswordPage = lazy(() => import('@/modules/auth/pages/ForgotPasswordPage'))
+const AccountPage = lazy(() => import('@/modules/auth/pages/AccountPage'))
 const DashboardPage = lazy(() => import('@/modules/dashboard/pages/DashboardPage'))
 const MembersListPage = lazy(() => import('@/modules/members/pages/MembersListPage'))
 const MemberDetailPage = lazy(() => import('@/modules/members/pages/MemberDetailPage'))
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
+          { path: 'account', element: withSuspense(<AccountPage />) },
           { path: 'dashboard', element: withSuspense(<DashboardPage />) },
           { path: 'members', element: withSuspense(<MembersListPage />) },
           { path: 'members/:id', element: withSuspense(<MemberDetailPage />) },

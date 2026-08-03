@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { LogOut, User as UserIcon } from 'lucide-react'
 
+import { useLogout } from '@/modules/auth/api/authApi'
 import { useAuthStore } from '@/stores/authStore'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -15,12 +16,17 @@ import { BranchSwitcher } from '@/shared/components/layout/BranchSwitcher'
 
 export function Topbar() {
   const user = useAuthStore((s) => s.user)
+  const refreshToken = useAuthStore((s) => s.refreshToken)
   const clearSession = useAuthStore((s) => s.clearSession)
+  const logout = useLogout()
   const navigate = useNavigate()
 
   const initials = user ? `${user.firstName.at(0) ?? ''}${user.lastName.at(0) ?? ''}` : ''
 
   const handleLogout = () => {
+    if (refreshToken) {
+      logout.mutate(refreshToken)
+    }
     clearSession()
     navigate('/login')
   }
@@ -43,6 +49,10 @@ export function Topbar() {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{user?.roles.join(', ')}</DropdownMenuLabel>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => navigate('/account')}>
+            <UserIcon />
+            My Account
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={handleLogout}>
             <LogOut />
             Log out

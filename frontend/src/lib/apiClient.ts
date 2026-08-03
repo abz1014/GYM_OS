@@ -48,7 +48,13 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    // A 401 from the login endpoint itself means "bad credentials" or "MFA code required" —
+    // normal application-level failures the login form needs to handle, not an expired session.
+    // Treating it as one caused a redirect-to-/login that reloaded the page before the form's own
+    // error handling ever ran, wiping out any in-progress MFA prompt.
+    const isLoginRequest = originalRequest?.url?.includes('/api/auth/login')
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isLoginRequest) {
       originalRequest._retry = true
 
       refreshPromise ??= refreshAccessToken().finally(() => {

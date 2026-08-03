@@ -8,6 +8,7 @@ interface AuthState {
   refreshToken: string | null
   user: CurrentUser | null
   setSession: (result: AuthResult) => void
+  setUser: (user: CurrentUser) => void
   clearSession: () => void
   hasPermission: (code: string) => boolean
 }
@@ -24,6 +25,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: result.refreshToken,
           user: result.user,
         }),
+      setUser: (user) => set({ user }),
       clearSession: () => set({ accessToken: null, refreshToken: null, user: null }),
       hasPermission: (code) => get().user?.permissions.includes(code) ?? false,
     }),

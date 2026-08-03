@@ -21,6 +21,14 @@ public class AuthController(ISender mediator) : ControllerBase
     public async Task<ActionResult<AuthResultDto>> RefreshToken(RefreshTokenCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
 
+    [HttpPost("logout")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Logout(LogoutCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost("forgot-password")]
     [AllowAnonymous]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordCommand command, CancellationToken cancellationToken)
@@ -49,4 +57,25 @@ public class AuthController(ISender mediator) : ControllerBase
     [Authorize]
     public async Task<ActionResult<CurrentUserDto>> Me(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetCurrentUserQuery(), cancellationToken));
+
+    [HttpPost("mfa/initiate")]
+    [Authorize]
+    public async Task<ActionResult<MfaSetupResultDto>> InitiateMfaSetup(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new InitiateMfaSetupCommand(), cancellationToken));
+
+    [HttpPost("mfa/confirm")]
+    [Authorize]
+    public async Task<IActionResult> ConfirmMfaSetup(ConfirmMfaSetupCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("mfa/disable")]
+    [Authorize]
+    public async Task<IActionResult> DisableMfa(DisableMfaCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
 }

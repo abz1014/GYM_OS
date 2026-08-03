@@ -52,4 +52,11 @@ public class SettingsController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Settings.ManageGymProfile)]
     public async Task<ActionResult<Guid>> UpsertSystemPreference(UpsertSystemPreferenceCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpGet("audit-log")]
+    [RequirePermission(PermissionCodes.Settings.View)]
+    public async Task<ActionResult<PagedList<AuditLogDto>>> AuditLog(
+        [FromQuery] string? entityType, [FromQuery] Guid? userId,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetAuditLogsQuery(entityType, userId, page, pageSize), cancellationToken));
 }

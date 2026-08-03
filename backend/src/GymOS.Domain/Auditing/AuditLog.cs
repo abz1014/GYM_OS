@@ -1,4 +1,5 @@
 using GymOS.Domain.Common;
+using GymOS.Domain.Identity;
 
 namespace GymOS.Domain.Auditing;
 
@@ -7,6 +8,8 @@ public class AuditLog : BaseEntity, ITenantScoped
     public Guid TenantId { get; set; }
 
     public Guid? UserId { get; set; }
+
+    public User? User { get; set; }
 
     public string Action { get; set; } = string.Empty;
 

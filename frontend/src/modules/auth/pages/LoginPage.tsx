@@ -16,6 +16,8 @@ const DEMO_ROLES = ['owner', 'manager', 'receptionist', 'trainer', 'nutritionist
 export default function LoginPage() {
   const [email, setEmail] = useState('owner@titanfitness.demo')
   const [password, setPassword] = useState('Demo@12345')
+  const [mfaRequired, setMfaRequired] = useState(false)
+  const [mfaCode, setMfaCode] = useState('')
   const navigate = useNavigate()
   const setSession = useAuthStore((s) => s.setSession)
   const login = useLogin()
@@ -23,7 +25,7 @@ export default function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     login.mutate(
-      { email, password },
+      { email, password, mfaCode: mfaRequired ? mfaCode : undefined },
       {
         onSuccess: (data) => {
           setSession(data)
@@ -31,8 +33,13 @@ export default function LoginPage() {
           navigate('/dashboard')
         },
         onError: (error) => {
-          const status = (error as AxiosError).response?.status
-          toast.error(status === 401 ? 'Invalid email or password.' : 'Login failed. Is the API running?')
+          const problem = (error as AxiosError<{ title?: string }>).response?.data
+          if (problem?.title === 'A valid MFA code is required.') {
+            setMfaRequired(true)
+            toast.error(mfaRequired ? 'Invalid code — try again.' : 'Enter your authenticator app code.')
+            return
+          }
+          toast.error(problem?.title === 'Invalid email or password.' ? problem.title : 'Login failed. Is the API running?')
         },
       }
     )
@@ -61,8 +68,28 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={mfaRequired}
+              />
             </div>
+            {mfaRequired && (
+              <div className="space-y-1.5">
+                <Label htmlFor="mfaCode">Authenticator code</Label>
+                <Input
+                  id="mfaCode"
+                  required
+                  autoFocus
+                  placeholder="6-digit code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                />
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={login.isPending}>
               {login.isPending && <Loader2 className="size-4 animate-spin" />}
               Sign in

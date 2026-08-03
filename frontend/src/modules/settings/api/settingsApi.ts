@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
+import type { PagedList } from '@/types/paging'
 
 export interface GymProfile {
   legalName: string
@@ -142,5 +143,23 @@ export function useUpsertSystemPreference() {
     mutationFn: async (input: UpsertSystemPreferenceInput) =>
       (await apiClient.put<string>('/api/settings/system-preferences', input)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['system-preferences'] }),
+  })
+}
+
+export interface AuditLogEntry {
+  id: string
+  action: string
+  entityType: string
+  entityId: string
+  userId: string | null
+  userName: string | null
+  dataAfter: string | null
+  occurredAt: string
+}
+
+export function useAuditLogs(params: { entityType?: string; page?: number; pageSize?: number }) {
+  return useQuery({
+    queryKey: ['audit-logs', params],
+    queryFn: async () => (await apiClient.get<PagedList<AuditLogEntry>>('/api/settings/audit-log', { params })).data,
   })
 }

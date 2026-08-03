@@ -14,3 +14,6 @@ public record PermissionMatrixDto(
     IReadOnlyList<RoleDto> Roles, IReadOnlyList<PermissionCatalogEntryDto> Permissions, IReadOnlyList<RolePermissionGrantDto> Grants);
 
 public record SystemPreferenceDto(Guid Id, Guid? BranchId, string Key, string Value, string? Description);
+
+public record AuditLogDto(
+    Guid Id, string Action, string EntityType, Guid EntityId, Guid? UserId, string? UserName, string? DataAfter, DateTimeOffset OccurredAt);

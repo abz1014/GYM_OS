@@ -18,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddHealthChecks().AddCheck<GymOS.Infrastructure.HealthChecks.DatabaseHealthCheck>("database");
 
 builder.Services.AddControllers()
     // Enums serialize as their string names (e.g. "Active") rather than raw ints — the frontend's
@@ -122,6 +123,7 @@ app.UseMiddleware<PermissionResolutionMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<DashboardHub>("/hubs/dashboard");
 
