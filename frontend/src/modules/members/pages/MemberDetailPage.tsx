@@ -11,6 +11,11 @@ import { useMember } from '@/modules/members/api/membersApi'
 import { RenewMembershipDialog } from '@/modules/members/components/RenewMembershipDialog'
 import { FreezeMembershipDialog } from '@/modules/members/components/FreezeMembershipDialog'
 import { TransferMemberDialog } from '@/modules/members/components/TransferMemberDialog'
+import { EditMemberDialog } from '@/modules/members/components/EditMemberDialog'
+import { AddEmergencyContactDialog } from '@/modules/members/components/AddEmergencyContactDialog'
+import { AddMedicalNoteDialog } from '@/modules/members/components/AddMedicalNoteDialog'
+import { AddMeasurementDialog } from '@/modules/members/components/AddMeasurementDialog'
+import { AddProgressPhotoDialog } from '@/modules/members/components/AddProgressPhotoDialog'
 
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -45,6 +50,7 @@ export default function MemberDetailPage() {
                   {member.firstName} {member.lastName}
                 </h1>
                 <Badge>{member.status}</Badge>
+                <EditMemberDialog member={member} />
               </div>
               <p className="text-sm text-muted-foreground">{member.memberCode}</p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
@@ -118,6 +124,9 @@ export default function MemberDetailPage() {
         </TabsContent>
 
         <TabsContent value="measurements" className="space-y-3">
+          <div className="flex justify-end">
+            <AddMeasurementDialog memberId={member.id} />
+          </div>
           {member.measurements.length === 0 && <p className="text-sm text-muted-foreground">No measurements logged.</p>}
           {member.measurements.map((m) => (
             <Card key={m.id}>
@@ -131,6 +140,9 @@ export default function MemberDetailPage() {
         </TabsContent>
 
         <TabsContent value="medical" className="space-y-3">
+          <div className="flex justify-end">
+            <AddMedicalNoteDialog memberId={member.id} />
+          </div>
           {member.medicalNotes.length === 0 && <p className="text-sm text-muted-foreground">No medical notes on file.</p>}
           {member.medicalNotes.map((n) => (
             <Card key={n.id}>
@@ -143,6 +155,9 @@ export default function MemberDetailPage() {
         </TabsContent>
 
         <TabsContent value="emergency" className="space-y-3">
+          <div className="flex justify-end">
+            <AddEmergencyContactDialog memberId={member.id} />
+          </div>
           {member.emergencyContacts.length === 0 && <p className="text-sm text-muted-foreground">No emergency contacts on file.</p>}
           {member.emergencyContacts.map((c) => (
             <Card key={c.id}>
@@ -156,7 +171,10 @@ export default function MemberDetailPage() {
           ))}
         </TabsContent>
 
-        <TabsContent value="photos">
+        <TabsContent value="photos" className="space-y-3">
+          <div className="flex justify-end">
+            <AddProgressPhotoDialog memberId={member.id} />
+          </div>
           {member.progressPhotos.length === 0 ? (
             <p className="text-sm text-muted-foreground">No progress photos yet.</p>
           ) : (

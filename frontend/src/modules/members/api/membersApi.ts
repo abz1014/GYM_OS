@@ -112,3 +112,73 @@ export function useTransferMember(memberId: string) {
     },
   })
 }
+
+interface UpdateMemberInput {
+  firstName: string
+  lastName: string
+  email: string
+  phone?: string | null
+  dateOfBirth?: string | null
+  gender?: string | null
+  address?: string | null
+  profilePhotoUrl?: string | null
+}
+
+export function useUpdateMember(memberId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateMemberInput) => apiClient.put(`/api/members/${memberId}`, { id: memberId, ...input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['member', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+    },
+  })
+}
+
+export function useAddEmergencyContact(memberId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { name: string; relationship: string; phone: string; email?: string | null }) =>
+      (await apiClient.post(`/api/members/${memberId}/emergency-contacts`, input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
+  })
+}
+
+export function useAddMedicalNote(memberId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { note: string; recordedByUserId?: string | null }) =>
+      (await apiClient.post(`/api/members/${memberId}/medical-notes`, input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
+  })
+}
+
+interface AddMeasurementInput {
+  measuredOn: string
+  weightKg?: number | null
+  bodyFatPercentage?: number | null
+  chestCm?: number | null
+  waistCm?: number | null
+  hipCm?: number | null
+  armCm?: number | null
+  thighCm?: number | null
+  notes?: string | null
+}
+
+export function useAddMeasurement(memberId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: AddMeasurementInput) =>
+      (await apiClient.post(`/api/members/${memberId}/measurements`, input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
+  })
+}
+
+export function useAddProgressPhoto(memberId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { photoUrl: string; notes?: string | null }) =>
+      (await apiClient.post(`/api/members/${memberId}/progress-photos`, input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
+  })
+}
