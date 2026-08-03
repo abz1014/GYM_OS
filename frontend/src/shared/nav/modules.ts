@@ -35,7 +35,7 @@ export const NAV_MODULES: NavModule[] = [
   { key: 'billing', label: 'Billing & Invoicing', path: '/billing', icon: Receipt, permission: 'billing.view', wave: 1 },
   { key: 'crm', label: 'CRM & Leads', path: '/crm', icon: Target, permission: 'crm.view', wave: 1 },
   { key: 'trainers', label: 'Trainers', path: '/trainers', icon: Dumbbell, permission: 'trainers.view', wave: 1 },
-  { key: 'equipment', label: 'Equipment', path: '/equipment', icon: Wrench, permission: 'equipment.view', wave: 2 },
+  { key: 'equipment', label: 'Equipment', path: '/equipment', icon: Wrench, permission: 'equipment.view', wave: 1 },
   { key: 'maintenance', label: 'Maintenance', path: '/maintenance', icon: Hammer, permission: 'maintenance.view', wave: 2 },
   { key: 'inventory', label: 'Inventory', path: '/inventory', icon: Package, permission: 'inventory.view', wave: 2 },
   { key: 'workouts', label: 'Workouts', path: '/workouts', icon: Activity, permission: 'workouts.view', wave: 3 },

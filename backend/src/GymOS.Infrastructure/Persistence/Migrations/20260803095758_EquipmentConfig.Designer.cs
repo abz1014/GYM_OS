@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using GymOS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GymOS.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GymOsDbContext))]
-    partial class GymOsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260803095758_EquipmentConfig")]
+    partial class EquipmentConfig
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
