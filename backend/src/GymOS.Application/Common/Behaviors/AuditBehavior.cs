@@ -1,7 +1,6 @@
-using System.Text.Json;
+using GymOS.Application.Common.Auditing;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
-using GymOS.Domain.Auditing;
 using MediatR;
 
 namespace GymOS.Application.Common.Behaviors;
@@ -20,28 +19,22 @@ public class AuditBehavior<TRequest, TResponse>(IApplicationDbContext db, ICurre
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : ICommand<TResponse>
 {
-    private static readonly string[] SensitiveKeywords = ["password", "secret", "token", "code"];
-
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
         var response = await next(cancellationToken);
 
+        // [AllowAnonymous] commands (Login, Logout, RefreshToken, ForgotPassword, ResetPassword)
+        // run before any JWT exists, so TenantId is always null here — they audit themselves
+        // directly via AuditLogWriter instead, once they've resolved a user and its TenantId.
         if (currentUser.TenantId is not null)
         {
             var requestType = typeof(TRequest);
 
-            db.AuditLogs.Add(new AuditLog
-            {
-                TenantId = currentUser.TenantId.Value,
-                UserId = currentUser.UserId,
-                Action = requestType.Name,
-                EntityType = InferEntityType(requestType),
-                EntityId = InferEntityId(request, response),
-                DataAfter = SerializeRedacted(request),
-                OccurredAt = dateTimeProvider.UtcNow
-            });
-
-            await db.SaveChangesAsync(cancellationToken);
+            await AuditLogWriter.WriteAsync(
+                db, dateTimeProvider,
+                currentUser.TenantId.Value, currentUser.UserId,
+                requestType.Name, InferEntityType(requestType), InferEntityId(request, response),
+                request, cancellationToken);
         }
 
         return response;
@@ -67,18 +60,5 @@ public class AuditBehavior<TRequest, TResponse>(IApplicationDbContext db, ICurre
             .FirstOrDefault(p => p.PropertyType == typeof(Guid) && p.Name.EndsWith("Id", StringComparison.Ordinal));
 
         return idProperty?.GetValue(request) as Guid? ?? Guid.Empty;
-    }
-
-    private static string SerializeRedacted(TRequest request)
-    {
-        var redacted = new Dictionary<string, object?>();
-
-        foreach (var property in typeof(TRequest).GetProperties())
-        {
-            var isSensitive = SensitiveKeywords.Any(k => property.Name.Contains(k, StringComparison.OrdinalIgnoreCase));
-            redacted[property.Name] = isSensitive ? "***REDACTED***" : property.GetValue(request);
-        }
-
-        return JsonSerializer.Serialize(redacted);
     }
 }

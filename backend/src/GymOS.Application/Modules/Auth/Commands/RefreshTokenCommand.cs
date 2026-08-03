@@ -1,5 +1,6 @@
 using FluentValidation;
 using GymOS.Application.Common;
+using GymOS.Application.Common.Auditing;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Auth.Dtos;
@@ -57,6 +58,10 @@ public class RefreshTokenCommandHandler(
         var (accessToken, accessTokenExpiresAt) = jwtTokenService.GenerateAccessToken(user, roleNames);
 
         await db.SaveChangesAsync(cancellationToken);
+
+        // Anonymous endpoint — see LoginCommand for why this audits itself directly.
+        await AuditLogWriter.WriteAsync(
+            db, dateTimeProvider, user.TenantId, user.Id, nameof(RefreshTokenCommand), "Auth", user.Id, request, cancellationToken);
 
         var currentUser = await UserContextLoader.BuildAsync(db, user, cancellationToken);
 

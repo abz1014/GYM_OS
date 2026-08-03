@@ -1,5 +1,6 @@
 using FluentValidation;
 using GymOS.Application.Common;
+using GymOS.Application.Common.Auditing;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Auth.Dtos;
@@ -64,6 +65,12 @@ public class LoginCommandHandler(
         user.LastLoginAt = dateTimeProvider.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);
+
+        // Anonymous endpoint — no JWT yet, so AuditBehavior can't see a TenantId. Audit it
+        // directly now that the user (and their tenant) is resolved; a login is exactly the
+        // kind of action Principle #4 means to cover, arguably more than most.
+        await AuditLogWriter.WriteAsync(
+            db, dateTimeProvider, user.TenantId, user.Id, nameof(LoginCommand), "Auth", user.Id, request, cancellationToken);
 
         var currentUser = await UserContextLoader.BuildAsync(db, user, cancellationToken);
 

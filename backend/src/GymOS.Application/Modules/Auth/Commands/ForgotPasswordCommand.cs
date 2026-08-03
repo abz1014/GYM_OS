@@ -1,5 +1,6 @@
 using FluentValidation;
 using GymOS.Application.Common;
+using GymOS.Application.Common.Auditing;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Domain.Identity;
@@ -55,6 +56,10 @@ public class ForgotPasswordCommandHandler(
             "Reset your GymOS password",
             $"Use this token to reset your password: {rawToken}",
             cancellationToken);
+
+        // Anonymous endpoint — see LoginCommand for why this audits itself directly.
+        await AuditLogWriter.WriteAsync(
+            db, dateTimeProvider, user.TenantId, user.Id, nameof(ForgotPasswordCommand), "Auth", user.Id, request, cancellationToken);
 
         return Unit.Value;
     }

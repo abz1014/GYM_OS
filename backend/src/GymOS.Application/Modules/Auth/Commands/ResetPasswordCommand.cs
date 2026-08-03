@@ -1,5 +1,6 @@
 using FluentValidation;
 using GymOS.Application.Common;
+using GymOS.Application.Common.Auditing;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using MediatR;
@@ -41,6 +42,11 @@ public class ResetPasswordCommandHandler(
         resetToken.UsedAt = now;
 
         await db.SaveChangesAsync(cancellationToken);
+
+        // Anonymous endpoint — see LoginCommand for why this audits itself directly.
+        await AuditLogWriter.WriteAsync(
+            db, dateTimeProvider, resetToken.User.TenantId, resetToken.User.Id,
+            nameof(ResetPasswordCommand), "Auth", resetToken.User.Id, request, cancellationToken);
 
         return Unit.Value;
     }

@@ -1,5 +1,6 @@
 using FluentValidation;
 using GymOS.Application.Common;
+using GymOS.Application.Common.Auditing;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using MediatR;
@@ -26,14 +27,22 @@ public class LogoutCommandHandler(IApplicationDbContext db, IDateTimeProvider da
         var tokenHash = TokenHasher.Hash(request.RefreshToken);
 
         var existingToken = await db.RefreshTokens.IgnoreQueryFilters()
+            .Include(t => t.User)
             .FirstOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
 
         if (existingToken is not null && existingToken.IsActive)
         {
             existingToken.RevokedAt = dateTimeProvider.UtcNow;
-        }
+            await db.SaveChangesAsync(cancellationToken);
 
-        await db.SaveChangesAsync(cancellationToken);
+            // Anonymous endpoint — see LoginCommand for why this audits itself directly.
+            if (existingToken.User is not null)
+            {
+                await AuditLogWriter.WriteAsync(
+                    db, dateTimeProvider, existingToken.User.TenantId, existingToken.UserId,
+                    nameof(LogoutCommand), "Auth", existingToken.UserId, request, cancellationToken);
+            }
+        }
 
         return Unit.Value;
     }

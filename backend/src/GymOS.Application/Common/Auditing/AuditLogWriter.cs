@@ -1,0 +1,50 @@
+using System.Text.Json;
+using GymOS.Application.Common.Interfaces;
+using GymOS.Domain.Auditing;
+
+namespace GymOS.Application.Common.Auditing;
+
+/// <summary>
+/// Shared by AuditBehavior (the automatic path, driven by ICurrentUserService.TenantId from the
+/// JWT) and the handful of [AllowAnonymous] Auth handlers that must call it directly — Login,
+/// Logout, RefreshToken, ForgotPassword, and ResetPassword all run before any JWT exists, so
+/// ICurrentUserService.TenantId is null for them and the pipeline behavior alone can never audit
+/// them. Those handlers resolve a Guid TenantId themselves (from the user they just looked up) and
+/// call this directly, so the same redaction and shape rules apply either way.
+/// </summary>
+public static class AuditLogWriter
+{
+    private static readonly string[] SensitiveKeywords = ["password", "secret", "token", "code"];
+
+    public static async Task WriteAsync(
+        IApplicationDbContext db, IDateTimeProvider dateTimeProvider,
+        Guid tenantId, Guid? userId, string action, string entityType, Guid entityId, object request,
+        CancellationToken cancellationToken)
+    {
+        db.AuditLogs.Add(new AuditLog
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Action = action,
+            EntityType = entityType,
+            EntityId = entityId,
+            DataAfter = SerializeRedacted(request),
+            OccurredAt = dateTimeProvider.UtcNow
+        });
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public static string SerializeRedacted(object request)
+    {
+        var redacted = new Dictionary<string, object?>();
+
+        foreach (var property in request.GetType().GetProperties())
+        {
+            var isSensitive = SensitiveKeywords.Any(k => property.Name.Contains(k, StringComparison.OrdinalIgnoreCase));
+            redacted[property.Name] = isSensitive ? "***REDACTED***" : property.GetValue(request);
+        }
+
+        return JsonSerializer.Serialize(redacted);
+    }
+}
