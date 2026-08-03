@@ -52,3 +52,69 @@ public class ExportMembershipReportQueryHandler(IApplicationDbContext db, IRepor
         return exporter.ExportToXlsx("Memberships", ["Breakdown", "Category", "Count"], rows);
     }
 }
+
+public record ExportTrainerCommissionReportQuery(int MonthsBack = 6) : IQuery<byte[]>;
+
+public class ExportTrainerCommissionReportQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, IReportExporter exporter)
+    : IRequestHandler<ExportTrainerCommissionReportQuery, byte[]>
+{
+    public async Task<byte[]> Handle(ExportTrainerCommissionReportQuery request, CancellationToken cancellationToken)
+    {
+        var rows = await GetTrainerCommissionReportQueryHandler.BuildAsync(db, dateTimeProvider, request.MonthsBack, cancellationToken);
+
+        return exporter.ExportToXlsx(
+            "Trainer Commissions",
+            ["Trainer", "Pending (USD)", "Paid (USD)", "Records"],
+            rows.Select(r => (IReadOnlyList<object?>)[r.TrainerName, r.TotalPending, r.TotalPaid, r.RecordCount]).ToList());
+    }
+}
+
+public record ExportEquipmentDowntimeReportQuery(int MonthsBack = 6) : IQuery<byte[]>;
+
+public class ExportEquipmentDowntimeReportQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, IReportExporter exporter)
+    : IRequestHandler<ExportEquipmentDowntimeReportQuery, byte[]>
+{
+    public async Task<byte[]> Handle(ExportEquipmentDowntimeReportQuery request, CancellationToken cancellationToken)
+    {
+        var rows = await GetEquipmentDowntimeReportQueryHandler.BuildAsync(db, dateTimeProvider, request.MonthsBack, cancellationToken);
+
+        return exporter.ExportToXlsx(
+            "Equipment Downtime",
+            ["Asset", "Tag", "Incidents", "Downtime (hrs)", "Maintenance Cost (USD)"],
+            rows.Select(r => (IReadOnlyList<object?>)[r.AssetName, r.AssetTag, r.Incidents, Math.Round(r.TotalDowntimeHours, 1), r.TotalMaintenanceCost]).ToList());
+    }
+}
+
+public record ExportInventoryStockMovementReportQuery(int DaysBack = 30) : IQuery<byte[]>;
+
+public class ExportInventoryStockMovementReportQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, IReportExporter exporter)
+    : IRequestHandler<ExportInventoryStockMovementReportQuery, byte[]>
+{
+    public async Task<byte[]> Handle(ExportInventoryStockMovementReportQuery request, CancellationToken cancellationToken)
+    {
+        var rows = await GetInventoryStockMovementReportQueryHandler.BuildAsync(db, dateTimeProvider, request.DaysBack, cancellationToken);
+
+        return exporter.ExportToXlsx(
+            "Stock Movement",
+            ["Item", "SKU", "Total In", "Total Out", "Net Change", "On Hand"],
+            rows.Select(r => (IReadOnlyList<object?>)[r.ItemName, r.Sku, r.TotalIn, r.TotalOut, r.NetChange, r.CurrentQuantityOnHand]).ToList());
+    }
+}
+
+public record ExportCrmPipelineConversionReportQuery : IQuery<byte[]>;
+
+public class ExportCrmPipelineConversionReportQueryHandler(IApplicationDbContext db, IReportExporter exporter)
+    : IRequestHandler<ExportCrmPipelineConversionReportQuery, byte[]>
+{
+    public async Task<byte[]> Handle(ExportCrmPipelineConversionReportQuery request, CancellationToken cancellationToken)
+    {
+        var report = await GetCrmPipelineConversionReportQueryHandler.BuildAsync(db, cancellationToken);
+
+        var rows = report.ByStage.Select(kv => (IReadOnlyList<object?>)["By Stage", kv.Key, kv.Value]).ToList();
+        rows.Add(["Summary", "Total Leads", report.TotalLeads]);
+        rows.Add(["Summary", "Converted", report.ConvertedCount]);
+        rows.Add(["Summary", "Conversion Rate (%)", report.ConversionRatePercent]);
+
+        return exporter.ExportToXlsx("CRM Pipeline", ["Section", "Category", "Value"], rows);
+    }
+}

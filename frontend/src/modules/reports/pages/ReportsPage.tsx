@@ -12,11 +12,19 @@ import { useInventoryItemsList } from '@/modules/inventory/api/inventoryApi'
 import { useWorkOrdersList } from '@/modules/maintenance/api/maintenanceApi'
 import {
   exportAttendanceReport,
+  exportCrmPipelineReport,
+  exportEquipmentDowntimeReport,
+  exportInventoryStockMovementReport,
   exportMembershipReport,
   exportRevenueReport,
+  exportTrainerCommissionReport,
   useAttendanceReport,
+  useCrmPipelineConversionReport,
+  useEquipmentDowntimeReport,
+  useInventoryStockMovementReport,
   useMembershipBreakdownReport,
   useRevenueReport,
+  useTrainerCommissionReport,
 } from '@/modules/reports/api/reportsApi'
 import { SimpleBarChart } from '@/modules/reports/components/SimpleBarChart'
 import { useTrainersList } from '@/modules/trainers/api/trainersApi'
@@ -122,59 +130,144 @@ function MembershipTab() {
   )
 }
 
-function TrainersTab() {
-  const { data, isLoading } = useTrainersList()
+function DataTable<T>({
+  columns,
+  rows,
+  keyFor,
+}: {
+  columns: { header: string; render: (row: T) => React.ReactNode }[]
+  rows: T[]
+  keyFor: (row: T) => string
+}) {
+  if (rows.length === 0) {
+    return <p className="py-6 text-center text-sm text-muted-foreground">No data for this period.</p>
+  }
 
   return (
-    <ReportCard title="Trainer Performance">
-      {isLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="py-2 pr-4">Trainer</th>
-                <th className="py-2 pr-4">Active Clients</th>
-                <th className="py-2 pr-4">Avg Rating</th>
-                <th className="py-2 pr-4">Commission Rate</th>
-                <th className="py-2 pr-4">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.map((t) => (
-                <tr key={t.id} className="border-b last:border-0">
-                  <td className="py-2 pr-4">{t.fullName}</td>
-                  <td className="py-2 pr-4">{t.activeClientCount}</td>
-                  <td className="py-2 pr-4">{t.averageRating?.toFixed(1) ?? '—'}</td>
-                  <td className="py-2 pr-4">{t.commissionRate}%</td>
-                  <td className="py-2 pr-4">
-                    <Badge variant={t.isActive ? 'default' : 'outline'}>{t.isActive ? 'Active' : 'Inactive'}</Badge>
-                  </td>
-                </tr>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-left text-muted-foreground">
+            {columns.map((c) => (
+              <th key={c.header} className="py-2 pr-4">{c.header}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={keyFor(row)} className="border-b last:border-0">
+              {columns.map((c) => (
+                <td key={c.header} className="py-2 pr-4">{c.render(row)}</td>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </ReportCard>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function TrainersTab() {
+  const { data, isLoading } = useTrainersList()
+  const { data: commissions, isLoading: isLoadingCommissions } = useTrainerCommissionReport(6)
+
+  return (
+    <div className="space-y-4">
+      <ReportCard title="Trainer Performance">
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="py-2 pr-4">Trainer</th>
+                  <th className="py-2 pr-4">Active Clients</th>
+                  <th className="py-2 pr-4">Avg Rating</th>
+                  <th className="py-2 pr-4">Commission Rate</th>
+                  <th className="py-2 pr-4">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.map((t) => (
+                  <tr key={t.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4">{t.fullName}</td>
+                    <td className="py-2 pr-4">{t.activeClientCount}</td>
+                    <td className="py-2 pr-4">{t.averageRating?.toFixed(1) ?? '—'}</td>
+                    <td className="py-2 pr-4">{t.commissionRate}%</td>
+                    <td className="py-2 pr-4">
+                      <Badge variant={t.isActive ? 'default' : 'outline'}>{t.isActive ? 'Active' : 'Inactive'}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ReportCard>
+
+      <ReportCard
+        title="Commissions (last 6 months)"
+        action={<ExportButton onExport={() => exportTrainerCommissionReport(6)} />}
+      >
+        {isLoadingCommissions ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <DataTable
+            rows={commissions ?? []}
+            keyFor={(r) => r.trainerName}
+            columns={[
+              { header: 'Trainer', render: (r) => r.trainerName },
+              { header: 'Pending', render: (r) => `$${r.totalPending.toLocaleString()}` },
+              { header: 'Paid', render: (r) => `$${r.totalPaid.toLocaleString()}` },
+              { header: 'Records', render: (r) => r.recordCount },
+            ]}
+          />
+        )}
+      </ReportCard>
+    </div>
   )
 }
 
 function InventoryTab() {
   const { data, isLoading } = useInventoryItemsList({})
   const lowStockCount = data?.filter((i) => i.isLowStock).length ?? 0
+  const { data: movements, isLoading: isLoadingMovements } = useInventoryStockMovementReport(30)
 
   return (
-    <ReportCard title={`Inventory Levels${data ? ` — ${lowStockCount} low stock` : ''}`}>
-      {isLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : (
-        <SimpleBarChart
-          data={(data ?? []).map((i) => ({ label: i.name, value: i.quantityOnHand }))}
-        />
-      )}
-    </ReportCard>
+    <div className="space-y-4">
+      <ReportCard title={`Inventory Levels${data ? ` — ${lowStockCount} low stock` : ''}`}>
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <SimpleBarChart
+            data={(data ?? []).map((i) => ({ label: i.name, value: i.quantityOnHand }))}
+          />
+        )}
+      </ReportCard>
+
+      <ReportCard
+        title="Stock Movement (last 30 days)"
+        action={<ExportButton onExport={() => exportInventoryStockMovementReport(30)} />}
+      >
+        {isLoadingMovements ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <DataTable
+            rows={movements ?? []}
+            keyFor={(r) => r.sku}
+            columns={[
+              { header: 'Item', render: (r) => r.itemName },
+              { header: 'SKU', render: (r) => r.sku },
+              { header: 'In', render: (r) => r.totalIn },
+              { header: 'Out', render: (r) => r.totalOut },
+              { header: 'Net', render: (r) => r.netChange },
+              { header: 'On Hand', render: (r) => r.currentQuantityOnHand },
+            ]}
+          />
+        )}
+      </ReportCard>
+    </div>
   )
 }
 
@@ -184,15 +277,66 @@ function EquipmentTab() {
     acc[a.status] = (acc[a.status] ?? 0) + 1
     return acc
   }, {})
+  const { data: downtime, isLoading: isLoadingDowntime } = useEquipmentDowntimeReport(6)
 
   return (
-    <ReportCard title="Equipment Status Breakdown">
-      {isLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : (
-        <SimpleBarChart data={Object.entries(counts).map(([label, value]) => ({ label, value }))} />
-      )}
-    </ReportCard>
+    <div className="space-y-4">
+      <ReportCard title="Equipment Status Breakdown">
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <SimpleBarChart data={Object.entries(counts).map(([label, value]) => ({ label, value }))} />
+        )}
+      </ReportCard>
+
+      <ReportCard
+        title="Downtime & Maintenance Cost (last 6 months)"
+        action={<ExportButton onExport={() => exportEquipmentDowntimeReport(6)} />}
+      >
+        {isLoadingDowntime ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <DataTable
+            rows={downtime ?? []}
+            keyFor={(r) => r.assetTag}
+            columns={[
+              { header: 'Asset', render: (r) => r.assetName },
+              { header: 'Tag', render: (r) => r.assetTag },
+              { header: 'Incidents', render: (r) => r.incidents },
+              { header: 'Downtime (hrs)', render: (r) => r.totalDowntimeHours.toFixed(1) },
+              { header: 'Maintenance Cost', render: (r) => `$${r.totalMaintenanceCost.toLocaleString()}` },
+            ]}
+          />
+        )}
+      </ReportCard>
+    </div>
+  )
+}
+
+function CrmTab() {
+  const { data, isLoading } = useCrmPipelineConversionReport()
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <ReportCard title="Pipeline by Stage" action={<ExportButton onExport={exportCrmPipelineReport} />}>
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <SimpleBarChart data={Object.entries(data?.byStage ?? {}).map(([label, value]) => ({ label, value }))} />
+        )}
+      </ReportCard>
+      <ReportCard title="Conversion">
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <div className="flex flex-col gap-2 text-sm">
+            <p>Total leads: <span className="font-medium">{data?.totalLeads ?? 0}</span></p>
+            <p>Converted to members: <span className="font-medium">{data?.convertedCount ?? 0}</span></p>
+            <p>Conversion rate: <span className="font-medium">{data?.conversionRatePercent ?? 0}%</span></p>
+          </div>
+        )}
+      </ReportCard>
+    </div>
   )
 }
 
@@ -232,6 +376,7 @@ export default function ReportsPage() {
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
           <TabsTrigger value="equipment">Equipment</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          <TabsTrigger value="crm">CRM</TabsTrigger>
         </TabsList>
 
         <TabsContent value="revenue"><RevenueTab /></TabsContent>
@@ -241,6 +386,7 @@ export default function ReportsPage() {
         <TabsContent value="inventory"><InventoryTab /></TabsContent>
         <TabsContent value="equipment"><EquipmentTab /></TabsContent>
         <TabsContent value="maintenance"><MaintenanceTab /></TabsContent>
+        <TabsContent value="crm"><CrmTab /></TabsContent>
       </Tabs>
     </div>
   )
