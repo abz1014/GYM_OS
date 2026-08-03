@@ -19,6 +19,7 @@ const TrainersListPage = lazy(() => import('@/modules/trainers/pages/TrainersLis
 const TrainerDetailPage = lazy(() => import('@/modules/trainers/pages/TrainerDetailPage'))
 const EquipmentPage = lazy(() => import('@/modules/equipment/pages/EquipmentPage'))
 const MaintenancePage = lazy(() => import('@/modules/maintenance/pages/MaintenancePage'))
+const InventoryPage = lazy(() => import('@/modules/inventory/pages/InventoryPage'))
 
 function withSuspense(element: React.ReactNode) {
   return <Suspense fallback={<PageLoader />}>{element}</Suspense>
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
           { path: 'trainers/:id', element: withSuspense(<TrainerDetailPage />) },
           { path: 'equipment', element: withSuspense(<EquipmentPage />) },
           { path: 'maintenance', element: withSuspense(<MaintenancePage />) },
+          { path: 'inventory', element: withSuspense(<InventoryPage />) },
         ],
       },
     ],
