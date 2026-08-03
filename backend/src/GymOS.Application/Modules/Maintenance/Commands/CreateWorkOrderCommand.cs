@@ -11,7 +11,7 @@ namespace GymOS.Application.Modules.Maintenance.Commands;
 
 public record CreateWorkOrderCommand(
     Guid AssetId, WorkOrderType Type, WorkOrderPriority Priority, string Title, string? Description,
-    Guid? AssignedToUserId, DateOnly? ScheduledDate) : ICommand<Guid>;
+    Guid? AssignedToUserId, DateOnly? ScheduledDate, Guid? MaintenanceScheduleId) : ICommand<Guid>;
 
 public class CreateWorkOrderCommandValidator : AbstractValidator<CreateWorkOrderCommand>
 {
@@ -32,11 +32,22 @@ public class CreateWorkOrderCommandHandler(IApplicationDbContext db, ICurrentUse
         var asset = await db.Assets.FirstOrDefaultAsync(a => a.Id == request.AssetId, cancellationToken)
             ?? throw new NotFoundException(nameof(Asset), request.AssetId);
 
+        if (request.MaintenanceScheduleId is not null)
+        {
+            var scheduleExists = await db.MaintenanceSchedules.AnyAsync(
+                s => s.Id == request.MaintenanceScheduleId && s.AssetId == request.AssetId, cancellationToken);
+            if (!scheduleExists)
+            {
+                throw new NotFoundException(nameof(MaintenanceSchedule), request.MaintenanceScheduleId.Value);
+            }
+        }
+
         var workOrder = new WorkOrder
         {
             TenantId = tenantId,
             BranchId = asset.BranchId,
             AssetId = request.AssetId,
+            MaintenanceScheduleId = request.MaintenanceScheduleId,
             Type = request.Type,
             Priority = request.Priority,
             Status = WorkOrderStatus.Open,

@@ -24,6 +24,7 @@ public class GetWorkOrderByIdQueryHandler(IApplicationDbContext db) : IRequestHa
             workOrder.Id, workOrder.AssetId, workOrder.Asset?.Name ?? string.Empty, workOrder.Asset?.AssetTag ?? string.Empty,
             workOrder.Type, workOrder.Priority, workOrder.Status, workOrder.Title, workOrder.Description,
             workOrder.AssignedToUserId, workOrder.ScheduledDate, workOrder.CompletedDate, workOrder.Cost,
-            workOrder.DowntimeLogs.Select(d => new DowntimeLogDto(d.Id, d.StartedAt, d.EndedAt, d.Reason)).ToList());
+            workOrder.DowntimeLogs.Select(d => new DowntimeLogDto(d.Id, d.StartedAt, d.EndedAt, d.Reason)).ToList(),
+            workOrder.MaintenanceScheduleId, workOrder.VerificationNotes, workOrder.VerifiedAt);
     }
 }

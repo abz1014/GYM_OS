@@ -19,6 +19,7 @@ const TrainersListPage = lazy(() => import('@/modules/trainers/pages/TrainersLis
 const TrainerDetailPage = lazy(() => import('@/modules/trainers/pages/TrainerDetailPage'))
 const EquipmentPage = lazy(() => import('@/modules/equipment/pages/EquipmentPage'))
 const MaintenancePage = lazy(() => import('@/modules/maintenance/pages/MaintenancePage'))
+const WorkOrderDetailPage = lazy(() => import('@/modules/maintenance/pages/WorkOrderDetailPage'))
 const InventoryPage = lazy(() => import('@/modules/inventory/pages/InventoryPage'))
 const WorkoutsPage = lazy(() => import('@/modules/workouts/pages/WorkoutsPage'))
 const NutritionPage = lazy(() => import('@/modules/nutrition/pages/NutritionPage'))
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
           { path: 'trainers/:id', element: withSuspense(<TrainerDetailPage />) },
           { path: 'equipment', element: withSuspense(<EquipmentPage />) },
           { path: 'maintenance', element: withSuspense(<MaintenancePage />) },
+          { path: 'maintenance/work-orders/:id', element: withSuspense(<WorkOrderDetailPage />) },
           { path: 'inventory', element: withSuspense(<InventoryPage />) },
           { path: 'workouts', element: withSuspense(<WorkoutsPage />) },
           { path: 'nutrition', element: withSuspense(<NutritionPage />) },

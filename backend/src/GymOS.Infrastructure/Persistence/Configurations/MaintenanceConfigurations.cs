@@ -10,6 +10,7 @@ public class WorkOrderConfiguration : IEntityTypeConfiguration<WorkOrder>
     {
         builder.Property(w => w.Title).HasMaxLength(200).IsRequired();
         builder.HasOne(w => w.Asset).WithMany().HasForeignKey(w => w.AssetId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(w => w.MaintenanceSchedule).WithMany().HasForeignKey(w => w.MaintenanceScheduleId).OnDelete(DeleteBehavior.SetNull);
         builder.HasMany(w => w.DowntimeLogs).WithOne(d => d.WorkOrder).HasForeignKey(d => d.WorkOrderId).OnDelete(DeleteBehavior.SetNull);
     }
 }

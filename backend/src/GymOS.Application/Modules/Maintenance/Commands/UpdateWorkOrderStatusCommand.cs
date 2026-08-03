@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymOS.Application.Modules.Maintenance.Commands;
 
-public record UpdateWorkOrderStatusCommand(Guid WorkOrderId, WorkOrderStatus Status, decimal? Cost) : ICommand<Unit>;
+public record UpdateWorkOrderStatusCommand(Guid WorkOrderId, WorkOrderStatus Status) : ICommand<Unit>;
 
 public class UpdateWorkOrderStatusCommandValidator : AbstractValidator<UpdateWorkOrderStatusCommand>
 {
@@ -21,6 +21,11 @@ public class UpdateWorkOrderStatusCommandHandler(IApplicationDbContext db, IDate
 {
     public async Task<Unit> Handle(UpdateWorkOrderStatusCommand request, CancellationToken cancellationToken)
     {
+        if (request.Status == WorkOrderStatus.Completed)
+        {
+            throw new ValidationException("A work order can only be completed by verifying it — use the verify endpoint.");
+        }
+
         var workOrder = await db.WorkOrders
             .Include(w => w.Asset)
             .Include(w => w.DowntimeLogs)
@@ -29,11 +34,8 @@ public class UpdateWorkOrderStatusCommandHandler(IApplicationDbContext db, IDate
 
         workOrder.Status = request.Status;
 
-        if (request.Status == WorkOrderStatus.Completed)
+        if (request.Status == WorkOrderStatus.Cancelled)
         {
-            workOrder.CompletedDate = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
-            workOrder.Cost = request.Cost;
-
             var openDowntime = workOrder.DowntimeLogs.FirstOrDefault(d => d.EndedAt == null);
             if (openDowntime is not null)
             {

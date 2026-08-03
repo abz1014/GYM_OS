@@ -51,4 +51,12 @@ public class MaintenanceController(ISender mediator) : ControllerBase
         await mediator.Send(command with { WorkOrderId = id }, cancellationToken);
         return NoContent();
     }
+
+    [HttpPost("{id:guid}/verify")]
+    [RequirePermission(PermissionCodes.Maintenance.Manage)]
+    public async Task<IActionResult> Verify(Guid id, VerifyWorkOrderCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command with { WorkOrderId = id }, cancellationToken);
+        return NoContent();
+    }
 }

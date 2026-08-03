@@ -4,7 +4,7 @@ import { apiClient } from '@/lib/apiClient'
 
 export type WorkOrderType = 'Preventive' | 'Corrective'
 export type WorkOrderPriority = 'Low' | 'Medium' | 'High' | 'Critical'
-export type WorkOrderStatus = 'Open' | 'InProgress' | 'Completed' | 'Cancelled'
+export type WorkOrderStatus = 'Open' | 'InProgress' | 'PendingVerification' | 'Completed' | 'Cancelled'
 
 export interface WorkOrderListItem {
   id: string
@@ -18,10 +18,45 @@ export interface WorkOrderListItem {
   isOverdue: boolean
 }
 
+export interface DowntimeLog {
+  id: string
+  startedAt: string
+  endedAt: string | null
+  reason: string | null
+}
+
+export interface WorkOrderDetail {
+  id: string
+  assetId: string
+  assetName: string
+  assetTag: string
+  type: WorkOrderType
+  priority: WorkOrderPriority
+  status: WorkOrderStatus
+  title: string
+  description: string | null
+  assignedToUserId: string | null
+  scheduledDate: string | null
+  completedDate: string | null
+  cost: number | null
+  downtimeLogs: DowntimeLog[]
+  maintenanceScheduleId: string | null
+  verificationNotes: string | null
+  verifiedAt: string | null
+}
+
 export function useWorkOrdersList(params: { branchId?: string | null; status?: WorkOrderStatus }) {
   return useQuery({
     queryKey: ['work-orders', params],
     queryFn: async () => (await apiClient.get<WorkOrderListItem[]>('/api/work-orders', { params })).data,
+  })
+}
+
+export function useWorkOrder(id: string | undefined) {
+  return useQuery({
+    queryKey: ['work-order', id],
+    queryFn: async () => (await apiClient.get<WorkOrderDetail>(`/api/work-orders/${id}`)).data,
+    enabled: !!id,
   })
 }
 
@@ -32,6 +67,7 @@ interface CreateWorkOrderInput {
   title: string
   description?: string
   scheduledDate?: string
+  maintenanceScheduleId?: string
 }
 
 export function useCreateWorkOrder() {
@@ -48,11 +84,31 @@ export function useCreateWorkOrder() {
 export function useUpdateWorkOrderStatus(workOrderId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { status: WorkOrderStatus; cost?: number }) =>
-      apiClient.put(`/api/work-orders/${workOrderId}/status`, input),
+    mutationFn: async (input: { status: WorkOrderStatus }) => apiClient.put(`/api/work-orders/${workOrderId}/status`, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['work-order', workOrderId] })
       queryClient.invalidateQueries({ queryKey: ['assets'] })
+    },
+  })
+}
+
+interface VerifyWorkOrderInput {
+  approved: boolean
+  cost?: number | null
+  notes?: string | null
+  nextDueDate?: string | null
+}
+
+export function useVerifyWorkOrder(workOrderId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: VerifyWorkOrderInput) => apiClient.post(`/api/work-orders/${workOrderId}/verify`, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['work-order', workOrderId] })
+      queryClient.invalidateQueries({ queryKey: ['assets'] })
+      queryClient.invalidateQueries({ queryKey: ['maintenance-schedules'] })
     },
   })
 }

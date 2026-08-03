@@ -13,6 +13,11 @@ public class WorkOrder : BaseEntity, IBranchScoped, IAuditable
 
     public Asset? Asset { get; set; }
 
+    /// <summary>The recurring inspection this work order was raised in response to, if any — completing it (verified) advances that schedule's next due date.</summary>
+    public Guid? MaintenanceScheduleId { get; set; }
+
+    public MaintenanceSchedule? MaintenanceSchedule { get; set; }
+
     public WorkOrderType Type { get; set; }
 
     public WorkOrderPriority Priority { get; set; } = WorkOrderPriority.Medium;
@@ -30,6 +35,12 @@ public class WorkOrder : BaseEntity, IBranchScoped, IAuditable
     public DateOnly? CompletedDate { get; set; }
 
     public decimal? Cost { get; set; }
+
+    public string? VerificationNotes { get; set; }
+
+    public Guid? VerifiedByUserId { get; set; }
+
+    public DateTimeOffset? VerifiedAt { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

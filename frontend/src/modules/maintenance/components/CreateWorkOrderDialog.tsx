@@ -21,10 +21,18 @@ import { useUiStore } from '@/stores/uiStore'
 const TYPES: WorkOrderType[] = ['Preventive', 'Corrective']
 const PRIORITIES: WorkOrderPriority[] = ['Low', 'Medium', 'High', 'Critical']
 
-export function CreateWorkOrderDialog() {
+export function CreateWorkOrderDialog({
+  defaultAssetId,
+  maintenanceScheduleId,
+  trigger,
+}: {
+  defaultAssetId?: string
+  maintenanceScheduleId?: string
+  trigger?: React.ReactNode
+}) {
   const [open, setOpen] = useState(false)
-  const [assetId, setAssetId] = useState('')
-  const [type, setType] = useState<WorkOrderType>('Corrective')
+  const [assetId, setAssetId] = useState(defaultAssetId ?? '')
+  const [type, setType] = useState<WorkOrderType>(maintenanceScheduleId ? 'Preventive' : 'Corrective')
   const [priority, setPriority] = useState<WorkOrderPriority>('Medium')
   const [title, setTitle] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
@@ -41,13 +49,13 @@ export function CreateWorkOrderDialog() {
     }
 
     createWorkOrder.mutate(
-      { assetId, type, priority, title, scheduledDate: scheduledDate || undefined },
+      { assetId, type, priority, title, scheduledDate: scheduledDate || undefined, maintenanceScheduleId },
       {
         onSuccess: () => {
           toast.success('Work order created.')
           setOpen(false)
           setTitle('')
-          setAssetId('')
+          setAssetId(defaultAssetId ?? '')
           setScheduledDate('')
         },
         onError: () => toast.error('Could not create work order.'),
@@ -58,10 +66,12 @@ export function CreateWorkOrderDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus />
-          New Work Order
-        </Button>
+        {trigger ?? (
+          <Button>
+            <Plus />
+            New Work Order
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -70,7 +80,7 @@ export function CreateWorkOrderDialog() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Asset</Label>
-            <Select value={assetId} onValueChange={setAssetId}>
+            <Select value={assetId} onValueChange={setAssetId} disabled={!!defaultAssetId}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select asset" />
               </SelectTrigger>
