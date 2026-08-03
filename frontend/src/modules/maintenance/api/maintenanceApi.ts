@@ -56,3 +56,34 @@ export function useUpdateWorkOrderStatus(workOrderId: string) {
     },
   })
 }
+
+export interface MaintenanceScheduleListItem {
+  id: string
+  assetId: string
+  assetName: string
+  recurrenceRule: string
+  nextDueDate: string
+  isActive: boolean
+}
+
+export function useMaintenanceSchedulesList(params: { branchId?: string | null }) {
+  return useQuery({
+    queryKey: ['maintenance-schedules', params],
+    queryFn: async () => (await apiClient.get<MaintenanceScheduleListItem[]>('/api/work-orders/schedules', { params })).data,
+  })
+}
+
+interface CreateMaintenanceScheduleInput {
+  assetId: string
+  recurrenceRule: string
+  nextDueDate: string
+}
+
+export function useCreateMaintenanceSchedule() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateMaintenanceScheduleInput) =>
+      (await apiClient.post<string>('/api/work-orders/schedules', input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['maintenance-schedules'] }),
+  })
+}
