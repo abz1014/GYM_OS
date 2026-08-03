@@ -25,6 +25,8 @@ const NutritionPage = lazy(() => import('@/modules/nutrition/pages/NutritionPage
 const ReportsPage = lazy(() => import('@/modules/reports/pages/ReportsPage'))
 const NotificationsPage = lazy(() => import('@/modules/notifications/pages/NotificationsPage'))
 const SettingsPage = lazy(() => import('@/modules/settings/pages/SettingsPage'))
+const MigrationListPage = lazy(() => import('@/modules/migration/pages/MigrationListPage'))
+const ImportJobDetailPage = lazy(() => import('@/modules/migration/pages/ImportJobDetailPage'))
 
 function withSuspense(element: React.ReactNode) {
   return <Suspense fallback={<PageLoader />}>{element}</Suspense>
@@ -58,6 +60,8 @@ export const router = createBrowserRouter([
           { path: 'reports', element: withSuspense(<ReportsPage />) },
           { path: 'notifications', element: withSuspense(<NotificationsPage />) },
           { path: 'settings', element: withSuspense(<SettingsPage />) },
+          { path: 'migration', element: withSuspense(<MigrationListPage />) },
+          { path: 'migration/:id', element: withSuspense(<ImportJobDetailPage />) },
         ],
       },
     ],

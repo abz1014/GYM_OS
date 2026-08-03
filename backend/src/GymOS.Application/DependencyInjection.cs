@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using GymOS.Application.Common.Behaviors;
+using GymOS.Application.Modules.Migration.EntityHandlers;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,6 +21,11 @@ public static class DependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
+
+        services.AddScoped<IImportEntityHandler, MemberImportEntityHandler>();
+        services.AddScoped<IImportEntityHandler, TrainerImportEntityHandler>();
+        services.AddScoped<IImportEntityHandler, EquipmentImportEntityHandler>();
+        services.AddScoped<IImportEntityHandler, InventoryImportEntityHandler>();
 
         return services;
     }
