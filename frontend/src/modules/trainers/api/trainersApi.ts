@@ -104,3 +104,54 @@ export function useAssignClient(trainerId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] }),
   })
 }
+
+interface AddTrainerRatingInput {
+  memberId: string
+  score: number
+  comment?: string
+}
+
+export function useAddTrainerRating(trainerId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: AddTrainerRatingInput) => apiClient.post(`/api/trainers/${trainerId}/ratings`, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] }),
+  })
+}
+
+interface AddTrainerScheduleInput {
+  dayOfWeek: string
+  startTime: string
+  endTime: string
+  isAvailable: boolean
+}
+
+export function useAddTrainerSchedule(trainerId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: AddTrainerScheduleInput) => apiClient.post(`/api/trainers/${trainerId}/schedules`, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] }),
+  })
+}
+
+interface AddCommissionRecordInput {
+  amount: number
+  period: string
+}
+
+export function useAddCommissionRecord(trainerId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: AddCommissionRecordInput) => apiClient.post(`/api/trainers/${trainerId}/commissions`, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] }),
+  })
+}
+
+export function useUpdateCommissionStatus(trainerId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ commissionRecordId, status }: { commissionRecordId: string; status: 'Pending' | 'Paid' }) =>
+      apiClient.put(`/api/trainers/commissions/${commissionRecordId}/status`, { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] }),
+  })
+}

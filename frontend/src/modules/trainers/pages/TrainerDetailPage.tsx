@@ -3,12 +3,48 @@ import { ArrowLeft, Star } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useTrainer } from '@/modules/trainers/api/trainersApi'
+import { useTrainer, useUpdateCommissionStatus } from '@/modules/trainers/api/trainersApi'
+import { AddCommissionRecordDialog } from '@/modules/trainers/components/AddCommissionRecordDialog'
+import { AddTrainerRatingDialog } from '@/modules/trainers/components/AddTrainerRatingDialog'
+import { AddTrainerScheduleDialog } from '@/modules/trainers/components/AddTrainerScheduleDialog'
 import { AssignClientDialog } from '@/modules/trainers/components/AssignClientDialog'
 
 const currency = (amount: number) => amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+
+const COMMISSION_STATUSES = ['Pending', 'Paid'] as const
+
+function CommissionStatusCell({
+  trainerId,
+  commissionRecordId,
+  status,
+}: {
+  trainerId: string
+  commissionRecordId: string
+  status: string
+}) {
+  const updateStatus = useUpdateCommissionStatus(trainerId)
+
+  return (
+    <Select
+      value={status}
+      onValueChange={(v) => updateStatus.mutate({ commissionRecordId, status: v as 'Pending' | 'Paid' })}
+    >
+      <SelectTrigger size="sm" className="w-[110px]">
+        <Badge variant={status === 'Paid' ? 'default' : 'outline'}>{status}</Badge>
+      </SelectTrigger>
+      <SelectContent>
+        {COMMISSION_STATUSES.map((s) => (
+          <SelectItem key={s} value={s}>
+            {s}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
 
 export default function TrainerDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -79,6 +115,9 @@ export default function TrainerDetailPage() {
         </TabsContent>
 
         <TabsContent value="schedule" className="space-y-3">
+          <div className="flex justify-end">
+            <AddTrainerScheduleDialog trainerId={trainer.id} />
+          </div>
           {trainer.schedules.length === 0 && <p className="text-sm text-muted-foreground">No schedule set.</p>}
           {trainer.schedules.map((s) => (
             <Card key={s.id}>
@@ -94,6 +133,9 @@ export default function TrainerDetailPage() {
         </TabsContent>
 
         <TabsContent value="ratings" className="space-y-3">
+          <div className="flex justify-end">
+            <AddTrainerRatingDialog trainerId={trainer.id} assignments={trainer.assignments} />
+          </div>
           {trainer.ratings.length === 0 && <p className="text-sm text-muted-foreground">No ratings yet.</p>}
           {trainer.ratings.map((r) => (
             <Card key={r.id}>
@@ -111,13 +153,16 @@ export default function TrainerDetailPage() {
         </TabsContent>
 
         <TabsContent value="commissions" className="space-y-3">
+          <div className="flex justify-end">
+            <AddCommissionRecordDialog trainerId={trainer.id} />
+          </div>
           {trainer.commissionRecords.length === 0 && <p className="text-sm text-muted-foreground">No commission records yet.</p>}
           {trainer.commissionRecords.map((c) => (
             <Card key={c.id}>
               <CardContent className="flex items-center justify-between text-sm">
                 <span>{new Date(c.period).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })}</span>
                 <span className="font-medium">{currency(c.amount)}</span>
-                <Badge variant="outline">{c.status}</Badge>
+                <CommissionStatusCell trainerId={trainer.id} commissionRecordId={c.id} status={c.status} />
               </CardContent>
             </Card>
           ))}

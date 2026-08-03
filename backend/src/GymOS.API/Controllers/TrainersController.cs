@@ -41,4 +41,22 @@ public class TrainersController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Trainers.Manage)]
     public async Task<ActionResult<Guid>> AddRating(Guid id, AddTrainerRatingCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command with { TrainerId = id }, cancellationToken));
+
+    [HttpPost("{id:guid}/schedules")]
+    [RequirePermission(PermissionCodes.Trainers.Manage)]
+    public async Task<ActionResult<Guid>> AddSchedule(Guid id, CreateTrainerScheduleCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command with { TrainerId = id }, cancellationToken));
+
+    [HttpPost("{id:guid}/commissions")]
+    [RequirePermission(PermissionCodes.Trainers.Manage)]
+    public async Task<ActionResult<Guid>> AddCommission(Guid id, CreateCommissionRecordCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command with { TrainerId = id }, cancellationToken));
+
+    [HttpPut("commissions/{commissionRecordId:guid}/status")]
+    [RequirePermission(PermissionCodes.Trainers.Manage)]
+    public async Task<IActionResult> UpdateCommissionStatus(Guid commissionRecordId, UpdateCommissionStatusCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command with { CommissionRecordId = commissionRecordId }, cancellationToken);
+        return NoContent();
+    }
 }
