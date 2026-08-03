@@ -68,6 +68,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         await SeedLeadsAsync(tenant.Id, branches, demoUsers, cancellationToken);
         await SeedNotificationTemplatesAsync(tenant.Id, cancellationToken);
         await SeedExerciseLibraryAsync(tenant.Id, cancellationToken);
+        await SeedFoodLibraryAsync(tenant.Id, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

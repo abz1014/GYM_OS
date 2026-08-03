@@ -21,6 +21,7 @@ const EquipmentPage = lazy(() => import('@/modules/equipment/pages/EquipmentPage
 const MaintenancePage = lazy(() => import('@/modules/maintenance/pages/MaintenancePage'))
 const InventoryPage = lazy(() => import('@/modules/inventory/pages/InventoryPage'))
 const WorkoutsPage = lazy(() => import('@/modules/workouts/pages/WorkoutsPage'))
+const NutritionPage = lazy(() => import('@/modules/nutrition/pages/NutritionPage'))
 
 function withSuspense(element: React.ReactNode) {
   return <Suspense fallback={<PageLoader />}>{element}</Suspense>
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
           { path: 'maintenance', element: withSuspense(<MaintenancePage />) },
           { path: 'inventory', element: withSuspense(<InventoryPage />) },
           { path: 'workouts', element: withSuspense(<WorkoutsPage />) },
+          { path: 'nutrition', element: withSuspense(<NutritionPage />) },
         ],
       },
     ],
