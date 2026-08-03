@@ -25,7 +25,7 @@ public record ProgressPhotoDto(Guid Id, string PhotoUrl, DateTimeOffset TakenAt,
 public record MemberMembershipDto(
     Guid Id, Guid MembershipPlanId, string MembershipPlanName, DateOnly StartDate, DateOnly EndDate,
     MemberMembershipStatus Status, bool AutoRenew, DateOnly? FreezeStartDate, DateOnly? FreezeEndDate,
-    decimal PricePaid, string Currency);
+    decimal PricePaid, string Currency, Guid? InvoiceId);
 
 public record MemberDetailDto(
     Guid Id,

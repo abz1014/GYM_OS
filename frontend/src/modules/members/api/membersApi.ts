@@ -28,6 +28,7 @@ export interface MemberMembership {
   freezeEndDate: string | null
   pricePaid: number
   currency: string
+  invoiceId: string | null
 }
 
 export interface MemberDetail extends MemberListItem {
@@ -98,6 +99,14 @@ export function useFreezeMembership(memberId: string) {
   return useMutation({
     mutationFn: async (input: { memberMembershipId: string; freezeStartDate: string; freezeEndDate: string }) =>
       apiClient.post(`/api/members/memberships/${input.memberMembershipId}/freeze`, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
+  })
+}
+
+export function useResumeMembership(memberId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (memberMembershipId: string) => apiClient.post(`/api/members/memberships/${memberMembershipId}/resume`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
   })
 }

@@ -59,6 +59,7 @@ public static class DependencyInjection
 
         services.AddScoped<DemoDataSeeder>();
         services.AddScoped<BackgroundJobs.MembershipExpiryCheckJob>();
+        services.AddScoped<BackgroundJobs.MembershipExpiryTransitionJob>();
         services.AddScoped<BackgroundJobs.BirthdayCheckJob>();
         services.AddScoped<BackgroundJobs.MaintenanceDueCheckJob>();
         services.AddScoped<BackgroundJobs.LowStockCheckJob>();

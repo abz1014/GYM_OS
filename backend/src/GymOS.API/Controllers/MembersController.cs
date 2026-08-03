@@ -81,6 +81,14 @@ public class MembersController(ISender mediator) : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("memberships/{memberMembershipId:guid}/resume")]
+    [RequirePermission(PermissionCodes.Members.ManageMembership)]
+    public async Task<IActionResult> Resume(Guid memberMembershipId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new ResumeMembershipCommand(memberMembershipId), cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/transfer")]
     [RequirePermission(PermissionCodes.Members.ManageMembership)]
     public async Task<IActionResult> Transfer(Guid id, TransferMemberCommand command, CancellationToken cancellationToken)

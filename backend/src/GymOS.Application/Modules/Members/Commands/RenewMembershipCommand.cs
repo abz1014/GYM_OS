@@ -2,6 +2,8 @@ using FluentValidation;
 using GymOS.Application.Common.Exceptions;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
+using GymOS.Application.Modules.Billing.Commands;
+using GymOS.Domain.Billing;
 using GymOS.Domain.Members;
 using GymOS.Domain.Memberships;
 using MediatR;
@@ -26,7 +28,7 @@ public class RenewMembershipCommandValidator : AbstractValidator<RenewMembership
     }
 }
 
-public class RenewMembershipCommandHandler(IApplicationDbContext db) : IRequestHandler<RenewMembershipCommand, Guid>
+public class RenewMembershipCommandHandler(IApplicationDbContext db, ISender sender) : IRequestHandler<RenewMembershipCommand, Guid>
 {
     public async Task<Guid> Handle(RenewMembershipCommand request, CancellationToken cancellationToken)
     {
@@ -81,6 +83,23 @@ public class RenewMembershipCommandHandler(IApplicationDbContext db) : IRequestH
         {
             member.Status = MemberStatus.Active;
         }
+
+        // Makes Payment a real, trackable step of signup/renewal instead of just a recorded price —
+        // the discount (if a coupon was applied) shows on the invoice rather than being baked silently
+        // into the line price, and staff record the actual payment through the existing Billing flow.
+        var discountAmount = plan.Price - price;
+        memberMembership.InvoiceId = await sender.Send(
+            new CreateInvoiceCommand(
+                member.Id,
+                member.BranchId,
+                request.StartDate,
+                request.StartDate.AddDays(7),
+                0m,
+                discountAmount,
+                plan.Currency,
+                request.CouponCode is not null ? $"Coupon applied: {request.CouponCode}" : null,
+                [new CreateInvoiceLineInput(InvoiceLineItemType.MembershipFee, $"{plan.Name} membership", 1, plan.Price)]),
+            cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
 

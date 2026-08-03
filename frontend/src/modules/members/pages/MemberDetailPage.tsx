@@ -16,6 +16,7 @@ import { AddEmergencyContactDialog } from '@/modules/members/components/AddEmerg
 import { AddMedicalNoteDialog } from '@/modules/members/components/AddMedicalNoteDialog'
 import { AddMeasurementDialog } from '@/modules/members/components/AddMeasurementDialog'
 import { AddProgressPhotoDialog } from '@/modules/members/components/AddProgressPhotoDialog'
+import { ResumeMembershipButton } from '@/modules/members/components/ResumeMembershipButton'
 
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -116,7 +117,13 @@ export default function MemberDetailPage() {
                   <span className="text-sm text-muted-foreground">
                     {mm.pricePaid.toLocaleString('en-US', { style: 'currency', currency: mm.currency })}
                   </span>
+                  {mm.invoiceId && (
+                    <Link to={`/billing/${mm.invoiceId}`} className="text-sm text-primary hover:underline">
+                      Invoice
+                    </Link>
+                  )}
                   {mm.status === 'Active' && <FreezeMembershipDialog memberId={member.id} memberMembershipId={mm.id} />}
+                  {mm.status === 'Frozen' && <ResumeMembershipButton memberId={member.id} memberMembershipId={mm.id} />}
                 </div>
               </CardContent>
             </Card>
