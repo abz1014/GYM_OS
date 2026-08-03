@@ -138,3 +138,6 @@ RecurringJob.AddOrUpdate<FollowUpReminderCheckJob>("follow-up-reminder-check", j
 RecurringJob.AddOrUpdate<NotificationDispatchJob>("notification-dispatch", job => job.RunAsync(CancellationToken.None), "*/5 * * * *");
 
 app.Run();
+
+// Exposes the top-level-statement Program for WebApplicationFactory<Program> in integration tests.
+public partial class Program;
