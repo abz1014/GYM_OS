@@ -37,6 +37,35 @@ public class TrainersController(ISender mediator) : ControllerBase
     public async Task<ActionResult<Guid>> AssignClient(Guid id, AssignClientCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command with { TrainerId = id }, cancellationToken));
 
+    [HttpPost("assignments/{assignmentId:guid}/end")]
+    [RequirePermission(PermissionCodes.Trainers.Manage)]
+    public async Task<IActionResult> EndAssignment(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new EndTrainerAssignmentCommand(assignmentId), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("assignments/{assignmentId:guid}/sessions")]
+    [RequirePermission(PermissionCodes.Trainers.Manage)]
+    public async Task<ActionResult<Guid>> ScheduleSession(Guid assignmentId, ScheduleTrainerSessionCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command with { TrainerAssignmentId = assignmentId }, cancellationToken));
+
+    [HttpPost("sessions/{sessionId:guid}/complete")]
+    [RequirePermission(PermissionCodes.Trainers.Manage)]
+    public async Task<IActionResult> CompleteSession(Guid sessionId, CompleteTrainerSessionCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command with { SessionId = sessionId }, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("sessions/{sessionId:guid}/cancel")]
+    [RequirePermission(PermissionCodes.Trainers.Manage)]
+    public async Task<IActionResult> CancelSession(Guid sessionId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new CancelTrainerSessionCommand(sessionId), cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/ratings")]
     [RequirePermission(PermissionCodes.Trainers.Manage)]
     public async Task<ActionResult<Guid>> AddRating(Guid id, AddTrainerRatingCommand command, CancellationToken cancellationToken)

@@ -18,4 +18,6 @@ public class TrainerAssignment : BaseEntity
     public DateOnly? EndDate { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    public ICollection<TrainerSession> Sessions { get; set; } = [];
 }

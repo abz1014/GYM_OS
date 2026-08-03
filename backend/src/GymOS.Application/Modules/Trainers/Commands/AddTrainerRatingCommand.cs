@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymOS.Application.Modules.Trainers.Commands;
 
-public record AddTrainerRatingCommand(Guid TrainerId, Guid MemberId, int Score, string? Comment) : ICommand<Guid>;
+public record AddTrainerRatingCommand(Guid TrainerId, Guid MemberId, int Score, string? Comment, Guid? SessionId) : ICommand<Guid>;
 
 public class AddTrainerRatingCommandValidator : AbstractValidator<AddTrainerRatingCommand>
 {
@@ -31,13 +31,25 @@ public class AddTrainerRatingCommandHandler(IApplicationDbContext db, IDateTimeP
             throw new NotFoundException(nameof(Trainer), request.TrainerId);
         }
 
+        if (request.SessionId is not null)
+        {
+            var session = await db.TrainerSessions.FirstOrDefaultAsync(s => s.Id == request.SessionId, cancellationToken)
+                ?? throw new NotFoundException(nameof(TrainerSession), request.SessionId.Value);
+
+            if (session.Status != TrainerSessionStatus.Completed)
+            {
+                throw new ValidationException("Feedback can only be left for a completed session.");
+            }
+        }
+
         var rating = new TrainerRating
         {
             TrainerId = request.TrainerId,
             MemberId = request.MemberId,
             Score = request.Score,
             Comment = request.Comment,
-            RatedAt = dateTimeProvider.UtcNow
+            RatedAt = dateTimeProvider.UtcNow,
+            SessionId = request.SessionId
         };
 
         db.TrainerRatings.Add(rating);

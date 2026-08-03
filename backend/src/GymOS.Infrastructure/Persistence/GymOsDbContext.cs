@@ -82,6 +82,7 @@ public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantPro
     public DbSet<TrainerAssignment> TrainerAssignments => Set<TrainerAssignment>();
     public DbSet<TrainerSchedule> TrainerSchedules => Set<TrainerSchedule>();
     public DbSet<TrainerRating> TrainerRatings => Set<TrainerRating>();
+    public DbSet<TrainerSession> TrainerSessions => Set<TrainerSession>();
     public DbSet<CommissionRecord> CommissionRecords => Set<CommissionRecord>();
 
     // Equipment (Wave 2)

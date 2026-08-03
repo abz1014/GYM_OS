@@ -11,6 +11,9 @@ import { AddCommissionRecordDialog } from '@/modules/trainers/components/AddComm
 import { AddTrainerRatingDialog } from '@/modules/trainers/components/AddTrainerRatingDialog'
 import { AddTrainerScheduleDialog } from '@/modules/trainers/components/AddTrainerScheduleDialog'
 import { AssignClientDialog } from '@/modules/trainers/components/AssignClientDialog'
+import { EndAssignmentButton } from '@/modules/trainers/components/EndAssignmentButton'
+import { ScheduleSessionDialog } from '@/modules/trainers/components/ScheduleSessionDialog'
+import { SessionActionButtons } from '@/modules/trainers/components/SessionActionButtons'
 
 const currency = (amount: number) => amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
@@ -91,6 +94,7 @@ export default function TrainerDetailPage() {
       <Tabs defaultValue="clients">
         <TabsList>
           <TabsTrigger value="clients">Clients</TabsTrigger>
+          <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="ratings">Ratings</TabsTrigger>
           <TabsTrigger value="commissions">Commissions</TabsTrigger>
@@ -108,6 +112,35 @@ export default function TrainerDetailPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Since {new Date(a.startDate).toLocaleDateString()}</span>
                   <Badge variant={a.isActive ? 'default' : 'outline'}>{a.isActive ? 'Active' : 'Ended'}</Badge>
+                  {a.isActive && <EndAssignmentButton trainerId={trainer.id} assignmentId={a.id} />}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </TabsContent>
+
+        <TabsContent value="sessions" className="space-y-3">
+          <div className="flex justify-end">
+            <ScheduleSessionDialog trainerId={trainer.id} assignments={trainer.assignments} />
+          </div>
+          {trainer.sessions.length === 0 && <p className="text-sm text-muted-foreground">No sessions scheduled yet.</p>}
+          {trainer.sessions.map((s) => (
+            <Card key={s.id}>
+              <CardContent className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">{s.memberName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(s.scheduledAt).toLocaleString()} · {s.durationMinutes} min
+                  </p>
+                  {s.notes && <p className="text-sm text-muted-foreground">{s.notes}</p>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={s.status === 'Completed' ? 'default' : s.status === 'Cancelled' ? 'secondary' : 'outline'}
+                  >
+                    {s.status}
+                  </Badge>
+                  {s.status === 'Scheduled' && <SessionActionButtons trainerId={trainer.id} sessionId={s.id} />}
                 </div>
               </CardContent>
             </Card>
@@ -134,7 +167,7 @@ export default function TrainerDetailPage() {
 
         <TabsContent value="ratings" className="space-y-3">
           <div className="flex justify-end">
-            <AddTrainerRatingDialog trainerId={trainer.id} assignments={trainer.assignments} />
+            <AddTrainerRatingDialog trainerId={trainer.id} assignments={trainer.assignments} sessions={trainer.sessions} />
           </div>
           {trainer.ratings.length === 0 && <p className="text-sm text-muted-foreground">No ratings yet.</p>}
           {trainer.ratings.map((r) => (
@@ -147,6 +180,7 @@ export default function TrainerDetailPage() {
                   </span>
                 </div>
                 {r.comment && <p className="text-muted-foreground">{r.comment}</p>}
+                {r.sessionId && <p className="text-xs text-muted-foreground">For a completed session</p>}
               </CardContent>
             </Card>
           ))}

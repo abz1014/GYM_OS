@@ -105,6 +105,8 @@ public interface IApplicationDbContext
 
     DbSet<TrainerRating> TrainerRatings { get; }
 
+    DbSet<TrainerSession> TrainerSessions { get; }
+
     DbSet<CommissionRecord> CommissionRecords { get; }
 
     // Equipment (Wave 2)

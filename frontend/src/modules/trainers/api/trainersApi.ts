@@ -30,6 +30,18 @@ export interface TrainerAssignment {
   isActive: boolean
 }
 
+export interface TrainerSession {
+  id: string
+  trainerAssignmentId: string
+  memberId: string
+  memberName: string
+  scheduledAt: string
+  durationMinutes: number
+  status: 'Scheduled' | 'Completed' | 'Cancelled'
+  notes: string | null
+  completedAt: string | null
+}
+
 export interface TrainerRating {
   id: string
   memberId: string
@@ -37,6 +49,7 @@ export interface TrainerRating {
   score: number
   comment: string | null
   ratedAt: string
+  sessionId: string | null
 }
 
 export interface CommissionRecord {
@@ -58,6 +71,7 @@ export interface TrainerDetail {
   branchId: string
   schedules: TrainerSchedule[]
   assignments: TrainerAssignment[]
+  sessions: TrainerSession[]
   ratings: TrainerRating[]
   commissionRecords: CommissionRecord[]
   totalCommissionEarned: number
@@ -105,10 +119,56 @@ export function useAssignClient(trainerId: string) {
   })
 }
 
+export function useEndAssignment(trainerId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (assignmentId: string) => apiClient.post(`/api/trainers/assignments/${assignmentId}/end`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] }),
+  })
+}
+
+interface ScheduleSessionInput {
+  assignmentId: string
+  scheduledAt: string
+  durationMinutes: number
+  notes?: string | null
+}
+
+export function useScheduleSession(trainerId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: ScheduleSessionInput) =>
+      apiClient.post(`/api/trainers/assignments/${input.assignmentId}/sessions`, {
+        scheduledAt: input.scheduledAt,
+        durationMinutes: input.durationMinutes,
+        notes: input.notes ?? null,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] }),
+  })
+}
+
+export function useCompleteSession(trainerId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ sessionId, notes }: { sessionId: string; notes?: string | null }) =>
+      apiClient.post(`/api/trainers/sessions/${sessionId}/complete`, { notes: notes ?? null }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] }),
+  })
+}
+
+export function useCancelSession(trainerId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (sessionId: string) => apiClient.post(`/api/trainers/sessions/${sessionId}/cancel`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer', trainerId] }),
+  })
+}
+
 interface AddTrainerRatingInput {
   memberId: string
   score: number
   comment?: string
+  sessionId?: string | null
 }
 
 export function useAddTrainerRating(trainerId: string) {

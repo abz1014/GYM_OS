@@ -22,6 +22,7 @@ public class TrainerAssignmentConfiguration : IEntityTypeConfiguration<TrainerAs
     public void Configure(EntityTypeBuilder<TrainerAssignment> builder)
     {
         builder.HasOne(a => a.Member).WithMany().HasForeignKey(a => a.MemberId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasMany(a => a.Sessions).WithOne(s => s.TrainerAssignment).HasForeignKey(s => s.TrainerAssignmentId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 
@@ -30,5 +31,6 @@ public class TrainerRatingConfiguration : IEntityTypeConfiguration<TrainerRating
     public void Configure(EntityTypeBuilder<TrainerRating> builder)
     {
         builder.HasOne(r => r.Member).WithMany().HasForeignKey(r => r.MemberId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(r => r.Session).WithMany().HasForeignKey(r => r.SessionId).OnDelete(DeleteBehavior.SetNull);
     }
 }

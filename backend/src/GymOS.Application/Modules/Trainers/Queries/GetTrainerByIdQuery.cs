@@ -18,6 +18,7 @@ public class GetTrainerByIdQueryHandler(IApplicationDbContext db) : IRequestHand
             .Include(t => t.User)
             .Include(t => t.Schedules)
             .Include(t => t.Assignments).ThenInclude(a => a.Member)
+            .Include(t => t.Assignments).ThenInclude(a => a.Sessions)
             .Include(t => t.Ratings).ThenInclude(r => r.Member)
             .Include(t => t.CommissionRecords)
             .FirstOrDefaultAsync(t => t.Id == request.Id, cancellationToken)
@@ -36,10 +37,16 @@ public class GetTrainerByIdQueryHandler(IApplicationDbContext db) : IRequestHand
                 .Select(a => new TrainerAssignmentDto(
                     a.Id, a.MemberId, $"{a.Member?.FirstName} {a.Member?.LastName}".Trim(), a.StartDate, a.EndDate, a.IsActive))
                 .ToList(),
+            trainer.Assignments
+                .SelectMany(a => a.Sessions.Select(s => new TrainerSessionDto(
+                    s.Id, a.Id, a.MemberId, $"{a.Member?.FirstName} {a.Member?.LastName}".Trim(), s.ScheduledAt,
+                    s.DurationMinutes, s.Status.ToString(), s.Notes, s.CompletedAt)))
+                .OrderByDescending(s => s.ScheduledAt)
+                .ToList(),
             trainer.Ratings
                 .OrderByDescending(r => r.RatedAt)
                 .Select(r => new TrainerRatingDto(
-                    r.Id, r.MemberId, $"{r.Member?.FirstName} {r.Member?.LastName}".Trim(), r.Score, r.Comment, r.RatedAt))
+                    r.Id, r.MemberId, $"{r.Member?.FirstName} {r.Member?.LastName}".Trim(), r.Score, r.Comment, r.RatedAt, r.SessionId))
                 .ToList(),
             trainer.CommissionRecords
                 .OrderByDescending(c => c.Period)
