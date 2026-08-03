@@ -209,7 +209,9 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         (PermissionCodes.Nutrition.View, "nutrition", "View nutrition plans"),
         (PermissionCodes.Nutrition.Manage, "nutrition", "Manage nutrition plans"),
         (PermissionCodes.Reports.View, "reports", "View reports"),
-        (PermissionCodes.Migration.Manage, "migration", "Run data migration imports")
+        (PermissionCodes.Migration.Manage, "migration", "Run data migration imports"),
+        (PermissionCodes.Notifications.View, "notifications", "View notification center"),
+        (PermissionCodes.Notifications.Manage, "notifications", "Manage notification templates and trigger checks")
     ];
 
     private async Task<Dictionary<string, User>> SeedDemoUsersAsync(

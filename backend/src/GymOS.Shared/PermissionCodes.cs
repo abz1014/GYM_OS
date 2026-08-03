@@ -106,6 +106,12 @@ public static class PermissionCodes
         public const string View = "reports.view";
     }
 
+    public static class Notifications
+    {
+        public const string View = "notifications.view";
+        public const string Manage = "notifications.manage";
+    }
+
     public static class Migration
     {
         public const string Manage = "migration.manage";

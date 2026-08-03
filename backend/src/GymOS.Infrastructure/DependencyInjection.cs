@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<DemoDataSeeder>();
         services.AddScoped<BackgroundJobs.MembershipExpiryCheckJob>();
         services.AddScoped<BackgroundJobs.NotificationDispatchJob>();
+        services.AddScoped<INotificationSchedulerService, BackgroundJobs.NotificationSchedulerService>();
 
         var connectionString = configuration.GetConnectionString("GymOsDb");
         services.AddHangfire(hangfireConfig => hangfireConfig

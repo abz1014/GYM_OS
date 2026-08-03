@@ -17,7 +17,7 @@ public class MembershipExpiryCheckJob(GymOsDbContext db, IDateTimeProvider dateT
 {
     private const string TemplateCode = "membership-expiry-7-days";
 
-    public async Task RunAsync(CancellationToken cancellationToken = default)
+    public async Task<int> RunAsync(CancellationToken cancellationToken = default)
     {
         var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
         var sevenDaysOut = today.AddDays(7);
@@ -68,5 +68,6 @@ public class MembershipExpiryCheckJob(GymOsDbContext db, IDateTimeProvider dateT
 
         var created = await db.SaveChangesAsync(cancellationToken);
         logger.LogInformation("Membership expiry check scheduled {Count} notification(s)", created);
+        return created;
     }
 }
