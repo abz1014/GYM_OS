@@ -48,6 +48,29 @@ export interface CrmPipelineConversionReport {
   conversionRatePercent: number
 }
 
+export interface WorkoutActivityReportRow {
+  exerciseName: string
+  muscleGroup: string | null
+  timesLogged: number
+  totalSets: number
+  totalReps: number
+  avgWeightKg: number | null
+}
+
+export interface NutritionFoodItemRow {
+  foodItemName: string
+  timesLogged: number
+  totalCaloriesLogged: number
+}
+
+export interface NutritionReport {
+  topFoodItems: NutritionFoodItemRow[]
+  totalMealEntriesLogged: number
+  totalCaloriesLogged: number
+  totalWaterLogsLogged: number
+  totalWaterMlLogged: number
+}
+
 export function useRevenueReport(monthsBack = 6) {
   return useQuery({
     queryKey: ['reports', 'revenue', monthsBack],
@@ -102,6 +125,21 @@ export function useCrmPipelineConversionReport() {
   })
 }
 
+export function useWorkoutActivityReport(daysBack = 30) {
+  return useQuery({
+    queryKey: ['reports', 'workout-activity', daysBack],
+    queryFn: async () =>
+      (await apiClient.get<WorkoutActivityReportRow[]>('/api/reports/workout-activity', { params: { daysBack } })).data,
+  })
+}
+
+export function useNutritionReport(daysBack = 30) {
+  return useQuery({
+    queryKey: ['reports', 'nutrition', daysBack],
+    queryFn: async () => (await apiClient.get<NutritionReport>('/api/reports/nutrition', { params: { daysBack } })).data,
+  })
+}
+
 async function downloadFile(url: string, params: Record<string, unknown>, filename: string) {
   const response = await apiClient.get<Blob>(url, { params, responseType: 'blob' })
   const objectUrl = window.URL.createObjectURL(response.data)
@@ -134,3 +172,9 @@ export const exportInventoryStockMovementReport = (daysBack = 30) =>
 
 export const exportCrmPipelineReport = () =>
   downloadFile('/api/reports/crm-pipeline/export', {}, 'crm-pipeline-report.xlsx')
+
+export const exportWorkoutActivityReport = (daysBack = 30) =>
+  downloadFile('/api/reports/workout-activity/export', { daysBack }, 'workout-activity-report.xlsx')
+
+export const exportNutritionReport = (daysBack = 30) =>
+  downloadFile('/api/reports/nutrition/export', { daysBack }, 'nutrition-report.xlsx')

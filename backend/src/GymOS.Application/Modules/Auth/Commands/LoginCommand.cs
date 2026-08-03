@@ -26,7 +26,8 @@ public class LoginCommandHandler(
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
     ITotpService totpService,
-    IDateTimeProvider dateTimeProvider) : IRequestHandler<LoginCommand, AuthResultDto>
+    IDateTimeProvider dateTimeProvider,
+    ILoginAttemptTracker loginAttemptTracker) : IRequestHandler<LoginCommand, AuthResultDto>
 {
     private const int RefreshTokenLifetimeDays = 7;
 
@@ -35,8 +36,26 @@ public class LoginCommandHandler(
         var user = await db.Users.IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Email == request.Email && !u.IsDeleted, cancellationToken);
 
+        // Checked before password verification on purpose: once locked, even the correct
+        // password is rejected until the lockout expires — that is the entire point of a
+        // lockout. Only counts failed *passwords* toward the threshold, not failed MFA codes;
+        // guessing an MFA code already requires knowing the correct password first, a much
+        // smaller attack surface than online password guessing. Tracked per-email via
+        // ILoginAttemptTracker rather than a User column — see its doc comment for why.
+        var lockedUntil = loginAttemptTracker.GetLockedUntil(request.Email, dateTimeProvider.UtcNow);
+        if (lockedUntil is not null)
+        {
+            throw new UnauthorizedAccessException(
+                $"Too many failed login attempts. Try again after {lockedUntil:HH:mm} UTC.");
+        }
+
         if (user is null || !user.IsActive || !passwordHasher.Verify(request.Password, user.PasswordHash))
         {
+            if (user is not null && user.IsActive)
+            {
+                loginAttemptTracker.RecordFailure(request.Email, dateTimeProvider.UtcNow);
+            }
+
             throw new UnauthorizedAccessException("Invalid email or password.");
         }
 
@@ -63,6 +82,7 @@ public class LoginCommandHandler(
         });
 
         user.LastLoginAt = dateTimeProvider.UtcNow;
+        loginAttemptTracker.Reset(request.Email);
 
         await db.SaveChangesAsync(cancellationToken);
 

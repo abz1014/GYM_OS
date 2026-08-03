@@ -17,9 +17,10 @@ public class MaintenanceController(ISender mediator) : ControllerBase
 {
     [HttpGet]
     [RequirePermission(PermissionCodes.Maintenance.View)]
-    public async Task<ActionResult<List<WorkOrderListItemDto>>> List(
-        [FromQuery] Guid? branchId, [FromQuery] WorkOrderStatus? status, CancellationToken cancellationToken)
-        => Ok(await mediator.Send(new GetWorkOrdersListQuery(branchId, status), cancellationToken));
+    public async Task<ActionResult<PagedList<WorkOrderListItemDto>>> List(
+        [FromQuery] Guid? branchId, [FromQuery] WorkOrderStatus? status,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetWorkOrdersListQuery(branchId, status, page, pageSize), cancellationToken));
 
     [HttpGet("schedules")]
     [RequirePermission(PermissionCodes.Maintenance.View)]

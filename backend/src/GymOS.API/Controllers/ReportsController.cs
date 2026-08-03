@@ -103,4 +103,30 @@ public class ReportsController(ISender mediator) : ControllerBase
         var bytes = await mediator.Send(new ExportCrmPipelineConversionReportQuery(), cancellationToken);
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "crm-pipeline-report.xlsx");
     }
+
+    [HttpGet("workout-activity")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<ActionResult<List<WorkoutActivityReportRowDto>>> WorkoutActivity(int daysBack = 30, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetWorkoutActivityReportQuery(daysBack), cancellationToken));
+
+    [HttpGet("workout-activity/export")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<IActionResult> ExportWorkoutActivity(int daysBack = 30, CancellationToken cancellationToken = default)
+    {
+        var bytes = await mediator.Send(new ExportWorkoutActivityReportQuery(daysBack), cancellationToken);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "workout-activity-report.xlsx");
+    }
+
+    [HttpGet("nutrition")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<ActionResult<NutritionReportDto>> Nutrition(int daysBack = 30, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetNutritionReportQuery(daysBack), cancellationToken));
+
+    [HttpGet("nutrition/export")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<IActionResult> ExportNutrition(int daysBack = 30, CancellationToken cancellationToken = default)
+    {
+        var bytes = await mediator.Send(new ExportNutritionReportQuery(daysBack), cancellationToken);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "nutrition-report.xlsx");
+    }
 }

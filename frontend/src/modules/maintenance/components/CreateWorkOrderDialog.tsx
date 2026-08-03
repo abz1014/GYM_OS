@@ -38,7 +38,8 @@ export function CreateWorkOrderDialog({
   const [scheduledDate, setScheduledDate] = useState('')
 
   const branchId = useUiStore((s) => s.selectedBranchId)
-  const { data: assets } = useAssetsList({ branchId })
+  const { data: assetsPage } = useAssetsList({ branchId, page: 1, pageSize: 100 })
+  const assets = assetsPage?.items
   const createWorkOrder = useCreateWorkOrder()
 
   const handleSubmit = (e: React.FormEvent) => {

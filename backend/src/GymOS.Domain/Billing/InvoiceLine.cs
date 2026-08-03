@@ -10,6 +10,8 @@ public class InvoiceLine : BaseEntity
 
     public InvoiceLineItemType ItemType { get; set; }
 
+    public Guid? InventoryItemId { get; set; }
+
     public string Description { get; set; } = string.Empty;
 
     public int Quantity { get; set; } = 1;

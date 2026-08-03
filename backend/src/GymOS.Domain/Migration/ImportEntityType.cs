@@ -8,5 +8,6 @@ public enum ImportEntityType
     Equipment,
     Attendance,
     Inventory,
-    Payment
+    Payment,
+    Lead
 }

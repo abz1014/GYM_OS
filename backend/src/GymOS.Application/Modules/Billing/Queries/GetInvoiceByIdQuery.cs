@@ -38,7 +38,7 @@ public class GetInvoiceByIdQueryHandler(IApplicationDbContext db) : IRequestHand
             $"{invoice.Member?.FirstName} {invoice.Member?.LastName}".Trim(),
             invoice.IssueDate, invoice.DueDate, invoice.Status, invoice.Subtotal, invoice.TaxAmount,
             invoice.DiscountAmount, invoice.TotalAmount, invoice.Currency, invoice.Notes,
-            invoice.Lines.Select(l => new InvoiceLineDto(l.Id, l.ItemType, l.Description, l.Quantity, l.UnitPrice, l.Quantity * l.UnitPrice)).ToList(),
+            invoice.Lines.Select(l => new InvoiceLineDto(l.Id, l.ItemType, l.Description, l.Quantity, l.UnitPrice, l.Quantity * l.UnitPrice, l.InventoryItemId)).ToList(),
             invoice.Payments.Select(p => new PaymentDto(p.Id, p.Method, p.Amount, p.PaidAt, p.GatewayTransactionId, p.Status)).ToList(),
             refunds.Select(r => new RefundDto(r.Id, r.PaymentId, r.Amount, r.Reason, r.RefundedAt, r.Status)).ToList(),
             amountPaid, invoice.TotalAmount - amountPaid);

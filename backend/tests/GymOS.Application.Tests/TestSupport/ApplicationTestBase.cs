@@ -61,6 +61,7 @@ public abstract class ApplicationTestBase : IDisposable
         services.AddScoped<IEmailSender, NoOpEmailSender>();
         services.AddScoped<ISmsSender, NoOpSmsSender>();
         services.AddScoped<IWhatsAppSender, NoOpWhatsAppSender>();
+        services.AddSingleton<ILoginAttemptTracker, LoginAttemptTracker>();
 
         services.AddApplication();
 

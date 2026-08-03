@@ -16,15 +16,19 @@ import {
   exportEquipmentDowntimeReport,
   exportInventoryStockMovementReport,
   exportMembershipReport,
+  exportNutritionReport,
   exportRevenueReport,
   exportTrainerCommissionReport,
+  exportWorkoutActivityReport,
   useAttendanceReport,
   useCrmPipelineConversionReport,
   useEquipmentDowntimeReport,
   useInventoryStockMovementReport,
   useMembershipBreakdownReport,
+  useNutritionReport,
   useRevenueReport,
   useTrainerCommissionReport,
+  useWorkoutActivityReport,
 } from '@/modules/reports/api/reportsApi'
 import { SimpleBarChart } from '@/modules/reports/components/SimpleBarChart'
 import { useTrainersList } from '@/modules/trainers/api/trainersApi'
@@ -272,7 +276,8 @@ function InventoryTab() {
 }
 
 function EquipmentTab() {
-  const { data, isLoading } = useAssetsList({})
+  const { data: assetsPage, isLoading } = useAssetsList({ page: 1, pageSize: 100 })
+  const data = assetsPage?.items
   const counts = (data ?? []).reduce<Record<string, number>>((acc, a) => {
     acc[a.status] = (acc[a.status] ?? 0) + 1
     return acc
@@ -341,7 +346,8 @@ function CrmTab() {
 }
 
 function MaintenanceTab() {
-  const { data, isLoading } = useWorkOrdersList({})
+  const { data: workOrdersPage, isLoading } = useWorkOrdersList({ page: 1, pageSize: 100 })
+  const data = workOrdersPage?.items
   const overdueCount = data?.filter((w) => w.isOverdue).length ?? 0
   const counts = (data ?? []).reduce<Record<string, number>>((acc, w) => {
     acc[w.status] = (acc[w.status] ?? 0) + 1
@@ -356,6 +362,92 @@ function MaintenanceTab() {
         <SimpleBarChart data={Object.entries(counts).map(([label, value]) => ({ label, value }))} />
       )}
     </ReportCard>
+  )
+}
+
+function WorkoutsTab() {
+  const { data, isLoading } = useWorkoutActivityReport(30)
+
+  return (
+    <div className="space-y-4">
+      <ReportCard title="Most Logged Exercises (last 30 days)">
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <SimpleBarChart data={(data ?? []).slice(0, 10).map((r) => ({ label: r.exerciseName, value: r.timesLogged }))} />
+        )}
+      </ReportCard>
+
+      <ReportCard
+        title="Workout Activity (last 30 days)"
+        action={<ExportButton onExport={() => exportWorkoutActivityReport(30)} />}
+      >
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <DataTable
+            rows={data ?? []}
+            keyFor={(r) => r.exerciseName}
+            columns={[
+              { header: 'Exercise', render: (r) => r.exerciseName },
+              { header: 'Muscle Group', render: (r) => r.muscleGroup ?? '—' },
+              { header: 'Times Logged', render: (r) => r.timesLogged },
+              { header: 'Total Sets', render: (r) => r.totalSets },
+              { header: 'Total Reps', render: (r) => r.totalReps },
+              { header: 'Avg Weight (kg)', render: (r) => r.avgWeightKg?.toFixed(1) ?? '—' },
+            ]}
+          />
+        )}
+      </ReportCard>
+    </div>
+  )
+}
+
+function NutritionTab() {
+  const { data, isLoading } = useNutritionReport(30)
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ReportCard title="Most Logged Food Items (last 30 days)">
+          {isLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : (
+            <SimpleBarChart
+              data={(data?.topFoodItems ?? []).slice(0, 10).map((r) => ({ label: r.foodItemName, value: r.timesLogged }))}
+            />
+          )}
+        </ReportCard>
+        <ReportCard title="Logging Summary">
+          {isLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : (
+            <div className="flex flex-col gap-2 text-sm">
+              <p>Meal entries logged: <span className="font-medium">{data?.totalMealEntriesLogged ?? 0}</span></p>
+              <p>Total calories logged: <span className="font-medium">{(data?.totalCaloriesLogged ?? 0).toLocaleString()}</span></p>
+              <p>Water logs: <span className="font-medium">{data?.totalWaterLogsLogged ?? 0}</span></p>
+              <p>Total water logged: <span className="font-medium">{((data?.totalWaterMlLogged ?? 0) / 1000).toFixed(1)} L</span></p>
+            </div>
+          )}
+        </ReportCard>
+      </div>
+
+      <ReportCard title="Food Item Breakdown" action={<ExportButton onExport={() => exportNutritionReport(30)} />}>
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <DataTable
+            rows={data?.topFoodItems ?? []}
+            keyFor={(r) => r.foodItemName}
+            columns={[
+              { header: 'Food Item', render: (r) => r.foodItemName },
+              { header: 'Times Logged', render: (r) => r.timesLogged },
+              { header: 'Total Calories', render: (r) => r.totalCaloriesLogged.toLocaleString() },
+            ]}
+          />
+        )}
+      </ReportCard>
+    </div>
   )
 }
 
@@ -377,6 +469,8 @@ export default function ReportsPage() {
           <TabsTrigger value="equipment">Equipment</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="crm">CRM</TabsTrigger>
+          <TabsTrigger value="workouts">Workouts</TabsTrigger>
+          <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
         </TabsList>
 
         <TabsContent value="revenue"><RevenueTab /></TabsContent>
@@ -387,6 +481,8 @@ export default function ReportsPage() {
         <TabsContent value="equipment"><EquipmentTab /></TabsContent>
         <TabsContent value="maintenance"><MaintenanceTab /></TabsContent>
         <TabsContent value="crm"><CrmTab /></TabsContent>
+        <TabsContent value="workouts"><WorkoutsTab /></TabsContent>
+        <TabsContent value="nutrition"><NutritionTab /></TabsContent>
       </Tabs>
     </div>
   )

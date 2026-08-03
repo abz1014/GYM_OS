@@ -29,7 +29,8 @@ const PRIORITY_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' |
 export default function MaintenancePage() {
   const navigate = useNavigate()
   const branchId = useUiStore((s) => s.selectedBranchId)
-  const { data: workOrders, isLoading } = useWorkOrdersList({ branchId })
+  const { data: workOrdersPage, isLoading } = useWorkOrdersList({ branchId, page: 1, pageSize: 100 })
+  const workOrders = workOrdersPage?.items
   const { data: schedules, isLoading: isLoadingSchedules } = useMaintenanceSchedulesList({ branchId })
 
   const overdueCount = workOrders?.filter((w) => w.isOverdue).length ?? 0
@@ -40,7 +41,7 @@ export default function MaintenancePage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            {workOrders?.length ?? '—'} work orders
+            {workOrdersPage?.totalCount ?? '—'} work orders
             {overdueCount > 0 && (
               <span className="flex items-center gap-1 text-destructive">
                 <AlertTriangle className="size-3.5" /> {overdueCount} overdue

@@ -17,9 +17,10 @@ public class CrmController(ISender mediator) : ControllerBase
 {
     [HttpGet]
     [RequirePermission(PermissionCodes.Crm.View)]
-    public async Task<ActionResult<List<LeadListItemDto>>> List(
-        [FromQuery] LeadStage? stage, [FromQuery] Guid? branchId, CancellationToken cancellationToken)
-        => Ok(await mediator.Send(new GetLeadsListQuery(stage, branchId), cancellationToken));
+    public async Task<ActionResult<PagedList<LeadListItemDto>>> List(
+        [FromQuery] LeadStage? stage, [FromQuery] Guid? branchId,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetLeadsListQuery(stage, branchId, page, pageSize), cancellationToken));
 
     [HttpGet("summary")]
     [RequirePermission(PermissionCodes.Crm.View)]

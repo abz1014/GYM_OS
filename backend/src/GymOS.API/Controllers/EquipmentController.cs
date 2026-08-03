@@ -17,9 +17,10 @@ public class EquipmentController(ISender mediator) : ControllerBase
 {
     [HttpGet]
     [RequirePermission(PermissionCodes.Equipment.View)]
-    public async Task<ActionResult<List<AssetListItemDto>>> List(
-        [FromQuery] Guid? branchId, [FromQuery] AssetStatus? status, [FromQuery] string? category, CancellationToken cancellationToken)
-        => Ok(await mediator.Send(new GetAssetsListQuery(branchId, status, category), cancellationToken));
+    public async Task<ActionResult<PagedList<AssetListItemDto>>> List(
+        [FromQuery] Guid? branchId, [FromQuery] AssetStatus? status, [FromQuery] string? category,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetAssetsListQuery(branchId, status, category, page, pageSize), cancellationToken));
 
     [HttpGet("suppliers")]
     [RequirePermission(PermissionCodes.Equipment.View)]

@@ -1,19 +1,22 @@
+using GymOS.Application.Common.Extensions;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Common.Security;
 using GymOS.Application.Modules.Maintenance.Dtos;
 using GymOS.Domain.Maintenance;
+using GymOS.Shared;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymOS.Application.Modules.Maintenance.Queries;
 
-public record GetWorkOrdersListQuery(Guid? BranchId, WorkOrderStatus? Status) : IQuery<List<WorkOrderListItemDto>>;
+public record GetWorkOrdersListQuery(Guid? BranchId, WorkOrderStatus? Status, int Page = 1, int PageSize = 20)
+    : IQuery<PagedList<WorkOrderListItemDto>>;
 
 public class GetWorkOrdersListQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, ICurrentUserService currentUser)
-    : IRequestHandler<GetWorkOrdersListQuery, List<WorkOrderListItemDto>>
+    : IRequestHandler<GetWorkOrdersListQuery, PagedList<WorkOrderListItemDto>>
 {
-    public async Task<List<WorkOrderListItemDto>> Handle(GetWorkOrdersListQuery request, CancellationToken cancellationToken)
+    public async Task<PagedList<WorkOrderListItemDto>> Handle(GetWorkOrdersListQuery request, CancellationToken cancellationToken)
     {
         var accessibleBranchIds = await BranchAccessResolver.GetAccessibleBranchIdsAsync(db, currentUser, cancellationToken);
         var query = db.WorkOrders.AsNoTracking().Include(w => w.Asset).Where(w => accessibleBranchIds.Contains(w.BranchId));
@@ -30,11 +33,12 @@ public class GetWorkOrdersListQueryHandler(IApplicationDbContext db, IDateTimePr
 
         var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
 
-        return await query
+        var projected = query
             .OrderBy(w => w.ScheduledDate)
             .Select(w => new WorkOrderListItemDto(
                 w.Id, w.Asset!.Name, w.Asset.AssetTag, w.Type, w.Priority, w.Status, w.Title, w.ScheduledDate,
-                w.ScheduledDate != null && w.ScheduledDate < today && w.Status != WorkOrderStatus.Completed && w.Status != WorkOrderStatus.Cancelled))
-            .ToListAsync(cancellationToken);
+                w.ScheduledDate != null && w.ScheduledDate < today && w.Status != WorkOrderStatus.Completed && w.Status != WorkOrderStatus.Cancelled));
+
+        return await projected.ToPagedListAsync(request.Page, request.PageSize, cancellationToken);
     }
 }

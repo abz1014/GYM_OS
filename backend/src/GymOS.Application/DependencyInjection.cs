@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IImportEntityHandler, TrainerImportEntityHandler>();
         services.AddScoped<IImportEntityHandler, EquipmentImportEntityHandler>();
         services.AddScoped<IImportEntityHandler, InventoryImportEntityHandler>();
+        services.AddScoped<IImportEntityHandler, LeadImportEntityHandler>();
 
         return services;
     }

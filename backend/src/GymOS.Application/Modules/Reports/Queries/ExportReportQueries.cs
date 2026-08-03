@@ -118,3 +118,40 @@ public class ExportCrmPipelineConversionReportQueryHandler(IApplicationDbContext
         return exporter.ExportToXlsx("CRM Pipeline", ["Section", "Category", "Value"], rows);
     }
 }
+
+public record ExportWorkoutActivityReportQuery(int DaysBack = 30) : IQuery<byte[]>;
+
+public class ExportWorkoutActivityReportQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, IReportExporter exporter)
+    : IRequestHandler<ExportWorkoutActivityReportQuery, byte[]>
+{
+    public async Task<byte[]> Handle(ExportWorkoutActivityReportQuery request, CancellationToken cancellationToken)
+    {
+        var rows = await GetWorkoutActivityReportQueryHandler.BuildAsync(db, dateTimeProvider, request.DaysBack, cancellationToken);
+
+        return exporter.ExportToXlsx(
+            "Workout Activity",
+            ["Exercise", "Muscle Group", "Times Logged", "Total Sets", "Total Reps", "Avg Weight (kg)"],
+            rows.Select(r => (IReadOnlyList<object?>)[r.ExerciseName, r.MuscleGroup, r.TimesLogged, r.TotalSets, r.TotalReps, r.AvgWeightKg]).ToList());
+    }
+}
+
+public record ExportNutritionReportQuery(int DaysBack = 30) : IQuery<byte[]>;
+
+public class ExportNutritionReportQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, IReportExporter exporter)
+    : IRequestHandler<ExportNutritionReportQuery, byte[]>
+{
+    public async Task<byte[]> Handle(ExportNutritionReportQuery request, CancellationToken cancellationToken)
+    {
+        var report = await GetNutritionReportQueryHandler.BuildAsync(db, dateTimeProvider, request.DaysBack, cancellationToken);
+
+        var rows = report.TopFoodItems
+            .Select(r => (IReadOnlyList<object?>)["Food Item", r.FoodItemName, r.TimesLogged, r.TotalCaloriesLogged])
+            .ToList();
+        rows.Add(["Summary", "Total Meal Entries Logged", report.TotalMealEntriesLogged, null]);
+        rows.Add(["Summary", "Total Calories Logged", report.TotalCaloriesLogged, null]);
+        rows.Add(["Summary", "Total Water Logs", report.TotalWaterLogsLogged, null]);
+        rows.Add(["Summary", "Total Water (ml)", report.TotalWaterMlLogged, null]);
+
+        return exporter.ExportToXlsx("Nutrition", ["Section", "Category", "Times Logged", "Calories"], rows);
+    }
+}

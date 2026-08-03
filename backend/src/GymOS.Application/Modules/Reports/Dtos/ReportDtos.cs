@@ -18,3 +18,12 @@ public record InventoryStockMovementReportRowDto(
 
 public record CrmPipelineConversionReportDto(
     IReadOnlyDictionary<string, int> ByStage, int TotalLeads, int ConvertedCount, decimal ConversionRatePercent);
+
+public record WorkoutActivityReportRowDto(
+    string ExerciseName, string? MuscleGroup, int TimesLogged, int TotalSets, int TotalReps, decimal? AvgWeightKg);
+
+public record NutritionFoodItemRowDto(string FoodItemName, int TimesLogged, decimal TotalCaloriesLogged);
+
+public record NutritionReportDto(
+    List<NutritionFoodItemRowDto> TopFoodItems, int TotalMealEntriesLogged, decimal TotalCaloriesLogged,
+    int TotalWaterLogsLogged, int TotalWaterMlLogged);

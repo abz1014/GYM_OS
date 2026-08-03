@@ -3,7 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import type { PagedList } from '@/types/paging'
 
-export type ImportEntityType = 'Member' | 'Trainer' | 'Membership' | 'Equipment' | 'Attendance' | 'Inventory' | 'Payment'
+export type ImportEntityType =
+  | 'Member'
+  | 'Trainer'
+  | 'Membership'
+  | 'Equipment'
+  | 'Attendance'
+  | 'Inventory'
+  | 'Payment'
+  | 'Lead'
 export type ImportStatus = 'Uploaded' | 'Parsing' | 'Validated' | 'Committing' | 'Completed' | 'Failed' | 'RolledBack'
 export type ImportRowStatus = 'Pending' | 'Valid' | 'Invalid' | 'Committed' | 'Skipped'
 

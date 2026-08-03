@@ -102,6 +102,46 @@ public class LoginCommandHandlerTests : ApplicationTestBase
         entry.DataAfter.ShouldContain("REDACTED");
     }
 
+    [Fact]
+    public async Task Five_wrong_passwords_lock_the_account_even_for_the_correct_password_on_the_sixth_try()
+    {
+        await SeedUserAsync("bruteforce@example.com", mfaEnabled: false);
+
+        for (var i = 0; i < 5; i++)
+        {
+            await Should.ThrowAsync<UnauthorizedAccessException>(
+                () => SendAsync(new LoginCommand("bruteforce@example.com", "WrongPassword", null)));
+        }
+
+        var act = () => SendAsync(new LoginCommand("bruteforce@example.com", CorrectPassword, null));
+
+        (await Should.ThrowAsync<UnauthorizedAccessException>(act)).Message.ShouldStartWith("Too many failed login attempts.");
+    }
+
+    [Fact]
+    public async Task A_successful_login_resets_the_failed_attempt_counter()
+    {
+        await SeedUserAsync("resets@example.com", mfaEnabled: false);
+
+        await Should.ThrowAsync<UnauthorizedAccessException>(
+            () => SendAsync(new LoginCommand("resets@example.com", "WrongPassword", null)));
+        await Should.ThrowAsync<UnauthorizedAccessException>(
+            () => SendAsync(new LoginCommand("resets@example.com", "WrongPassword", null)));
+
+        await SendAsync(new LoginCommand("resets@example.com", CorrectPassword, null));
+
+        // 3 more wrong attempts after a successful login is only 3, not 5 — proves the counter
+        // was reset by the successful login rather than carrying over from the earlier failures.
+        for (var i = 0; i < 3; i++)
+        {
+            await Should.ThrowAsync<UnauthorizedAccessException>(
+                () => SendAsync(new LoginCommand("resets@example.com", "WrongPassword", null)));
+        }
+
+        var result = await SendAsync(new LoginCommand("resets@example.com", CorrectPassword, null));
+        result.AccessToken.ShouldNotBeNullOrWhiteSpace();
+    }
+
     private async Task<(Guid TenantId, Guid UserId, string MfaSecret)> SeedUserAsync(string email, bool mfaEnabled)
     {
         using var scope = CreateScope();

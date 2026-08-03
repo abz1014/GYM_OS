@@ -2,7 +2,8 @@ using GymOS.Domain.Billing;
 
 namespace GymOS.Application.Modules.Billing.Dtos;
 
-public record InvoiceLineDto(Guid Id, InvoiceLineItemType ItemType, string Description, int Quantity, decimal UnitPrice, decimal LineTotal);
+public record InvoiceLineDto(
+    Guid Id, InvoiceLineItemType ItemType, string Description, int Quantity, decimal UnitPrice, decimal LineTotal, Guid? InventoryItemId);
 
 public record PaymentDto(Guid Id, PaymentMethod Method, decimal Amount, DateTimeOffset PaidAt, string? GatewayTransactionId, PaymentStatus Status);
 

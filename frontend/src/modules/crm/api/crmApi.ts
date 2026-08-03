@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
+import type { PagedList } from '@/types/paging'
 
 export type LeadSource = 'WalkIn' | 'Referral' | 'SocialMedia' | 'Website' | 'Advertisement' | 'Other'
 export type LeadStage = 'Lead' | 'FollowUp' | 'Trial' | 'Member' | 'Lost'
@@ -52,10 +53,10 @@ export interface CrmPipelineSummary {
 
 export const PIPELINE_STAGES: LeadStage[] = ['Lead', 'FollowUp', 'Trial', 'Member', 'Lost']
 
-export function useLeadsList(params: { stage?: LeadStage; branchId?: string | null }) {
+export function useLeadsList(params: { stage?: LeadStage; branchId?: string | null; page?: number; pageSize?: number }) {
   return useQuery({
     queryKey: ['leads', params],
-    queryFn: async () => (await apiClient.get<LeadListItem[]>('/api/leads', { params })).data,
+    queryFn: async () => (await apiClient.get<PagedList<LeadListItem>>('/api/leads', { params })).data,
   })
 }
 

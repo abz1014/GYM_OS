@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
+import type { PagedList } from '@/types/paging'
 
 export type AssetStatus = 'Active' | 'UnderMaintenance' | 'OutOfService' | 'Retired'
 
@@ -40,10 +41,16 @@ export interface Supplier {
   email: string | null
 }
 
-export function useAssetsList(params: { branchId?: string | null; status?: AssetStatus; category?: string }) {
+export function useAssetsList(params: {
+  branchId?: string | null
+  status?: AssetStatus
+  category?: string
+  page?: number
+  pageSize?: number
+}) {
   return useQuery({
     queryKey: ['assets', params],
-    queryFn: async () => (await apiClient.get<AssetListItem[]>('/api/equipment', { params })).data,
+    queryFn: async () => (await apiClient.get<PagedList<AssetListItem>>('/api/equipment', { params })).data,
   })
 }
 

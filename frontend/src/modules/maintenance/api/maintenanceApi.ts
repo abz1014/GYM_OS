@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
+import type { PagedList } from '@/types/paging'
 
 export type WorkOrderType = 'Preventive' | 'Corrective'
 export type WorkOrderPriority = 'Low' | 'Medium' | 'High' | 'Critical'
@@ -45,10 +46,15 @@ export interface WorkOrderDetail {
   verifiedAt: string | null
 }
 
-export function useWorkOrdersList(params: { branchId?: string | null; status?: WorkOrderStatus }) {
+export function useWorkOrdersList(params: {
+  branchId?: string | null
+  status?: WorkOrderStatus
+  page?: number
+  pageSize?: number
+}) {
   return useQuery({
     queryKey: ['work-orders', params],
-    queryFn: async () => (await apiClient.get<WorkOrderListItem[]>('/api/work-orders', { params })).data,
+    queryFn: async () => (await apiClient.get<PagedList<WorkOrderListItem>>('/api/work-orders', { params })).data,
   })
 }
 

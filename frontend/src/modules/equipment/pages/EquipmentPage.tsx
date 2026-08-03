@@ -41,14 +41,15 @@ function AssetStatusCell({ assetId, status }: { assetId: string; status: AssetSt
 
 export default function EquipmentPage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
-  const { data: assets, isLoading } = useAssetsList({ branchId })
+  const { data, isLoading } = useAssetsList({ branchId, page: 1, pageSize: 100 })
+  const assets = data?.items
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Equipment</h1>
-          <p className="text-sm text-muted-foreground">{assets?.length ?? '—'} assets</p>
+          <p className="text-sm text-muted-foreground">{data?.totalCount ?? '—'} assets</p>
         </div>
         <div className="flex items-center gap-2">
           <CreateSupplierDialog />

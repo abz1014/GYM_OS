@@ -25,7 +25,8 @@ export function CreateMaintenanceScheduleDialog() {
   const [nextDueDate, setNextDueDate] = useState('')
 
   const branchId = useUiStore((s) => s.selectedBranchId)
-  const { data: assets } = useAssetsList({ branchId })
+  const { data: assetsPage } = useAssetsList({ branchId, page: 1, pageSize: 100 })
+  const assets = assetsPage?.items
   const createSchedule = useCreateMaintenanceSchedule()
 
   const reset = () => {

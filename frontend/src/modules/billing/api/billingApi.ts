@@ -25,7 +25,15 @@ export interface InvoiceDetail extends InvoiceListItem {
   taxAmount: number
   discountAmount: number
   notes: string | null
-  lines: { id: string; itemType: string; description: string; quantity: number; unitPrice: number; lineTotal: number }[]
+  lines: {
+    id: string
+    itemType: string
+    description: string
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+    inventoryItemId: string | null
+  }[]
   payments: { id: string; method: PaymentMethod; amount: number; paidAt: string; status: string }[]
   refunds: { id: string; paymentId: string; amount: number; reason: string; refundedAt: string; status: string }[]
 }
@@ -54,7 +62,7 @@ interface CreateInvoiceInput {
   discountAmount: number
   currency: string
   notes?: string
-  lines: { itemType: string; description: string; quantity: number; unitPrice: number }[]
+  lines: { itemType: string; description: string; quantity: number; unitPrice: number; inventoryItemId?: string | null }[]
 }
 
 export function useCreateInvoice() {

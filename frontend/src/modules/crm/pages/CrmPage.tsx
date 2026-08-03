@@ -32,7 +32,11 @@ const STAGE_LABELS: Record<LeadStage, string> = {
 export default function CrmPage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
   const { data: summary } = useCrmPipelineSummary(branchId)
-  const { data: leads, isLoading } = useLeadsList({ branchId })
+  // The Kanban board buckets every lead into a stage column client-side, so it needs the full
+  // set in one page rather than a paginated slice — 200 (the API's max page size) comfortably
+  // covers this app's demo data volumes.
+  const { data, isLoading } = useLeadsList({ branchId, page: 1, pageSize: 200 })
+  const leads = data?.items
   const updateStage = useUpdateLeadStage()
 
   const leadsByStage = (stage: LeadStage) => leads?.filter((l) => l.stage === stage) ?? []

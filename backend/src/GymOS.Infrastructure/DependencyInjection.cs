@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddSingleton<ITotpService, TotpService>();
         services.AddSingleton<IPaymentGateway, NoOpPaymentGateway>();
         services.AddSingleton<IReportExporter, ClosedXmlReportExporter>();
+        services.AddSingleton<ILoginAttemptTracker, LoginAttemptTracker>();
 
         services.AddScoped<IEmailSender, NoOpEmailSender>();
         services.AddScoped<ISmsSender, NoOpSmsSender>();
