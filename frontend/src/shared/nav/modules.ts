@@ -43,5 +43,5 @@ export const NAV_MODULES: NavModule[] = [
   { key: 'reports', label: 'Reports', path: '/reports', icon: BarChart3, permission: 'reports.view', wave: 1 },
   { key: 'notifications', label: 'Notification Center', path: '/notifications', icon: Bell, permission: 'notifications.view', wave: 1 },
   { key: 'migration', label: 'Migration Center', path: '/migration', icon: UploadCloud, permission: 'migration.manage', wave: 3 },
-  { key: 'settings', label: 'Settings', path: '/settings', icon: Settings, permission: 'settings.view', wave: 3 },
+  { key: 'settings', label: 'Settings', path: '/settings', icon: Settings, permission: 'settings.view', wave: 1 },
 ]

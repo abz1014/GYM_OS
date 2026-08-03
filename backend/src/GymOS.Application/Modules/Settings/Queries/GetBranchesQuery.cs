@@ -6,14 +6,22 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymOS.Application.Modules.Settings.Queries;
 
-public record GetBranchesQuery : IQuery<List<BranchDto>>;
+public record GetBranchesQuery(bool IncludeInactive = false) : IQuery<List<BranchDto>>;
 
 public class GetBranchesQueryHandler(IApplicationDbContext db) : IRequestHandler<GetBranchesQuery, List<BranchDto>>
 {
     public Task<List<BranchDto>> Handle(GetBranchesQuery request, CancellationToken cancellationToken)
-        => db.Branches.AsNoTracking()
-            .Where(b => b.IsActive)
+    {
+        var query = db.Branches.AsNoTracking().AsQueryable();
+
+        if (!request.IncludeInactive)
+        {
+            query = query.Where(b => b.IsActive);
+        }
+
+        return query
             .OrderBy(b => b.Name)
-            .Select(b => new BranchDto(b.Id, b.Name, b.City, b.Country, b.TimeZone, b.Currency, b.IsActive))
+            .Select(b => new BranchDto(b.Id, b.Name, b.AddressLine, b.City, b.Country, b.TimeZone, b.Currency, b.IsActive))
             .ToListAsync(cancellationToken);
+    }
 }
