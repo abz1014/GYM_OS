@@ -9,5 +9,13 @@ public interface INotificationSchedulerService
 {
     Task<int> CheckMembershipExpiryAsync(CancellationToken cancellationToken);
 
+    Task<int> CheckBirthdaysAsync(CancellationToken cancellationToken);
+
+    Task<int> CheckMaintenanceDueAsync(CancellationToken cancellationToken);
+
+    Task<int> CheckLowStockAsync(CancellationToken cancellationToken);
+
+    Task<int> CheckFollowUpRemindersAsync(CancellationToken cancellationToken);
+
     Task<int> DispatchDueNotificationsAsync(CancellationToken cancellationToken);
 }

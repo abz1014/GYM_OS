@@ -1,4 +1,7 @@
 using GymOS.Application.Common.Interfaces;
+using GymOS.Domain.Crm;
+using GymOS.Domain.Inventory;
+using GymOS.Domain.Maintenance;
 using GymOS.Domain.Members;
 using GymOS.Domain.Notifications;
 using GymOS.Infrastructure.Persistence;
@@ -113,6 +116,42 @@ public class NotificationDispatchJob(
             if (membership is not null)
             {
                 placeholders["ExpiryDate"] = membership.EndDate.ToString("MMM d, yyyy");
+            }
+        }
+        else if (notification.RelatedEntityType == nameof(MaintenanceSchedule) && notification.RelatedEntityId is not null)
+        {
+            var schedule = await db.MaintenanceSchedules.IgnoreQueryFilters()
+                .Include(s => s.Asset)
+                .FirstOrDefaultAsync(s => s.Id == notification.RelatedEntityId, cancellationToken);
+
+            if (schedule?.Asset is not null)
+            {
+                placeholders["AssetName"] = schedule.Asset.Name;
+            }
+        }
+        else if (notification.RelatedEntityType == nameof(InventoryItem) && notification.RelatedEntityId is not null)
+        {
+            var item = await db.InventoryItems.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(i => i.Id == notification.RelatedEntityId, cancellationToken);
+
+            if (item is not null)
+            {
+                placeholders["ItemName"] = item.Name;
+                placeholders["QuantityOnHand"] = item.QuantityOnHand.ToString();
+            }
+        }
+        else if (notification.RelatedEntityType == nameof(LeadActivity) && notification.RelatedEntityId is not null)
+        {
+            var activity = await db.LeadActivities.IgnoreQueryFilters()
+                .Include(a => a.Lead)
+                .FirstOrDefaultAsync(a => a.Id == notification.RelatedEntityId, cancellationToken);
+
+            // The follow-up-reminder template's {{FirstName}}/{{LastName}} refer to the lead being
+            // followed up on, not the staff recipient — override what the recipient-resolution branch set above.
+            if (activity?.Lead is not null)
+            {
+                placeholders["FirstName"] = activity.Lead.FirstName;
+                placeholders["LastName"] = activity.Lead.LastName;
             }
         }
 

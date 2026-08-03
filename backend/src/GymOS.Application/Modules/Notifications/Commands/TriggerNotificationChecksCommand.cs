@@ -13,7 +13,12 @@ public class TriggerNotificationChecksCommandHandler(INotificationSchedulerServi
 {
     public async Task<TriggerNotificationChecksResultDto> Handle(TriggerNotificationChecksCommand request, CancellationToken cancellationToken)
     {
-        var scheduledCount = await scheduler.CheckMembershipExpiryAsync(cancellationToken);
+        var scheduledCount = await scheduler.CheckMembershipExpiryAsync(cancellationToken)
+            + await scheduler.CheckBirthdaysAsync(cancellationToken)
+            + await scheduler.CheckMaintenanceDueAsync(cancellationToken)
+            + await scheduler.CheckLowStockAsync(cancellationToken)
+            + await scheduler.CheckFollowUpRemindersAsync(cancellationToken);
+
         var dispatchedCount = await scheduler.DispatchDueNotificationsAsync(cancellationToken);
 
         return new TriggerNotificationChecksResultDto(scheduledCount, dispatchedCount);

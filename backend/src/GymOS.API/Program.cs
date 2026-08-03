@@ -127,6 +127,10 @@ app.MapHub<DashboardHub>("/hubs/dashboard");
 
 app.UseHangfireDashboard("/hangfire");
 RecurringJob.AddOrUpdate<MembershipExpiryCheckJob>("membership-expiry-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
+RecurringJob.AddOrUpdate<BirthdayCheckJob>("birthday-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
+RecurringJob.AddOrUpdate<MaintenanceDueCheckJob>("maintenance-due-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
+RecurringJob.AddOrUpdate<LowStockCheckJob>("low-stock-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
+RecurringJob.AddOrUpdate<FollowUpReminderCheckJob>("follow-up-reminder-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<NotificationDispatchJob>("notification-dispatch", job => job.RunAsync(CancellationToken.None), "*/5 * * * *");
 
 app.Run();
