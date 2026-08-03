@@ -1,5 +1,5 @@
 using GymOS.Application.Common.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using GymOS.Application.Modules.Auth;
 
 namespace GymOS.API.Middleware;
 
@@ -15,13 +15,8 @@ public class PermissionResolutionMiddleware(RequestDelegate next)
     {
         if (currentUser.IsAuthenticated && currentUser.UserId is not null)
         {
-            var permissions = await db.RolePermissions.AsNoTracking()
-                .Where(rp => db.UserRoles.Any(ur => ur.UserId == currentUser.UserId && ur.RoleId == rp.RoleId))
-                .Select(rp => rp.Permission!.Code)
-                .Distinct()
-                .ToListAsync(context.RequestAborted);
-
-            context.Items["Permissions"] = permissions;
+            context.Items["Permissions"] =
+                await UserContextLoader.GetPermissionCodesAsync(db, currentUser.UserId.Value, context.RequestAborted);
         }
 
         await next(context);

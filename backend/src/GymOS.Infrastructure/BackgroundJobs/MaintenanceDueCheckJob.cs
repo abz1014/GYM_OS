@@ -43,7 +43,8 @@ public class MaintenanceDueCheckJob(GymOsDbContext db, IDateTimeProvider dateTim
 
             foreach (var schedule in dueSchedules)
             {
-                var recipientUserIds = await GetUsersWithPermissionInBranchAsync(schedule.Asset!.BranchId, PermissionCodes.Maintenance.Manage, cancellationToken);
+                var recipientUserIds = await StaffNotificationRecipients.GetUsersWithPermissionInBranchAsync(
+                    db, schedule.Asset!.BranchId, PermissionCodes.Maintenance.Manage, cancellationToken);
 
                 foreach (var userId in recipientUserIds)
                 {
@@ -73,22 +74,5 @@ public class MaintenanceDueCheckJob(GymOsDbContext db, IDateTimeProvider dateTim
         var created = await db.SaveChangesAsync(cancellationToken);
         logger.LogInformation("Maintenance due check scheduled {Count} notification(s)", created);
         return created;
-    }
-
-    private async Task<List<Guid>> GetUsersWithPermissionInBranchAsync(Guid branchId, string permissionCode, CancellationToken cancellationToken)
-    {
-        var roleIdsWithPermission = db.RolePermissions.IgnoreQueryFilters()
-            .Where(rp => rp.Permission!.Code == permissionCode)
-            .Select(rp => rp.RoleId);
-
-        var userIdsWithRole = db.UserRoles.IgnoreQueryFilters()
-            .Where(ur => roleIdsWithPermission.Contains(ur.RoleId))
-            .Select(ur => ur.UserId);
-
-        return await db.UserBranchAccesses.IgnoreQueryFilters()
-            .Where(uba => uba.BranchId == branchId && userIdsWithRole.Contains(uba.UserId))
-            .Select(uba => uba.UserId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
     }
 }

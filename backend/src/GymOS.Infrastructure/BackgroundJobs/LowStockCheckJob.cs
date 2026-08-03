@@ -40,7 +40,8 @@ public class LowStockCheckJob(GymOsDbContext db, IDateTimeProvider dateTimeProvi
 
             foreach (var item in lowStockItems)
             {
-                var recipientUserIds = await GetUsersWithPermissionInBranchAsync(item.BranchId, PermissionCodes.Inventory.Manage, cancellationToken);
+                var recipientUserIds = await StaffNotificationRecipients.GetUsersWithPermissionInBranchAsync(
+                    db, item.BranchId, PermissionCodes.Inventory.Manage, cancellationToken);
 
                 foreach (var userId in recipientUserIds)
                 {
@@ -69,22 +70,5 @@ public class LowStockCheckJob(GymOsDbContext db, IDateTimeProvider dateTimeProvi
         var created = await db.SaveChangesAsync(cancellationToken);
         logger.LogInformation("Low stock check scheduled {Count} notification(s)", created);
         return created;
-    }
-
-    private async Task<List<Guid>> GetUsersWithPermissionInBranchAsync(Guid branchId, string permissionCode, CancellationToken cancellationToken)
-    {
-        var roleIdsWithPermission = db.RolePermissions.IgnoreQueryFilters()
-            .Where(rp => rp.Permission!.Code == permissionCode)
-            .Select(rp => rp.RoleId);
-
-        var userIdsWithRole = db.UserRoles.IgnoreQueryFilters()
-            .Where(ur => roleIdsWithPermission.Contains(ur.RoleId))
-            .Select(ur => ur.UserId);
-
-        return await db.UserBranchAccesses.IgnoreQueryFilters()
-            .Where(uba => uba.BranchId == branchId && userIdsWithRole.Contains(uba.UserId))
-            .Select(uba => uba.UserId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
     }
 }
