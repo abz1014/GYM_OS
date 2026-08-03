@@ -1,0 +1,31 @@
+# .NET
+backend/**/bin/
+backend/**/obj/
+backend/src/GymOS.API/App_Data/
+*.user
+
+# Local secrets / environment overrides — copy the checked-in .example file and fill in your own values
+backend/src/GymOS.API/appsettings.Development.json
+frontend/.env
+frontend/.env.local
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# IDE / OS
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

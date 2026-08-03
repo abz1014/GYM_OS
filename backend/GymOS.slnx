@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GymOS.API/GymOS.API.csproj" />
+    <Project Path="src/GymOS.Application/GymOS.Application.csproj" />
+    <Project Path="src/GymOS.Domain/GymOS.Domain.csproj" />
+    <Project Path="src/GymOS.Infrastructure/GymOS.Infrastructure.csproj" />
+    <Project Path="src/GymOS.Shared/GymOS.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GymOS.Api.IntegrationTests/GymOS.Api.IntegrationTests.csproj" />
+    <Project Path="tests/GymOS.Application.Tests/GymOS.Application.Tests.csproj" />
+    <Project Path="tests/GymOS.Domain.Tests/GymOS.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

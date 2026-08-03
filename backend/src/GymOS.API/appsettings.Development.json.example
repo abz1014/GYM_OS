@@ -1,0 +1,11 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "Jwt": {
+    "SigningKey": "REPLACE_WITH_YOUR_OWN_RANDOM_KEY_e.g._openssl_rand_base64_48"
+  }
+}

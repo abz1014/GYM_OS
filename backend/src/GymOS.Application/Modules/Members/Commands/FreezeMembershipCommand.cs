@@ -1,0 +1,53 @@
+using FluentValidation;
+using GymOS.Application.Common.Exceptions;
+using GymOS.Application.Common.Interfaces;
+using GymOS.Application.Common.Messaging;
+using GymOS.Domain.Members;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+namespace GymOS.Application.Modules.Members.Commands;
+
+public record FreezeMembershipCommand(Guid MemberMembershipId, DateOnly FreezeStartDate, DateOnly FreezeEndDate) : ICommand<Unit>;
+
+public class FreezeMembershipCommandValidator : AbstractValidator<FreezeMembershipCommand>
+{
+    public FreezeMembershipCommandValidator()
+    {
+        RuleFor(x => x.MemberMembershipId).NotEmpty();
+        RuleFor(x => x.FreezeEndDate).GreaterThanOrEqualTo(x => x.FreezeStartDate);
+    }
+}
+
+public class FreezeMembershipCommandHandler(IApplicationDbContext db) : IRequestHandler<FreezeMembershipCommand, Unit>
+{
+    public async Task<Unit> Handle(FreezeMembershipCommand request, CancellationToken cancellationToken)
+    {
+        var membership = await db.MemberMemberships
+            .Include(m => m.MembershipPlan)
+            .Include(m => m.Member)
+            .FirstOrDefaultAsync(m => m.Id == request.MemberMembershipId, cancellationToken)
+            ?? throw new NotFoundException(nameof(MemberMembership), request.MemberMembershipId);
+
+        var maxFreezeDays = membership.MembershipPlan?.MaxFreezeDays ?? 0;
+        var requestedDays = request.FreezeEndDate.DayNumber - request.FreezeStartDate.DayNumber;
+
+        if (maxFreezeDays <= 0 || requestedDays > maxFreezeDays)
+        {
+            throw new ValidationException($"This plan allows at most {maxFreezeDays} freeze day(s).");
+        }
+
+        membership.FreezeStartDate = request.FreezeStartDate;
+        membership.FreezeEndDate = request.FreezeEndDate;
+        membership.Status = MemberMembershipStatus.Frozen;
+
+        if (membership.Member is not null)
+        {
+            membership.Member.Status = MemberStatus.Frozen;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Unit.Value;
+    }
+}
