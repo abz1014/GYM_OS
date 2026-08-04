@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Pagination } from '@/shared/components/Pagination'
 import { useAdminBranchesList, useAuditLogs, useSystemPreferences } from '@/modules/settings/api/settingsApi'
 import { CreateBranchDialog } from '@/modules/settings/components/CreateBranchDialog'
 import { EditBranchDialog } from '@/modules/settings/components/EditBranchDialog'
@@ -139,21 +138,14 @@ function AuditLogTab() {
               </div>
             </>
           )}
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              Page {data.page} of {data.totalPages || 1} · {data.totalCount} total
-            </span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" disabled={!data.hasPreviousPage} onClick={() => setPage((p) => p - 1)}>
-                <ChevronLeft />
-                Previous
-              </Button>
-              <Button size="sm" variant="outline" disabled={!data.hasNextPage} onClick={() => setPage((p) => p + 1)}>
-                Next
-                <ChevronRight />
-              </Button>
-            </div>
-          </div>
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            totalCount={data.totalCount}
+            hasPreviousPage={data.hasPreviousPage}
+            hasNextPage={data.hasNextPage}
+            onPageChange={setPage}
+          />
         </>
       )}
     </div>

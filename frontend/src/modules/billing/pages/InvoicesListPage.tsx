@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Pagination } from '@/shared/components/Pagination'
 import { useInvoicesList, type InvoiceStatus } from '@/modules/billing/api/billingApi'
 import { CreateInvoiceDialog } from '@/modules/billing/components/CreateInvoiceDialog'
 
@@ -20,7 +22,8 @@ const currency = (amount: number, code: string) => amount.toLocaleString('en-US'
 
 export default function InvoicesListPage() {
   const navigate = useNavigate()
-  const { data, isLoading } = useInvoicesList({ page: 1, pageSize: 50 })
+  const [page, setPage] = useState(1)
+  const { data, isLoading } = useInvoicesList({ page, pageSize: 50 })
 
   return (
     <div className="space-y-4">
@@ -107,6 +110,16 @@ export default function InvoicesListPage() {
               </TableBody>
             </Table>
           </div>
+
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            totalCount={data.totalCount}
+            hasPreviousPage={data.hasPreviousPage}
+            hasNextPage={data.hasNextPage}
+            onPageChange={setPage}
+            itemLabel="invoices"
+          />
         </>
       )}
     </div>

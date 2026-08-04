@@ -1,4 +1,3 @@
-using GymOS.Application.Common.Extensions;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Common.Security;
@@ -9,7 +8,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymOS.Application.Modules.Attendance.Queries;
 
-public record GetAttendanceHistoryQuery(Guid? MemberId, Guid? BranchId, DateOnly? FromDate, DateOnly? ToDate, int Page = 1, int PageSize = 20)
+public record GetAttendanceHistoryQuery(
+    Guid? MemberId, Guid? BranchId, DateOnly? FromDate, DateOnly? ToDate, string? SearchTerm, bool? CheckedInOnly, int Page = 1, int PageSize = 20)
     : IQuery<PagedList<AttendanceRecordDto>>;
 
 public class GetAttendanceHistoryQueryHandler(IApplicationDbContext db, ICurrentUserService currentUser)
@@ -46,11 +46,29 @@ public class GetAttendanceHistoryQueryHandler(IApplicationDbContext db, ICurrent
             query = query.Where(a => a.CheckInAt <= to);
         }
 
-        var projected = query
-            .OrderByDescending(a => a.CheckInAt)
-            .Select(a => new AttendanceRecordDto(
-                a.Id, a.MemberId, a.Member!.FirstName + " " + a.Member.LastName, a.CheckInAt, a.CheckOutAt, a.Method));
+        if (request.CheckedInOnly == true)
+        {
+            query = query.Where(a => a.CheckOutAt == null);
+        }
 
-        return await projected.ToPagedListAsync(request.Page, request.PageSize, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            var term = request.SearchTerm.Trim();
+            query = query.Where(a => a.Member!.FirstName.Contains(term) || a.Member.LastName.Contains(term));
+        }
+
+        // CheckInAt (DateTimeOffset) can't be ordered in SQL on SQLite (the in-memory test
+        // provider) — pull the filtered set once and order/page it client-side, the same
+        // trade-off already made for leads and at-risk members elsewhere in this codebase.
+        var allMatching = await query
+            .Select(a => new AttendanceRecordDto(
+                a.Id, a.MemberId, a.Member!.FirstName + " " + a.Member.LastName, a.CheckInAt, a.CheckOutAt, a.Method))
+            .ToListAsync(cancellationToken);
+
+        var ordered = allMatching.OrderByDescending(a => a.CheckInAt).ToList();
+        var totalCount = ordered.Count;
+        var page = ordered.Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToList();
+
+        return new PagedList<AttendanceRecordDto>(page, request.Page, request.PageSize, totalCount);
     }
 }

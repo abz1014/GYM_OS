@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { QrCode } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Pagination } from '@/shared/components/Pagination'
 import { useAssetsList, useUpdateAssetStatus, type AssetStatus } from '@/modules/equipment/api/equipmentApi'
 import { CreateAssetDialog } from '@/modules/equipment/components/CreateAssetDialog'
 import { CreateSupplierDialog } from '@/modules/equipment/components/CreateSupplierDialog'
@@ -41,7 +43,8 @@ function AssetStatusCell({ assetId, status }: { assetId: string; status: AssetSt
 
 export default function EquipmentPage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
-  const { data, isLoading } = useAssetsList({ branchId, page: 1, pageSize: 100 })
+  const [page, setPage] = useState(1)
+  const { data, isLoading } = useAssetsList({ branchId, page, pageSize: 25 })
   const assets = data?.items
 
   return (
@@ -121,6 +124,16 @@ export default function EquipmentPage() {
               </TableBody>
             </Table>
           </div>
+
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            totalCount={data.totalCount}
+            hasPreviousPage={data.hasPreviousPage}
+            hasNextPage={data.hasNextPage}
+            onPageChange={setPage}
+            itemLabel="assets"
+          />
         </>
       )}
     </div>

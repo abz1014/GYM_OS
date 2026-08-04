@@ -18,7 +18,8 @@ public class GetMyAttendanceQueryHandler(IApplicationDbContext db, ICurrentUserS
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
 
         return await sender.Send(
-            new GetAttendanceHistoryQuery(memberId, BranchId: null, request.FromDate, request.ToDate, request.Page, request.PageSize),
+            new GetAttendanceHistoryQuery(
+                memberId, BranchId: null, request.FromDate, request.ToDate, SearchTerm: null, CheckedInOnly: null, request.Page, request.PageSize),
             cancellationToken);
     }
 }

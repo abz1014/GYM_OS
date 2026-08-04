@@ -18,8 +18,10 @@ public class AttendanceController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Attendance.View)]
     public async Task<ActionResult<PagedList<AttendanceRecordDto>>> List(
         [FromQuery] Guid? memberId, [FromQuery] Guid? branchId, [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate,
+        [FromQuery] string? searchTerm, [FromQuery] bool? checkedInOnly,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
-        => Ok(await mediator.Send(new GetAttendanceHistoryQuery(memberId, branchId, fromDate, toDate, page, pageSize), cancellationToken));
+        => Ok(await mediator.Send(
+            new GetAttendanceHistoryQuery(memberId, branchId, fromDate, toDate, searchTerm, checkedInOnly, page, pageSize), cancellationToken));
 
     [HttpGet("peak-hours")]
     [RequirePermission(PermissionCodes.Attendance.View)]

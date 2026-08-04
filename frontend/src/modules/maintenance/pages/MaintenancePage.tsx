@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AlertTriangle, Wrench } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -6,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Pagination } from '@/shared/components/Pagination'
 import { useMaintenanceSchedulesList, useWorkOrdersList, type WorkOrderStatus } from '@/modules/maintenance/api/maintenanceApi'
 import { CreateMaintenanceScheduleDialog } from '@/modules/maintenance/components/CreateMaintenanceScheduleDialog'
 import { CreateWorkOrderDialog } from '@/modules/maintenance/components/CreateWorkOrderDialog'
@@ -29,7 +31,8 @@ const PRIORITY_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' |
 export default function MaintenancePage() {
   const navigate = useNavigate()
   const branchId = useUiStore((s) => s.selectedBranchId)
-  const { data: workOrdersPage, isLoading } = useWorkOrdersList({ branchId, page: 1, pageSize: 100 })
+  const [page, setPage] = useState(1)
+  const { data: workOrdersPage, isLoading } = useWorkOrdersList({ branchId, page, pageSize: 100 })
   const workOrders = workOrdersPage?.items
   const { data: schedules, isLoading: isLoadingSchedules } = useMaintenanceSchedulesList({ branchId })
 
@@ -140,6 +143,18 @@ export default function MaintenancePage() {
                   </TableBody>
                 </Table>
               </div>
+
+              {workOrdersPage && (
+                <Pagination
+                  page={workOrdersPage.page}
+                  totalPages={workOrdersPage.totalPages}
+                  totalCount={workOrdersPage.totalCount}
+                  hasPreviousPage={workOrdersPage.hasPreviousPage}
+                  hasNextPage={workOrdersPage.hasNextPage}
+                  onPageChange={setPage}
+                  itemLabel="work orders"
+                />
+              )}
             </>
           )}
         </TabsContent>

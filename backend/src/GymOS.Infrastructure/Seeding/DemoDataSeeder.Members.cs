@@ -417,6 +417,69 @@ public partial class DemoDataSeeder
             db.Invoices.Add(invoice);
         }
 
+        // The random spread above (JoinDate + 0-300 days, clamped into the past) only lands an
+        // invoice on today's date by chance — rare enough that, with the dashboard's revenue stat
+        // scoped to whichever single branch is selected (see GetDashboardSummaryQuery), a demo
+        // viewer on an unlucky branch would see $0 revenue regardless of how much history exists.
+        // Guarantee every branch has a couple of real paid invoices dated today, with PaidAt built
+        // from today's UTC midnight rather than "now minus N minutes" so it can never be pushed
+        // into yesterday depending what time of day the seed happens to run.
+        var now = DateTimeOffset.UtcNow;
+        var todayStart = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero);
+        var minutesSoFarToday = Math.Max(1, (int)(now - todayStart).TotalMinutes);
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+
+        foreach (var branch in branches)
+        {
+            var branchMembers = members
+                .Where(m => m.BranchId == branch.Id && m.Status != MemberStatus.Cancelled)
+                .OrderBy(_ => rng.Next())
+                .Take(2)
+                .ToList();
+
+            foreach (var member in branchMembers)
+            {
+                var membership = await db.MemberMemberships.IgnoreQueryFilters()
+                    .Where(mm => mm.MemberId == member.Id).FirstOrDefaultAsync(cancellationToken);
+                var lineAmount = membership?.PricePaid ?? 49.99m;
+
+                var invoice = new Invoice
+                {
+                    TenantId = tenantId,
+                    BranchId = branch.Id,
+                    MemberId = member.Id,
+                    InvoiceNumber = $"INV-{today.Year}-{sequence++:D6}",
+                    IssueDate = today,
+                    DueDate = today.AddDays(7),
+                    Subtotal = lineAmount,
+                    TaxAmount = 0,
+                    DiscountAmount = 0,
+                    TotalAmount = lineAmount,
+                    Currency = "USD",
+                    Status = InvoiceStatus.Paid
+                };
+
+                invoice.Lines.Add(new InvoiceLine
+                {
+                    ItemType = InvoiceLineItemType.MembershipFee,
+                    Description = "Membership fee",
+                    Quantity = 1,
+                    UnitPrice = lineAmount
+                });
+
+                invoice.Payments.Add(new Payment
+                {
+                    Method = _faker.PickRandom(PaymentMethod.Cash, PaymentMethod.Card, PaymentMethod.BankTransfer),
+                    Amount = lineAmount,
+                    PaidAt = todayStart.AddMinutes(rng.Next(0, minutesSoFarToday)),
+                    ReceivedByUserId = receptionist.Id,
+                    Status = PaymentStatus.Completed
+                });
+
+                db.Invoices.Add(invoice);
+            }
+        }
+
         await db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Pagination } from '@/shared/components/Pagination'
 import { useInventoryItemsList } from '@/modules/inventory/api/inventoryApi'
 import { CreateInventoryItemDialog } from '@/modules/inventory/components/CreateInventoryItemDialog'
 import { InventoryItemDetailDialog } from '@/modules/inventory/components/InventoryItemDetailDialog'
@@ -14,15 +15,20 @@ import { useUiStore } from '@/stores/uiStore'
 export default function InventoryPage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
   const [lowStockOnly, setLowStockOnly] = useState(false)
+  const [page, setPage] = useState(1)
   const { data, isLoading } = useInventoryItemsList({
     branchId,
     lowStockOnly: lowStockOnly || undefined,
-    page: 1,
-    pageSize: 100,
+    page,
+    pageSize: 20,
   })
   const items = data?.items
 
-  const lowStockCount = items?.filter((i) => i.isLowStock).length ?? 0
+  // Computed from a dedicated pageSize:1 query rather than the visible page's items — with real
+  // pagination the current page rarely holds every low-stock item, so counting only what's
+  // rendered would undercount as soon as there's more than one page.
+  const { data: lowStockSummary } = useInventoryItemsList({ branchId, lowStockOnly: true, page: 1, pageSize: 1 })
+  const lowStockCount = lowStockSummary?.totalCount ?? 0
 
   return (
     <div className="space-y-4">
@@ -39,7 +45,14 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant={lowStockOnly ? 'default' : 'outline'} size="sm" onClick={() => setLowStockOnly((v) => !v)}>
+          <Button
+            variant={lowStockOnly ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setLowStockOnly((v) => !v)
+              setPage(1)
+            }}
+          >
             Low stock only
           </Button>
           <CreateInventoryItemDialog />
@@ -121,6 +134,18 @@ export default function InventoryPage() {
               </TableBody>
             </Table>
           </div>
+
+          {data && (
+            <Pagination
+              page={data.page}
+              totalPages={data.totalPages}
+              totalCount={data.totalCount}
+              hasPreviousPage={data.hasPreviousPage}
+              hasNextPage={data.hasNextPage}
+              onPageChange={setPage}
+              itemLabel="items"
+            />
+          )}
         </>
       )}
     </div>

@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Pagination } from '@/shared/components/Pagination'
 import { useMembersList, type MemberStatus } from '@/modules/members/api/membersApi'
 import { CreateMemberDialog } from '@/modules/members/components/CreateMemberDialog'
 
@@ -21,12 +22,13 @@ const STATUS_VARIANT: Record<MemberStatus, 'default' | 'secondary' | 'destructiv
 export default function MembersListPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [status, setStatus] = useState<MemberStatus | 'all'>('all')
+  const [page, setPage] = useState(1)
   const navigate = useNavigate()
 
   const { data, isLoading } = useMembersList({
     searchTerm: searchTerm || undefined,
     status: status === 'all' ? undefined : status,
-    page: 1,
+    page,
     pageSize: 50,
   })
 
@@ -47,10 +49,19 @@ export default function MembersListPage() {
             placeholder="Search name, email, code..."
             className="pl-8"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value)
+              setPage(1)
+            }}
           />
         </div>
-        <Select value={status} onValueChange={(v) => setStatus(v as MemberStatus | 'all')}>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v as MemberStatus | 'all')
+            setPage(1)
+          }}
+        >
           <SelectTrigger className="w-[160px]">
             <SelectValue />
           </SelectTrigger>
@@ -150,6 +161,16 @@ export default function MembersListPage() {
               </TableBody>
             </Table>
           </div>
+
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            totalCount={data.totalCount}
+            hasPreviousPage={data.hasPreviousPage}
+            hasNextPage={data.hasNextPage}
+            onPageChange={setPage}
+            itemLabel="members"
+          />
         </>
       )}
     </div>

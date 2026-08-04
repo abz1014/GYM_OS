@@ -12,7 +12,13 @@ export interface AttendanceRecord {
   method: 'QrSimulated' | 'Manual'
 }
 
-export function useAttendanceHistory(params: { branchId?: string | null; page?: number; pageSize?: number }) {
+export function useAttendanceHistory(params: {
+  branchId?: string | null
+  searchTerm?: string
+  checkedInOnly?: boolean
+  page?: number
+  pageSize?: number
+}) {
   return useQuery({
     queryKey: ['attendance', params],
     queryFn: async () => (await apiClient.get<PagedList<AttendanceRecord>>('/api/attendance', { params })).data,

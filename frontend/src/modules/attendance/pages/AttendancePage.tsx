@@ -1,8 +1,13 @@
+import { useState } from 'react'
+import { Search } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Pagination } from '@/shared/components/Pagination'
 import { useAttendanceHistory, useCheckOut, usePeakHours } from '@/modules/attendance/api/attendanceApi'
 import { CheckInPanel } from '@/modules/attendance/components/CheckInPanel'
 import { SimpleBarChart } from '@/modules/reports/components/SimpleBarChart'
@@ -53,13 +58,24 @@ function PeakHoursCard() {
 
 export default function AttendancePage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
-  const { data, isLoading } = useAttendanceHistory({ branchId, page: 1, pageSize: 30 })
+  // Defaults to the one thing front desk actually needs to act on — who's still in the building
+  // and needs checking out — instead of opening on an undifferentiated history dump.
+  const [checkedInOnly, setCheckedInOnly] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(1)
+  const { data, isLoading } = useAttendanceHistory({
+    branchId,
+    checkedInOnly: checkedInOnly || undefined,
+    searchTerm: searchTerm || undefined,
+    page,
+    pageSize: 20,
+  })
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Attendance</h1>
-        <p className="text-sm text-muted-foreground">Simulated QR check-in and visit history.</p>
+        <p className="text-sm text-muted-foreground">Who's checked in right now, and the full visit history.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -68,7 +84,32 @@ export default function AttendancePage() {
           <PeakHoursCard />
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="space-y-3 lg:col-span-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search member name..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value)
+                  setPage(1)
+                }}
+              />
+            </div>
+            <Button
+              variant={checkedInOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setCheckedInOnly((v) => !v)
+                setPage(1)
+              }}
+            >
+              Currently checked in
+            </Button>
+          </div>
+
           {isLoading && (
             <div className="space-y-2">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -78,7 +119,9 @@ export default function AttendancePage() {
           )}
 
           {!isLoading && data?.items.length === 0 && (
-            <p className="rounded-lg border py-8 text-center text-sm text-muted-foreground">No attendance records yet.</p>
+            <p className="rounded-lg border py-8 text-center text-sm text-muted-foreground">
+              {checkedInOnly ? 'No one is currently checked in.' : 'No attendance records match.'}
+            </p>
           )}
 
           {!isLoading && data && data.items.length > 0 && (
@@ -134,6 +177,16 @@ export default function AttendancePage() {
                   </TableBody>
                 </Table>
               </div>
+
+              <Pagination
+                page={data.page}
+                totalPages={data.totalPages}
+                totalCount={data.totalCount}
+                hasPreviousPage={data.hasPreviousPage}
+                hasNextPage={data.hasNextPage}
+                onPageChange={setPage}
+                itemLabel="records"
+              />
             </>
           )}
         </div>
