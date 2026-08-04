@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy } from 'lucide-react'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy, Award } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,9 +21,19 @@ import {
   useMyExperience,
   useMyPersonalRecords,
   useMyMastery,
+  useMyAchievements,
   type OverloadSuggestion,
   type GroupMastery,
+  type AchievementTier,
 } from '@/modules/portal/api/portalApi'
+
+// Badge tier -> ring/text colour for unlocked achievements.
+const TIER_COLOR: Record<AchievementTier, string> = {
+  Bronze: 'border-amber-700/40 text-amber-700',
+  Silver: 'border-slate-400/50 text-slate-500',
+  Gold: 'border-amber-500/50 text-amber-600',
+  Platinum: 'border-cyan-500/50 text-cyan-600',
+}
 
 // PR metric names come back as the enum name; give them friendly labels and units.
 const PR_TYPE_CONFIG: Record<string, { label: string; unit: string }> = {
@@ -126,6 +136,7 @@ export default function MemberPortalPage() {
   const experience = useMyExperience()
   const personalRecords = useMyPersonalRecords()
   const mastery = useMyMastery()
+  const achievements = useMyAchievements()
 
   if (profile.isError) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -276,6 +287,37 @@ export default function MemberPortalPage() {
                   percent={e.masteryPercent}
                   hint={`${e.sessions} session${e.sessions === 1 ? '' : 's'} · best ${e.bestWeightKg}kg`}
                 />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {achievements.data && achievements.data.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <p className="flex items-center gap-2 font-medium">
+              <Award className="size-4 text-amber-500" />
+              Achievements
+            </p>
+            <span className="text-sm text-muted-foreground">
+              {achievements.data.filter((a) => a.unlocked).length} / {achievements.data.length}
+            </span>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              {achievements.data.map((a) => (
+                <div
+                  key={a.code}
+                  className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-center ${
+                    a.unlocked ? TIER_COLOR[a.tier] : 'border-dashed opacity-50'
+                  }`}
+                  title={a.description}
+                >
+                  <Award className={`size-6 ${a.unlocked ? '' : 'text-muted-foreground'}`} />
+                  <p className="text-xs font-medium text-foreground">{a.name}</p>
+                  <p className="text-[10px] leading-tight text-muted-foreground">{a.description}</p>
+                </div>
               ))}
             </div>
           </CardContent>

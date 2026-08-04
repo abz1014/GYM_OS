@@ -140,6 +140,7 @@ public class GymOsDbContext(
     public DbSet<XpTransaction> XpTransactions => Set<XpTransaction>();
     public DbSet<PersonalRecord> PersonalRecords => Set<PersonalRecord>();
     public DbSet<ExerciseMastery> ExerciseMasteries => Set<ExerciseMastery>();
+    public DbSet<MemberAchievement> MemberAchievements => Set<MemberAchievement>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -263,44 +264,52 @@ public class GymOsDbContext(
 
     private async Task DispatchDomainEventsAsync(CancellationToken cancellationToken)
     {
-        // Re-entrancy guard: the follow-up save below can itself be a no-op or (in future slices)
-        // raise further events; we only ever run one dispatch pass per outermost SaveChanges.
+        // Re-entrancy guard: the follow-up saves below must not recurse back into dispatch via
+        // this.SaveChangesAsync — we own the whole multi-pass dispatch here.
         if (_dispatchingDomainEvents)
         {
             return;
         }
 
-        var aggregates = ChangeTracker.Entries<IHasDomainEvents>()
-            .Where(e => e.Entity.DomainEvents.Count > 0)
-            .Select(e => e.Entity)
-            .ToList();
-
-        if (aggregates.Count == 0)
-        {
-            return;
-        }
-
-        var domainEvents = aggregates.SelectMany(a => a.DomainEvents).ToList();
-        aggregates.ForEach(a => a.ClearDomainEvents());
-
         _dispatchingDomainEvents = true;
         try
         {
-            foreach (var domainEvent in domainEvents)
+            // Loop, not a single pass: a handler can raise a follow-up event on a tracked aggregate
+            // (e.g. awarding XP makes MemberProgression raise MemberProgressionChanged), and that
+            // event must be dispatched too — after the first pass's writes are committed, so its
+            // handlers read fresh state. Terminates when a pass raises no new events; handlers on the
+            // terminal events (achievements) don't re-raise.
+            while (true)
             {
-                // Wrap in the Application-layer adapter so Domain stays MediatR-free; handlers
-                // subscribe to DomainEventNotification<TEvent>.
-                var notificationType = typeof(DomainEventNotification<>).MakeGenericType(domainEvent.GetType());
-                var notification = (INotification)Activator.CreateInstance(notificationType, domainEvent)!;
-                await publisher.Publish(notification, cancellationToken);
-            }
+                var aggregates = ChangeTracker.Entries<IHasDomainEvents>()
+                    .Where(e => e.Entity.DomainEvents.Count > 0)
+                    .Select(e => e.Entity)
+                    .ToList();
 
-            // Persist whatever the handlers changed (XP ledger, MemberProgression). base.SaveChanges,
-            // not this.SaveChanges, so we don't re-run the stamping pass or recurse into dispatch —
-            // handler-written rows set their own TenantId/timestamps.
-            if (ChangeTracker.HasChanges())
-            {
-                await base.SaveChangesAsync(cancellationToken);
+                if (aggregates.Count == 0)
+                {
+                    break;
+                }
+
+                var domainEvents = aggregates.SelectMany(a => a.DomainEvents).ToList();
+                aggregates.ForEach(a => a.ClearDomainEvents());
+
+                foreach (var domainEvent in domainEvents)
+                {
+                    // Wrap in the Application-layer adapter so Domain stays MediatR-free; handlers
+                    // subscribe to DomainEventNotification<TEvent>.
+                    var notificationType = typeof(DomainEventNotification<>).MakeGenericType(domainEvent.GetType());
+                    var notification = (INotification)Activator.CreateInstance(notificationType, domainEvent)!;
+                    await publisher.Publish(notification, cancellationToken);
+                }
+
+                // Persist this pass's handler writes before the next pass, so follow-up handlers see
+                // committed state. base.SaveChanges (not this) to skip re-stamping and re-dispatch;
+                // handler-written rows set their own TenantId/timestamps.
+                if (ChangeTracker.HasChanges())
+                {
+                    await base.SaveChangesAsync(cancellationToken);
+                }
             }
         }
         finally

@@ -139,4 +139,9 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<MyMasteryDto>> Mastery(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyMasteryQuery(), cancellationToken));
+
+    [HttpGet("achievements")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyAchievementDto>>> Achievements(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyAchievementsQuery(), cancellationToken));
 }

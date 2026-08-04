@@ -245,6 +245,28 @@ public partial class DemoDataSeeder
         progression.UpdatedAt = now;
         db.MemberProgressions.Add(progression);
 
+        // Achievements the seeded activity clearly earns (first workout/visit, reached level 3, set a
+        // PR). Seeded directly since SetTotalXp above is silent — it doesn't raise the progression
+        // event that would otherwise trigger live achievement evaluation.
+        var earnedAchievements = new (string Code, int DaysAgo)[]
+        {
+            ("first-visit", 30),
+            ("first-workout", 10),
+            ("first-pr", 7),
+            ("level-3", 1)
+        };
+
+        foreach (var (code, daysAgo) in earnedAchievements)
+        {
+            db.MemberAchievements.Add(new MemberAchievement
+            {
+                TenantId = member.TenantId,
+                MemberId = member.Id,
+                Code = code,
+                UnlockedAt = now.AddDays(-daysAgo)
+            });
+        }
+
         await db.SaveChangesAsync(cancellationToken);
     }
 }

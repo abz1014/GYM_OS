@@ -309,3 +309,24 @@ export function useMyMastery() {
     retry: false,
   })
 }
+
+export type AchievementTier = 'Bronze' | 'Silver' | 'Gold' | 'Platinum'
+
+export interface MyAchievement {
+  code: string
+  name: string
+  description: string
+  tier: AchievementTier
+  category: string
+  icon: string
+  unlocked: boolean
+  unlockedAt: string | null
+}
+
+export function useMyAchievements() {
+  return useQuery({
+    queryKey: ['portal', 'achievements'],
+    queryFn: async () => (await apiClient.get<MyAchievement[]>('/api/me/achievements')).data,
+    retry: false,
+  })
+}

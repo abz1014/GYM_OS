@@ -37,6 +37,7 @@ public static class DependencyInjection
         // Member Experience Engine: shared idempotent write-paths used by the domain-event handlers.
         services.AddScoped<IMemberXpService, MemberXpService>();
         services.AddScoped<IWorkoutProgressionService, WorkoutProgressionService>();
+        services.AddScoped<IAchievementService, AchievementService>();
 
         return services;
     }

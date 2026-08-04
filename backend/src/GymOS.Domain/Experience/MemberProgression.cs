@@ -9,7 +9,7 @@ namespace GymOS.Domain.Experience;
 /// TotalXp/Level are mutated only through <see cref="AddXp"/>/<see cref="SetTotalXp"/> so Level and
 /// TotalXp can never drift apart.
 /// </summary>
-public class MemberProgression : BaseEntity, ITenantScoped
+public class MemberProgression : AggregateRoot, ITenantScoped
 {
     public Guid TenantId { get; set; }
 
@@ -21,10 +21,17 @@ public class MemberProgression : BaseEntity, ITenantScoped
 
     public DateTimeOffset UpdatedAt { get; set; }
 
-    /// <summary>Applies an incremental award (from the ledger) and recomputes the level.</summary>
-    public void AddXp(int amount) => SetTotalXp(TotalXp + amount);
+    /// <summary>Applies an incremental award (from the ledger), recomputes the level, and signals that
+    /// this member advanced so downstream projections (achievements) re-evaluate against the committed
+    /// result. Raised on the incremental path only — <see cref="SetTotalXp"/> (rebuild/seed) is silent.</summary>
+    public void AddXp(int amount)
+    {
+        SetTotalXp(TotalXp + amount);
+        AddDomainEvent(new MemberProgressionChangedEvent(MemberId));
+    }
 
-    /// <summary>Sets the absolute total (used by a full rebuild from the ledger) and recomputes the level.</summary>
+    /// <summary>Sets the absolute total (used by a full rebuild from the ledger, or seeding) and
+    /// recomputes the level. Deliberately does not raise a change event.</summary>
     public void SetTotalXp(long totalXp)
     {
         TotalXp = totalXp < 0 ? 0 : totalXp;

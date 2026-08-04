@@ -181,5 +181,7 @@ public interface IApplicationDbContext
 
     DbSet<ExerciseMastery> ExerciseMasteries { get; }
 
+    DbSet<MemberAchievement> MemberAchievements { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

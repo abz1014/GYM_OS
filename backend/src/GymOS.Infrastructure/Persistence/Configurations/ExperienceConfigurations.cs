@@ -40,3 +40,13 @@ public class ExerciseMasteryConfiguration : IEntityTypeConfiguration<ExerciseMas
         builder.HasIndex(m => new { m.MemberId, m.ExerciseId }).IsUnique();
     }
 }
+
+public class MemberAchievementConfiguration : IEntityTypeConfiguration<MemberAchievement>
+{
+    public void Configure(EntityTypeBuilder<MemberAchievement> builder)
+    {
+        builder.Property(a => a.Code).HasMaxLength(60).IsRequired();
+        // Unlock-once: a member can hold each achievement code at most one time.
+        builder.HasIndex(a => new { a.MemberId, a.Code }).IsUnique();
+    }
+}

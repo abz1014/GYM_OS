@@ -34,3 +34,15 @@ public record ExerciseMasteryDto(
     DateTimeOffset LastTrainedAt);
 
 public record GroupMasteryDto(string Name, int Sessions, decimal TotalVolume, int MasteryPercent);
+
+/// <summary>One achievement on the member's shelf — the catalog definition plus whether they've
+/// unlocked it (and when). Locked ones are returned too, so the shelf can show what's next.</summary>
+public record MyAchievementDto(
+    string Code,
+    string Name,
+    string Description,
+    string Tier,
+    string Category,
+    string Icon,
+    bool Unlocked,
+    DateTimeOffset? UnlockedAt);
