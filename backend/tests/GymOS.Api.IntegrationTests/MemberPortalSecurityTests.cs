@@ -5,6 +5,7 @@ using GymOS.Api.IntegrationTests.TestSupport;
 using GymOS.Application.Modules.Auth.Commands;
 using GymOS.Application.Modules.Auth.Dtos;
 using GymOS.Domain.Classes;
+using GymOS.Domain.Members;
 using GymOS.Domain.Workouts;
 using GymOS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -169,6 +170,70 @@ public class MemberPortalSecurityTests(GymOsWebApplicationFactory factory) : ICl
             .ShouldBe(ClassBookingStatus.Booked);
     }
 
+    [Fact]
+    public async Task A_member_cannot_mark_another_members_goal_achieved()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var attacker = await TestDataSeeder.SeedPortalMemberAsync(db);
+        var victim = await TestDataSeeder.SeedPortalMemberAsync(db);
+
+        var victimGoal = new MemberGoal
+        {
+            TenantId = victim.TenantId,
+            MemberId = victim.MemberId,
+            Title = "Run a 10k",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        db.MemberGoals.Add(victimGoal);
+        await db.SaveChangesAsync();
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, attacker.Email));
+
+        // 404, not 403 — the attacker must not even learn the goal exists.
+        var response = await client.PostAsync($"/api/me/goals/{victimGoal.Id}/achieve", null);
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        (await verifyDb.MemberGoals.IgnoreQueryFilters().FirstAsync(g => g.Id == victimGoal.Id)).IsAchieved.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Progress_endpoint_shows_only_the_callers_own_goals()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var attacker = await TestDataSeeder.SeedPortalMemberAsync(db);
+        var victim = await TestDataSeeder.SeedPortalMemberAsync(db);
+
+        db.MemberGoals.Add(new MemberGoal
+        {
+            TenantId = victim.TenantId,
+            MemberId = victim.MemberId,
+            Title = "Victim's secret goal",
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, attacker.Email));
+
+        // Create a goal as the attacker through the API, then read progress back.
+        var create = await client.PostAsJsonAsync("/api/me/goals", new { title = "Bench 100kg", targetDate = (string?)null });
+        create.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var response = await client.GetAsync("/api/me/progress");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var progress = await response.Content.ReadFromJsonAsync<MeProgress>();
+
+        progress!.goals.Count.ShouldBe(1);
+        progress.goals[0].title.ShouldBe("Bench 100kg");
+        // SeedPortalMemberAsync gives each member exactly one attendance record.
+        progress.totalVisits.ShouldBe(1);
+    }
+
     private static async Task<string> LoginAsync(HttpClient client, string email)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new LoginCommand(email, TestDataSeeder.Password, null));
@@ -186,4 +251,8 @@ public class MemberPortalSecurityTests(GymOsWebApplicationFactory factory) : ICl
     private record MePagedAttendance(List<MeAttendanceItem> items, int totalCount);
 
     private record MeWorkoutAssignment(Guid id);
+
+    private record MeGoal(Guid id, string title, bool isAchieved);
+
+    private record MeProgress(int weeklyStreak, int totalVisits, List<MeGoal> goals);
 }

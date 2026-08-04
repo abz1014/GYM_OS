@@ -127,3 +127,57 @@ export function useCancelMyClassBooking() {
     onSuccess: () => invalidateMyClasses(queryClient),
   })
 }
+
+export interface MyWeightPoint {
+  measuredOn: string
+  weightKg: number
+}
+
+export interface MyGoal {
+  id: string
+  title: string
+  targetDate: string | null
+  isAchieved: boolean
+  achievedAt: string | null
+}
+
+export interface MyProgressPhoto {
+  id: string
+  photoUrl: string
+  takenAt: string
+  notes: string | null
+}
+
+export interface MyProgress {
+  weeklyStreak: number
+  totalVisits: number
+  visitsThisMonth: number
+  weightTrend: MyWeightPoint[]
+  goals: MyGoal[]
+  photos: MyProgressPhoto[]
+}
+
+export function useMyProgress() {
+  return useQuery({
+    queryKey: ['portal', 'progress'],
+    queryFn: async () => (await apiClient.get<MyProgress>('/api/me/progress')).data,
+    retry: false,
+  })
+}
+
+export function useCreateMyGoal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { title: string; targetDate: string | null }) =>
+      (await apiClient.post<string>('/api/me/goals', payload)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'progress'] }),
+  })
+}
+
+export function useAchieveMyGoal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (goalId: string) => apiClient.post(`/api/me/goals/${goalId}/achieve`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'progress'] }),
+  })
+}

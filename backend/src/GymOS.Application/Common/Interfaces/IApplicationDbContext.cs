@@ -62,6 +62,8 @@ public interface IApplicationDbContext
 
     DbSet<MemberMembership> MemberMemberships { get; }
 
+    DbSet<MemberGoal> MemberGoals { get; }
+
     DbSet<MembershipPlan> MembershipPlans { get; }
 
     DbSet<Discount> Discounts { get; }

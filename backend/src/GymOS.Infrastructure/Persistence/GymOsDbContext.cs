@@ -50,6 +50,7 @@ public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantPro
     public DbSet<MemberMeasurement> MemberMeasurements => Set<MemberMeasurement>();
     public DbSet<ProgressPhoto> ProgressPhotos => Set<ProgressPhoto>();
     public DbSet<MemberMembership> MemberMemberships => Set<MemberMembership>();
+    public DbSet<MemberGoal> MemberGoals => Set<MemberGoal>();
 
     // Memberships
     public DbSet<MembershipPlan> MembershipPlans => Set<MembershipPlan>();

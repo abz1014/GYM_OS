@@ -182,6 +182,72 @@ public partial class DemoDataSeeder
         }
 
         candidate.UserId = demoUsers[RoleNames.Member].Id;
+
+        // Give the linked demo member a populated My Progress page: recent check-ins spanning three
+        // consecutive weeks (a live streak), a multi-point weight trend, and one open + one achieved
+        // goal. Random seeding can't guarantee any of these land on this specific member.
+        var now = DateTimeOffset.UtcNow;
+        foreach (var daysAgo in new[] { 1, 8, 15 })
+        {
+            var visit = now.AddDays(-daysAgo);
+            db.AttendanceRecords.Add(new AttendanceRecord
+            {
+                TenantId = candidate.TenantId,
+                BranchId = candidate.BranchId,
+                MemberId = candidate.Id,
+                CheckInAt = new DateTimeOffset(visit.Year, visit.Month, visit.Day, 18, 30, 0, TimeSpan.Zero),
+                CheckOutAt = new DateTimeOffset(visit.Year, visit.Month, visit.Day, 19, 45, 0, TimeSpan.Zero),
+                Method = AttendanceMethod.QrSimulated
+            });
+        }
+
+        var seedToday = DateOnly.FromDateTime(DateTime.UtcNow);
+        decimal[] weights = [86.4m, 85.1m, 84.3m, 83.0m];
+        for (var i = 0; i < weights.Length; i++)
+        {
+            db.MemberMeasurements.Add(new MemberMeasurement
+            {
+                MemberId = candidate.Id,
+                MeasuredOn = seedToday.AddDays(-21 * (weights.Length - 1 - i)),
+                WeightKg = weights[i],
+                BodyFatPercentage = 24.0m - i
+            });
+        }
+
+        // Before/after pair so the progress-photo strip demonstrates the comparison, not a lone image.
+        db.ProgressPhotos.Add(new ProgressPhoto
+        {
+            MemberId = candidate.Id,
+            PhotoUrl = "https://picsum.photos/seed/demo-progress-before/400/600",
+            TakenAt = now.AddDays(-63),
+            Notes = "Starting point"
+        });
+        db.ProgressPhotos.Add(new ProgressPhoto
+        {
+            MemberId = candidate.Id,
+            PhotoUrl = "https://picsum.photos/seed/demo-progress-after/400/600",
+            TakenAt = now.AddDays(-3),
+            Notes = "Two months in"
+        });
+
+        db.MemberGoals.Add(new MemberGoal
+        {
+            TenantId = candidate.TenantId,
+            MemberId = candidate.Id,
+            Title = "Lose 5 kg before summer",
+            TargetDate = seedToday.AddDays(60),
+            CreatedAt = now.AddDays(-45)
+        });
+        db.MemberGoals.Add(new MemberGoal
+        {
+            TenantId = candidate.TenantId,
+            MemberId = candidate.Id,
+            Title = "Train 3x a week for a full month",
+            IsAchieved = true,
+            AchievedAt = now.AddDays(-10),
+            CreatedAt = now.AddDays(-50)
+        });
+
         await db.SaveChangesAsync(cancellationToken);
     }
 

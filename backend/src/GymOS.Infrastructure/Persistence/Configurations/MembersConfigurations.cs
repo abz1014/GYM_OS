@@ -37,3 +37,14 @@ public class MemberMembershipConfiguration : IEntityTypeConfiguration<MemberMemb
         builder.HasIndex(mm => mm.EndDate);
     }
 }
+
+public class MemberGoalConfiguration : IEntityTypeConfiguration<MemberGoal>
+{
+    public void Configure(EntityTypeBuilder<MemberGoal> builder)
+    {
+        builder.Property(g => g.Title).HasMaxLength(200).IsRequired();
+        builder.HasOne(g => g.Member).WithMany().HasForeignKey(g => g.MemberId).OnDelete(DeleteBehavior.Cascade);
+        // The portal reads "this member's goals, open first" — index the member.
+        builder.HasIndex(g => g.MemberId);
+    }
+}

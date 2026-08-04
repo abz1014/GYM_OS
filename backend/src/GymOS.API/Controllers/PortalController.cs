@@ -84,4 +84,24 @@ public class PortalController(ISender mediator) : ControllerBase
         await mediator.Send(new CancelMyClassBookingCommand(bookingId), cancellationToken);
         return NoContent();
     }
+
+    // Progress & goals: the member's own streak/visits/weight-trend snapshot plus self-set goals.
+    // Same identity rule as everything above — no member id is ever accepted from the caller.
+    [HttpGet("progress")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyProgressDto>> Progress(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyProgressQuery(), cancellationToken));
+
+    [HttpPost("goals")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<Guid>> CreateGoal(CreateMyGoalCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpPost("goals/{goalId:guid}/achieve")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> AchieveGoal(Guid goalId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new AchieveMyGoalCommand(goalId), cancellationToken);
+        return NoContent();
+    }
 }

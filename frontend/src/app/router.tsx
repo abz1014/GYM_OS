@@ -12,6 +12,7 @@ const AccountPage = lazy(() => import('@/modules/auth/pages/AccountPage'))
 const DashboardPage = lazy(() => import('@/modules/dashboard/pages/DashboardPage'))
 const MemberPortalPage = lazy(() => import('@/modules/portal/pages/MemberPortalPage'))
 const MyClassesPage = lazy(() => import('@/modules/portal/pages/MyClassesPage'))
+const MyProgressPage = lazy(() => import('@/modules/portal/pages/MyProgressPage'))
 const MembersListPage = lazy(() => import('@/modules/members/pages/MembersListPage'))
 const MemberDetailPage = lazy(() => import('@/modules/members/pages/MemberDetailPage'))
 const MembershipsPage = lazy(() => import('@/modules/memberships/pages/MembershipsPage'))
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
           { path: 'dashboard', element: withSuspense(<DashboardPage />) },
           { path: 'portal', element: withSuspense(<MemberPortalPage />) },
           { path: 'my-classes', element: withSuspense(<MyClassesPage />) },
+          { path: 'my-progress', element: withSuspense(<MyProgressPage />) },
           { path: 'members', element: withSuspense(<MembersListPage />) },
           { path: 'members/:id', element: withSuspense(<MemberDetailPage />) },
           { path: 'memberships', element: withSuspense(<MembershipsPage />) },
