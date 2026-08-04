@@ -2,8 +2,11 @@ using GymOS.API.Authorization;
 using GymOS.Application.Modules.Attendance.Dtos;
 using GymOS.Application.Modules.Members.Dtos;
 using GymOS.Application.Modules.Nutrition.Dtos;
+using GymOS.Application.Modules.Portal.Commands;
+using GymOS.Application.Modules.Portal.Dtos;
 using GymOS.Application.Modules.Portal.Queries;
 using GymOS.Application.Modules.Workouts.Dtos;
+using GymOS.Domain.Classes;
 using GymOS.Shared;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -55,4 +58,30 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<WaterLogDto>>> WaterLogs(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyWaterLogsQuery(), cancellationToken));
+
+    // Member self-service class booking. Gated by Portal.View (the member-portal access permission);
+    // the real safety is that identity comes from the JWT via MyMemberResolver, so a member can only
+    // ever see and book their own branch's classes and cancel their own bookings.
+    [HttpGet("classes")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyClassSessionDto>>> Classes(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyClassScheduleQuery(), cancellationToken));
+
+    [HttpGet("class-bookings")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyClassBookingDto>>> ClassBookings(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyClassBookingsQuery(), cancellationToken));
+
+    [HttpPost("classes/{sessionId:guid}/book")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<ClassBookingStatus>> BookClass(Guid sessionId, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new BookMyClassCommand(sessionId), cancellationToken));
+
+    [HttpPost("class-bookings/{bookingId:guid}/cancel")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> CancelClassBooking(Guid bookingId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new CancelMyClassBookingCommand(bookingId), cancellationToken);
+        return NoContent();
+    }
 }

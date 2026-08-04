@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using GymOS.Api.IntegrationTests.TestSupport;
 using GymOS.Application.Modules.Auth.Commands;
 using GymOS.Application.Modules.Auth.Dtos;
+using GymOS.Domain.Classes;
 using GymOS.Domain.Workouts;
 using GymOS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -120,6 +121,52 @@ public class MemberPortalSecurityTests(GymOsWebApplicationFactory factory) : ICl
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var assignments = await response.Content.ReadFromJsonAsync<List<MeWorkoutAssignment>>();
         assignments.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_member_cannot_cancel_another_members_class_booking()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var attacker = await TestDataSeeder.SeedPortalMemberAsync(db);
+        var victim = await TestDataSeeder.SeedPortalMemberAsync(db);
+
+        var classType = new ClassType { TenantId = victim.TenantId, Name = "Spin", DefaultDurationMinutes = 45, DefaultCapacity = 20 };
+        db.ClassTypes.Add(classType);
+        var session = new ClassSession
+        {
+            TenantId = victim.TenantId,
+            BranchId = await db.Branches.IgnoreQueryFilters().Where(b => b.TenantId == victim.TenantId).Select(b => b.Id).FirstAsync(),
+            ClassTypeId = classType.Id,
+            StartsAt = DateTimeOffset.UtcNow.AddDays(2),
+            DurationMinutes = 45,
+            Capacity = 20,
+            Status = ClassSessionStatus.Scheduled
+        };
+        db.ClassSessions.Add(session);
+        var victimBooking = new ClassBooking
+        {
+            TenantId = victim.TenantId,
+            BranchId = session.BranchId,
+            ClassSessionId = session.Id,
+            MemberId = victim.MemberId,
+            Status = ClassBookingStatus.Booked,
+            BookedAt = DateTimeOffset.UtcNow
+        };
+        db.ClassBookings.Add(victimBooking);
+        await db.SaveChangesAsync();
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, attacker.Email));
+
+        var response = await client.PostAsync($"/api/me/class-bookings/{victimBooking.Id}/cancel", null);
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        // The victim's booking must be untouched.
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        (await verifyDb.ClassBookings.IgnoreQueryFilters().FirstAsync(b => b.Id == victimBooking.Id)).Status
+            .ShouldBe(ClassBookingStatus.Booked);
     }
 
     private static async Task<string> LoginAsync(HttpClient client, string email)

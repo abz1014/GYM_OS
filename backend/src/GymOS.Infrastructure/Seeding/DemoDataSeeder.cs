@@ -63,7 +63,9 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
 
         await SeedAttendanceAsync(tenant.Id, branches, members, cancellationToken);
         await SeedInvoicesAndPaymentsAsync(tenant.Id, branches, members, demoUsers, cancellationToken);
-        await LinkDemoMemberAccountAsync(demoUsers, cancellationToken);
+        // branches[0] is the branch group classes are seeded into (see SeedClassesAsync), so link
+        // the demo member there — it lets the Step 3 member-booking demo work out of the box.
+        await LinkDemoMemberAccountAsync(demoUsers, branches[0].Id, cancellationToken);
 
         var trainers = await SeedTrainersAsync(tenant.Id, branches, demoUsers, cancellationToken);
         await SeedTrainerAssignmentsAsync(trainers, members, cancellationToken);

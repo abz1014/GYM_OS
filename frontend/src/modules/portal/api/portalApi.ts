@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
 import type { MemberDetail } from '@/modules/members/api/membersApi'
 import type { AttendanceRecord } from '@/modules/attendance/api/attendanceApi'
+import type { ClassBookingStatus } from '@/modules/classes/api/classesApi'
 import type { WorkoutAssignmentListItem, WorkoutLog } from '@/modules/workouts/api/workoutsApi'
 import type { DietPlanListItem, WaterLog } from '@/modules/nutrition/api/nutritionApi'
 import type { PagedList } from '@/types/paging'
@@ -59,5 +60,70 @@ export function useMyWaterLogs() {
     queryKey: ['portal', 'water'],
     queryFn: async () => (await apiClient.get<WaterLog[]>('/api/me/nutrition/water')).data,
     retry: false,
+  })
+}
+
+export interface MyClassSession {
+  sessionId: string
+  classTypeName: string
+  colorHex: string | null
+  trainerName: string | null
+  startsAt: string
+  durationMinutes: number
+  capacity: number
+  location: string | null
+  bookedCount: number
+  isFull: boolean
+  myBookingStatus: ClassBookingStatus | null
+  myBookingId: string | null
+}
+
+export interface MyClassBooking {
+  bookingId: string
+  sessionId: string
+  classTypeName: string
+  colorHex: string | null
+  trainerName: string | null
+  startsAt: string
+  durationMinutes: number
+  location: string | null
+  status: ClassBookingStatus
+}
+
+export function useMyClassSchedule() {
+  return useQuery({
+    queryKey: ['portal', 'classes'],
+    queryFn: async () => (await apiClient.get<MyClassSession[]>('/api/me/classes')).data,
+    retry: false,
+  })
+}
+
+export function useMyClassBookings() {
+  return useQuery({
+    queryKey: ['portal', 'class-bookings'],
+    queryFn: async () => (await apiClient.get<MyClassBooking[]>('/api/me/class-bookings')).data,
+    retry: false,
+  })
+}
+
+function invalidateMyClasses(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['portal', 'classes'] })
+  queryClient.invalidateQueries({ queryKey: ['portal', 'class-bookings'] })
+}
+
+export function useBookMyClass() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (sessionId: string) =>
+      (await apiClient.post<ClassBookingStatus>(`/api/me/classes/${sessionId}/book`)).data,
+    onSuccess: () => invalidateMyClasses(queryClient),
+  })
+}
+
+export function useCancelMyClassBooking() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (bookingId: string) => apiClient.post(`/api/me/class-bookings/${bookingId}/cancel`),
+    onSuccess: () => invalidateMyClasses(queryClient),
   })
 }

@@ -161,14 +161,19 @@ public partial class DemoDataSeeder
     /// attendance/invoices are seeded so the chosen member demonstrably has both, rather than
     /// guessing a fixed index against the member-seeding RNG's output.
     /// </summary>
-    private async Task LinkDemoMemberAccountAsync(Dictionary<string, User> demoUsers, CancellationToken cancellationToken)
+    private async Task LinkDemoMemberAccountAsync(Dictionary<string, User> demoUsers, Guid preferredBranchId, CancellationToken cancellationToken)
     {
-        var candidate = await db.Members.IgnoreQueryFilters()
+        // Base eligibility: an active member with real attendance + billing history so the portal
+        // dashboard has something to show.
+        var eligible = db.Members.IgnoreQueryFilters()
             .Where(m => m.Status == MemberStatus.Active)
             .Where(m => db.AttendanceRecords.IgnoreQueryFilters().Any(a => a.MemberId == m.Id))
-            .Where(m => db.Invoices.IgnoreQueryFilters().Any(inv => inv.MemberId == m.Id))
-            .OrderBy(m => m.MemberCode)
-            .FirstOrDefaultAsync(cancellationToken);
+            .Where(m => db.Invoices.IgnoreQueryFilters().Any(inv => inv.MemberId == m.Id));
+
+        // Prefer a member in the branch that actually has group classes, so the demo member can see
+        // and book classes; fall back to any eligible member if that branch has none.
+        var candidate = await eligible.Where(m => m.BranchId == preferredBranchId).OrderBy(m => m.MemberCode).FirstOrDefaultAsync(cancellationToken)
+            ?? await eligible.OrderBy(m => m.MemberCode).FirstOrDefaultAsync(cancellationToken);
 
         if (candidate is null)
         {

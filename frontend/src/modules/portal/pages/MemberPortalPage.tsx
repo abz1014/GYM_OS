@@ -1,18 +1,28 @@
-import { CalendarDays, Dumbbell, Apple, QrCode, Droplets } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/shared/components/StatCard'
 import { useAuthStore } from '@/stores/authStore'
 import {
   useMyAttendance,
+  useMyClassBookings,
   useMyDietPlans,
   useMyProfile,
   useMyWaterLogs,
   useMyWorkoutAssignments,
   useMyWorkoutLogs,
 } from '@/modules/portal/api/portalApi'
+
+const classTimeFormat = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  hour: 'numeric',
+  minute: '2-digit',
+  timeZone: 'UTC',
+})
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -34,6 +44,7 @@ export default function MemberPortalPage() {
   const attendance = useMyAttendance({ page: 1, pageSize: 10 })
   const workouts = useMyWorkoutLogs()
   const workoutAssignments = useMyWorkoutAssignments()
+  const classBookings = useMyClassBookings()
   const dietPlans = useMyDietPlans()
   const waterLogs = useMyWaterLogs()
 
@@ -88,6 +99,45 @@ export default function MemberPortalPage() {
           />
         </div>
       )}
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+          <p className="font-medium">Your Upcoming Classes</p>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/my-classes">Book a class</Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {classBookings.isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : classBookings.data && classBookings.data.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {classBookings.data.map((b) => (
+                <li key={b.bookingId} className="flex items-center justify-between gap-2 border-b pb-2 last:border-0">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: b.colorHex ?? 'var(--muted-foreground)' }}
+                    />
+                    <span className="truncate font-medium">{b.classTypeName}</span>
+                    <span className="shrink-0 text-muted-foreground">{classTimeFormat.format(new Date(b.startsAt))}</span>
+                  </div>
+                  {b.status === 'Waitlisted' && (
+                    <Badge variant="secondary" className="shrink-0">
+                      Waitlisted
+                    </Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
+              <CalendarCheck className="size-6" />
+              No classes booked yet — reserve your spot.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SectionCard title="Recent Check-ins">
