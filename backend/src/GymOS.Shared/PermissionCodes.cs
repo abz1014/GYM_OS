@@ -80,6 +80,12 @@ public static class PermissionCodes
         public const string Manage = "trainers.manage";
     }
 
+    public static class Classes
+    {
+        public const string View = "classes.view";
+        public const string Manage = "classes.manage";
+    }
+
     public static class Equipment
     {
         public const string View = "equipment.view";

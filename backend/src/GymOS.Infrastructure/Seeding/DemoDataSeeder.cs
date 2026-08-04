@@ -48,7 +48,12 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         var tenant = await SeedTenantAndBranchesAsync(cancellationToken);
-        var branches = await db.Branches.IgnoreQueryFilters().Where(b => b.TenantId == tenant.Id).ToListAsync(cancellationToken);
+        // Order by name so branches[0] is deterministic and matches the frontend's default branch
+        // (GetBranchesQuery also orders by name → "Downtown" first). Without this, a raw load can
+        // return branches in any order, landing all the single-branch demo data (classes, trainers,
+        // equipment, …) on a branch the UI doesn't select by default — making the demo look empty.
+        var branches = await db.Branches.IgnoreQueryFilters()
+            .Where(b => b.TenantId == tenant.Id).OrderBy(b => b.Name).ToListAsync(cancellationToken);
 
         var (roles, permissions) = await SeedRolesAndPermissionsAsync(tenant.Id, cancellationToken);
         var demoUsers = await SeedDemoUsersAsync(tenant.Id, branches, roles, cancellationToken);
@@ -62,6 +67,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
 
         var trainers = await SeedTrainersAsync(tenant.Id, branches, demoUsers, cancellationToken);
         await SeedTrainerAssignmentsAsync(trainers, members, cancellationToken);
+        await SeedClassesAsync(tenant.Id, branches, trainers, cancellationToken);
 
         var assets = await SeedEquipmentAsync(tenant.Id, branches, cancellationToken);
         await SeedMaintenanceAsync(tenant.Id, branches, assets, demoUsers, cancellationToken);
@@ -134,12 +140,14 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
                 PermissionCodes.Dashboard.View, PermissionCodes.Members.View, PermissionCodes.Members.Create, PermissionCodes.Members.Update,
                 PermissionCodes.Members.ManageMembership, PermissionCodes.Memberships.View, PermissionCodes.Billing.View,
                 PermissionCodes.Billing.CreateInvoice, PermissionCodes.Billing.RecordPayment, PermissionCodes.Attendance.View,
-                PermissionCodes.Attendance.CheckIn, PermissionCodes.Crm.View, PermissionCodes.Crm.ManageLeads
+                PermissionCodes.Attendance.CheckIn, PermissionCodes.Crm.View, PermissionCodes.Crm.ManageLeads,
+                PermissionCodes.Classes.View, PermissionCodes.Classes.Manage
             ],
             [RoleNames.Trainer] =
             [
                 PermissionCodes.Dashboard.View, PermissionCodes.Members.View, PermissionCodes.Trainers.View,
-                PermissionCodes.Attendance.View, PermissionCodes.Workouts.View, PermissionCodes.Workouts.Manage
+                PermissionCodes.Attendance.View, PermissionCodes.Workouts.View, PermissionCodes.Workouts.Manage,
+                PermissionCodes.Classes.View
             ],
             [RoleNames.Nutritionist] =
             [
@@ -203,6 +211,8 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         (PermissionCodes.Crm.ManageLeads, "crm", "Manage CRM leads"),
         (PermissionCodes.Trainers.View, "trainers", "View trainers"),
         (PermissionCodes.Trainers.Manage, "trainers", "Manage trainers"),
+        (PermissionCodes.Classes.View, "classes", "View class schedule and sessions"),
+        (PermissionCodes.Classes.Manage, "classes", "Manage class types, schedules, and sessions"),
         (PermissionCodes.Equipment.View, "equipment", "View equipment assets"),
         (PermissionCodes.Equipment.Manage, "equipment", "Manage equipment assets"),
         (PermissionCodes.Maintenance.View, "maintenance", "View maintenance work orders"),

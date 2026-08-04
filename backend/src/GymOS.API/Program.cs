@@ -148,6 +148,7 @@ RecurringJob.AddOrUpdate<BirthdayCheckJob>("birthday-check", job => job.RunAsync
 RecurringJob.AddOrUpdate<MaintenanceDueCheckJob>("maintenance-due-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<LowStockCheckJob>("low-stock-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<FollowUpReminderCheckJob>("follow-up-reminder-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
+RecurringJob.AddOrUpdate<ClassSessionGenerationJob>("class-session-generation", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<NotificationDispatchJob>("notification-dispatch", job => job.RunAsync(CancellationToken.None), "*/5 * * * *");
 
 app.Run();

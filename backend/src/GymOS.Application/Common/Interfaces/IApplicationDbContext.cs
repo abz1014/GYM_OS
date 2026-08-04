@@ -1,6 +1,7 @@
 using GymOS.Domain.Attendance;
 using GymOS.Domain.Auditing;
 using GymOS.Domain.Billing;
+using GymOS.Domain.Classes;
 using GymOS.Domain.Crm;
 using GymOS.Domain.Equipment;
 using GymOS.Domain.Identity;
@@ -156,6 +157,13 @@ public interface IApplicationDbContext
     DbSet<ImportRow> ImportRows { get; }
 
     DbSet<ImportFieldMapping> ImportFieldMappings { get; }
+
+    // Classes / Scheduling
+    DbSet<ClassType> ClassTypes { get; }
+
+    DbSet<ClassSchedule> ClassSchedules { get; }
+
+    DbSet<ClassSession> ClassSessions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

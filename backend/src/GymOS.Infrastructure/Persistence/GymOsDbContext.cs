@@ -3,6 +3,7 @@ using GymOS.Application.Common.Interfaces;
 using GymOS.Domain.Attendance;
 using GymOS.Domain.Auditing;
 using GymOS.Domain.Billing;
+using GymOS.Domain.Classes;
 using GymOS.Domain.Common;
 using GymOS.Domain.Crm;
 using GymOS.Domain.Equipment;
@@ -117,6 +118,11 @@ public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantPro
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
     public DbSet<ImportRow> ImportRows => Set<ImportRow>();
     public DbSet<ImportFieldMapping> ImportFieldMappings => Set<ImportFieldMapping>();
+
+    // Classes / Scheduling
+    public DbSet<ClassType> ClassTypes => Set<ClassType>();
+    public DbSet<ClassSchedule> ClassSchedules => Set<ClassSchedule>();
+    public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
