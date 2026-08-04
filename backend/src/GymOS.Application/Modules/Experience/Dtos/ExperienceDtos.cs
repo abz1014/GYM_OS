@@ -10,3 +10,27 @@ public record MyExperienceDto(
     IReadOnlyList<MyXpEntryDto> Recent);
 
 public record MyXpEntryDto(int Amount, string Reason, DateTimeOffset OccurredAt);
+
+/// <summary>A member's current best on one exercise/metric (the max of an append-only PR ledger).</summary>
+public record MyPersonalRecordDto(Guid ExerciseId, string ExerciseName, string Type, decimal Value, DateTimeOffset AchievedAt);
+
+/// <summary>Mastery broken down three ways — per exercise, and aggregated by muscle group and by
+/// machine (equipment) — each carrying a bounded 0–100 mastery percent.</summary>
+public record MyMasteryDto(
+    IReadOnlyList<ExerciseMasteryDto> Exercises,
+    IReadOnlyList<GroupMasteryDto> MuscleGroups,
+    IReadOnlyList<GroupMasteryDto> Machines);
+
+public record ExerciseMasteryDto(
+    Guid ExerciseId,
+    string ExerciseName,
+    string? MuscleGroup,
+    string? Equipment,
+    int Sessions,
+    decimal BestWeightKg,
+    decimal BestEstimatedOneRepMax,
+    decimal TotalVolume,
+    int MasteryPercent,
+    DateTimeOffset LastTrainedAt);
+
+public record GroupMasteryDto(string Name, int Sessions, decimal TotalVolume, int MasteryPercent);

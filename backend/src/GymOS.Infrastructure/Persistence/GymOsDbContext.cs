@@ -138,6 +138,8 @@ public class GymOsDbContext(
     // Member Experience Engine
     public DbSet<MemberProgression> MemberProgressions => Set<MemberProgression>();
     public DbSet<XpTransaction> XpTransactions => Set<XpTransaction>();
+    public DbSet<PersonalRecord> PersonalRecords => Set<PersonalRecord>();
+    public DbSet<ExerciseMastery> ExerciseMasteries => Set<ExerciseMastery>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

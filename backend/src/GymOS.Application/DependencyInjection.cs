@@ -34,8 +34,9 @@ public static class DependencyInjection
         services.AddScoped<IImportEntityHandler, AttendanceImportEntityHandler>();
         services.AddScoped<IImportEntityHandler, PaymentImportEntityHandler>();
 
-        // Member Experience Engine: shared idempotent XP write-path used by the domain-event handlers.
+        // Member Experience Engine: shared idempotent write-paths used by the domain-event handlers.
         services.AddScoped<IMemberXpService, MemberXpService>();
+        services.AddScoped<IWorkoutProgressionService, WorkoutProgressionService>();
 
         return services;
     }

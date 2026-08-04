@@ -22,3 +22,21 @@ public class XpTransactionConfiguration : IEntityTypeConfiguration<XpTransaction
         builder.HasIndex(t => new { t.MemberId, t.SourceType, t.SourceId, t.Reason });
     }
 }
+
+public class PersonalRecordConfiguration : IEntityTypeConfiguration<PersonalRecord>
+{
+    public void Configure(EntityTypeBuilder<PersonalRecord> builder)
+    {
+        // Backs the "prior best for this exercise+metric" lookup that drives PR detection and the reads.
+        builder.HasIndex(r => new { r.MemberId, r.ExerciseId, r.Type });
+    }
+}
+
+public class ExerciseMasteryConfiguration : IEntityTypeConfiguration<ExerciseMastery>
+{
+    public void Configure(EntityTypeBuilder<ExerciseMastery> builder)
+    {
+        // Exactly one mastery projection per member+exercise — the recompute upserts on this.
+        builder.HasIndex(m => new { m.MemberId, m.ExerciseId }).IsUnique();
+    }
+}

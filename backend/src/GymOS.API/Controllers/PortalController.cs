@@ -129,4 +129,14 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<MyExperienceDto>> Experience(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyExperienceQuery(), cancellationToken));
+
+    [HttpGet("personal-records")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyPersonalRecordDto>>> PersonalRecords(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyPersonalRecordsQuery(), cancellationToken));
+
+    [HttpGet("mastery")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyMasteryDto>> Mastery(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyMasteryQuery(), cancellationToken));
 }

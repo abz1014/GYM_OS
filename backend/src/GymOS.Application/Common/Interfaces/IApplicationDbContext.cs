@@ -177,5 +177,9 @@ public interface IApplicationDbContext
 
     DbSet<XpTransaction> XpTransactions { get; }
 
+    DbSet<PersonalRecord> PersonalRecords { get; }
+
+    DbSet<ExerciseMastery> ExerciseMasteries { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

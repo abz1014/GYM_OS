@@ -259,3 +259,53 @@ export function useMyExperience() {
     retry: false,
   })
 }
+
+export interface MyPersonalRecord {
+  exerciseId: string
+  exerciseName: string
+  type: 'MaxWeight' | 'EstimatedOneRepMax' | 'SessionVolume'
+  value: number
+  achievedAt: string
+}
+
+export function useMyPersonalRecords() {
+  return useQuery({
+    queryKey: ['portal', 'personal-records'],
+    queryFn: async () => (await apiClient.get<MyPersonalRecord[]>('/api/me/personal-records')).data,
+    retry: false,
+  })
+}
+
+export interface ExerciseMastery {
+  exerciseId: string
+  exerciseName: string
+  muscleGroup: string | null
+  equipment: string | null
+  sessions: number
+  bestWeightKg: number
+  bestEstimatedOneRepMax: number
+  totalVolume: number
+  masteryPercent: number
+  lastTrainedAt: string
+}
+
+export interface GroupMastery {
+  name: string
+  sessions: number
+  totalVolume: number
+  masteryPercent: number
+}
+
+export interface MyMastery {
+  exercises: ExerciseMastery[]
+  muscleGroups: GroupMastery[]
+  machines: GroupMastery[]
+}
+
+export function useMyMastery() {
+  return useQuery({
+    queryKey: ['portal', 'mastery'],
+    queryFn: async () => (await apiClient.get<MyMastery>('/api/me/mastery')).data,
+    retry: false,
+  })
+}

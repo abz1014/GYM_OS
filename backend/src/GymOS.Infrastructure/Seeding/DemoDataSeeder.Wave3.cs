@@ -151,6 +151,62 @@ public partial class DemoDataSeeder
 
         db.WaterLogs.Add(new WaterLog { MemberId = member.Id, AmountMl = 750, LoggedAt = now.AddHours(-3) });
 
+        // Member Experience Engine (mastery + personal records): mirror the two lifts seeded above so
+        // the demo member's mastery and PR cards are populated. Seeded directly (values match what the
+        // event-driven WorkoutProgressionService would compute) because seeding runs outside the event
+        // path — the WorkoutLogs above don't call RaiseLogged().
+        void SeedExerciseProgression(
+            Guid exerciseId, int sessions, int totalSets, long totalReps, decimal totalVolume,
+            decimal bestWeight, int bestReps, decimal bestSessionVolume, DateTimeOffset lastTrained, DateTimeOffset prAchievedAt)
+        {
+            db.ExerciseMasteries.Add(new ExerciseMastery
+            {
+                TenantId = member.TenantId,
+                MemberId = member.Id,
+                ExerciseId = exerciseId,
+                Sessions = sessions,
+                TotalSets = totalSets,
+                TotalReps = totalReps,
+                TotalVolume = totalVolume,
+                BestWeightKg = bestWeight,
+                BestEstimatedOneRepMax = OneRepMax.Epley(bestWeight, bestReps),
+                LastTrainedAt = lastTrained,
+                UpdatedAt = now
+            });
+
+            var records = new (PersonalRecordType Type, decimal Value)[]
+            {
+                (PersonalRecordType.MaxWeight, bestWeight),
+                (PersonalRecordType.EstimatedOneRepMax, OneRepMax.Epley(bestWeight, bestReps)),
+                (PersonalRecordType.SessionVolume, bestSessionVolume)
+            };
+
+            foreach (var (type, value) in records)
+            {
+                db.PersonalRecords.Add(new PersonalRecord
+                {
+                    TenantId = member.TenantId,
+                    MemberId = member.Id,
+                    ExerciseId = exerciseId,
+                    Type = type,
+                    Value = value,
+                    AchievedAt = prAchievedAt
+                });
+            }
+        }
+
+        if (benchPress is not null)
+        {
+            // 2 sessions of 3x8 @ 60kg: volume 2880, best-session volume 1440, best 60kg.
+            SeedExerciseProgression(benchPress.Id, 2, 6, 48, 2880m, 60m, 8, 1440m, now.AddDays(-1), now.AddDays(-7));
+        }
+
+        if (squat is not null)
+        {
+            // 4x6 @ 80kg then @ 85kg: volume 3960, best-session volume 2040, best 85kg (set most recently).
+            SeedExerciseProgression(squat.Id, 2, 8, 48, 3960m, 85m, 6, 2040m, now.AddDays(-2), now.AddDays(-2));
+        }
+
         // Member Experience Engine: give the linked demo member a populated Level/XP card out of the
         // box. Awards are written directly here because the seeder runs outside an HTTP context, so
         // the event-driven XP path that fires on live check-ins/workouts never runs during seeding —

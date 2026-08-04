@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap } from 'lucide-react'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,18 @@ import {
   useMyWorkoutLogs,
   useMyWorkoutSuggestions,
   useMyExperience,
+  useMyPersonalRecords,
+  useMyMastery,
   type OverloadSuggestion,
+  type GroupMastery,
 } from '@/modules/portal/api/portalApi'
+
+// PR metric names come back as the enum name; give them friendly labels and units.
+const PR_TYPE_CONFIG: Record<string, { label: string; unit: string }> = {
+  MaxWeight: { label: 'Max weight', unit: 'kg' },
+  EstimatedOneRepMax: { label: 'Est. 1RM', unit: 'kg' },
+  SessionVolume: { label: 'Best session volume', unit: 'kg' },
+}
 
 // Reasons come back from the API as the XpReason enum name; give members friendly labels.
 const XP_REASON_LABELS: Record<string, string> = {
@@ -75,6 +85,22 @@ function MacroBar({ label, consumed, target, unit }: { label: string; consumed: 
   )
 }
 
+function MasteryBar({ label, percent, hint }: { label: string; percent: number; hint?: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span className="truncate">{label}</span>
+        <span className="shrink-0 text-muted-foreground">
+          {percent}%{hint ? ` · ${hint}` : ''}
+        </span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
+      </div>
+    </div>
+  )
+}
+
 const SUGGESTION_CONFIG: Record<OverloadSuggestion, { label: string; icon: typeof TrendingUp; variant: 'success' | 'warning' | 'secondary' | 'outline' }> = {
   Progressing: { label: 'Progressing', icon: TrendingUp, variant: 'success' },
   ReadyToIncreaseWeight: { label: 'Add weight next time', icon: Sparkles, variant: 'warning' },
@@ -98,6 +124,8 @@ export default function MemberPortalPage() {
   const nutritionSummary = useMyNutritionSummary()
   const workoutSuggestions = useMyWorkoutSuggestions()
   const experience = useMyExperience()
+  const personalRecords = useMyPersonalRecords()
+  const mastery = useMyMastery()
 
   if (profile.isError) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -194,6 +222,62 @@ export default function MemberPortalPage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {personalRecords.data && personalRecords.data.length > 0 && (
+        <Card>
+          <CardHeader>
+            <p className="flex items-center gap-2 font-medium">
+              <Trophy className="size-4 text-amber-500" />
+              Personal Records
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {personalRecords.data.map((pr) => (
+                <div key={`${pr.exerciseId}-${pr.type}`} className="flex items-center justify-between gap-2 rounded-lg border p-2.5 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{pr.exerciseName}</p>
+                    <p className="text-xs text-muted-foreground">{PR_TYPE_CONFIG[pr.type]?.label ?? pr.type}</p>
+                  </div>
+                  <span className="shrink-0 font-semibold">
+                    {pr.value.toLocaleString()} {PR_TYPE_CONFIG[pr.type]?.unit ?? ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {mastery.data && mastery.data.exercises.length > 0 && (
+        <Card>
+          <CardHeader>
+            <p className="flex items-center gap-2 font-medium">
+              <Dumbbell className="size-4" />
+              Mastery
+            </p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Muscle groups</p>
+              {mastery.data.muscleGroups.map((g: GroupMastery) => (
+                <MasteryBar key={g.name} label={g.name} percent={g.masteryPercent} />
+              ))}
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Top exercises</p>
+              {mastery.data.exercises.slice(0, 5).map((e) => (
+                <MasteryBar
+                  key={e.exerciseId}
+                  label={e.exerciseName}
+                  percent={e.masteryPercent}
+                  hint={`${e.sessions} session${e.sessions === 1 ? '' : 's'} · best ${e.bestWeightKg}kg`}
+                />
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
