@@ -25,6 +25,8 @@ export function UploadImportDialog() {
   const uploadJob = useUploadImportJob()
   const navigate = useNavigate()
 
+  const selectedSchema = schemas?.find((schema) => schema.entityType === entityType)
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!entityType || !file) {
@@ -74,10 +76,12 @@ export function UploadImportDialog() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Membership, Attendance, and Payment imports aren't supported yet — they reference existing records
-              rather than creating standalone ones.
-            </p>
+            {selectedSchema && (
+              <p className="text-xs text-muted-foreground">
+                Required columns: {selectedSchema.requiredFields.join(', ')}.
+                {selectedSchema.optionalFields.length > 0 && ` Optional: ${selectedSchema.optionalFields.join(', ')}.`}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="importFile">CSV file</Label>

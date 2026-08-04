@@ -29,6 +29,9 @@ public static class DependencyInjection
         services.AddScoped<IImportEntityHandler, EquipmentImportEntityHandler>();
         services.AddScoped<IImportEntityHandler, InventoryImportEntityHandler>();
         services.AddScoped<IImportEntityHandler, LeadImportEntityHandler>();
+        services.AddScoped<IImportEntityHandler, MembershipImportEntityHandler>();
+        services.AddScoped<IImportEntityHandler, AttendanceImportEntityHandler>();
+        services.AddScoped<IImportEntityHandler, PaymentImportEntityHandler>();
 
         return services;
     }

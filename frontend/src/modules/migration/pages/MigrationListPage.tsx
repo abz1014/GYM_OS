@@ -22,7 +22,9 @@ export default function MigrationListPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Migration Center</h1>
-          <p className="text-sm text-muted-foreground">Bulk-import Members, Trainers, Equipment, Inventory, and Leads from CSV.</p>
+          <p className="text-sm text-muted-foreground">
+            Bulk-import Members, Trainers, Memberships, Equipment, Attendance, Inventory, Payments, and Leads from CSV.
+          </p>
         </div>
         <UploadImportDialog />
       </div>
