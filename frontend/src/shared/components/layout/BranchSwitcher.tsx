@@ -21,8 +21,19 @@ export function BranchSwitcher() {
     queryFn: async () => (await apiClient.get<Branch[]>('/api/branches')).data,
   })
 
+  // The selected branch is persisted in localStorage, so it outlives the data it points at: a
+  // branch that gets deleted/deactivated, a user whose branch access is revoked, or (in dev) a
+  // reseeded database all leave a stale id behind. Every branch-scoped endpoint then answers 403
+  // and the whole app looks broken, with no in-app way for the user to recover — so validate the
+  // stored id against the branches this user can actually reach and fall back to the first one.
   useEffect(() => {
-    if (!selectedBranchId && branches && branches.length > 0) {
+    if (!branches || branches.length === 0) {
+      return
+    }
+
+    const isStillAccessible = selectedBranchId !== null && branches.some((b) => b.id === selectedBranchId)
+
+    if (!isStillAccessible) {
       setSelectedBranchId(branches[0].id)
     }
   }, [branches, selectedBranchId, setSelectedBranchId])

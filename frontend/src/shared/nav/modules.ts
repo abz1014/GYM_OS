@@ -32,7 +32,9 @@ export interface NavModule {
 export const NAV_MODULES: NavModule[] = [
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, permission: 'dashboard.view', wave: 1 },
   { key: 'portal', label: 'My Account', path: '/portal', icon: UserCircle, permission: 'portal.view', wave: 1 },
-  { key: 'my-classes', label: 'Classes', path: '/my-classes', icon: CalendarDays, permission: 'portal.view', wave: 1 },
+  // Labelled "My Classes", not "Classes": Owner/Manager hold both portal.view and classes.view, so
+  // an identical label would render two indistinguishable "Classes" links in their sidebar.
+  { key: 'my-classes', label: 'My Classes', path: '/my-classes', icon: CalendarDays, permission: 'portal.view', wave: 1 },
   { key: 'members', label: 'Members', path: '/members', icon: Users, permission: 'members.view', wave: 1 },
   { key: 'memberships', label: 'Memberships', path: '/memberships', icon: CreditCard, permission: 'memberships.view', wave: 1 },
   { key: 'attendance', label: 'Attendance', path: '/attendance', icon: QrCode, permission: 'attendance.view', wave: 1 },
