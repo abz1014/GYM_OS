@@ -1,17 +1,38 @@
 import { DollarSign, Wallet, Users, UserPlus, CalendarClock, QrCode, Dumbbell, Wrench, Hammer, Package } from 'lucide-react'
+import { Navigate } from 'react-router-dom'
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/shared/components/StatCard'
 import { useAuthStore } from '@/stores/authStore'
 import { useDashboardHub } from '@/shared/hooks/useDashboardHub'
 import { useDashboardSummary } from '@/modules/dashboard/api/dashboardApi'
+import { resolveLandingRoute } from '@/shared/nav/landingRoute'
 
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user)
-  const { data, isLoading } = useDashboardSummary()
+  const hasPermission = useAuthStore((s) => s.hasPermission)
+  const { data, isLoading, isError } = useDashboardSummary()
   useDashboardHub()
+
+  // HomeRedirect only guards "/" and unknown routes — a direct hit on /dashboard (a stale
+  // bookmark, browser history from before a role change, a hand-typed URL) bypasses that and
+  // used to hit /api/dashboard/summary, 403, and then sit on the loading skeleton forever since
+  // isLoading/!data never distinguished "still fetching" from "failed for good". Same fix
+  // HomeRedirect already uses: send the user to whatever their permissions actually allow.
+  if (!hasPermission('dashboard.view')) {
+    return <Navigate to={resolveLandingRoute(hasPermission)} replace />
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {user?.firstName}</h1>
+        <p className="text-sm text-muted-foreground">Something went wrong loading the dashboard. Try refreshing the page.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
