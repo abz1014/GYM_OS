@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, QrCode, Mail, Phone, MapPin, Cake } from 'lucide-react'
+import { ArrowLeft, QrCode, Mail, Phone, MapPin, Cake, UserPlus } from 'lucide-react'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -73,6 +73,18 @@ export default function MemberDetailPage() {
                 {member.dateOfBirth && (
                   <span className="flex items-center gap-1">
                     <Cake className="size-3.5" /> {new Date(member.dateOfBirth).toLocaleDateString()}
+                  </span>
+                )}
+                {member.referredByName && (
+                  <span className="flex items-center gap-1">
+                    <UserPlus className="size-3.5" /> Referred by{' '}
+                    {member.referredByMemberId ? (
+                      <Link to={`/members/${member.referredByMemberId}`} className="underline underline-offset-2">
+                        {member.referredByName}
+                      </Link>
+                    ) : (
+                      member.referredByName
+                    )}
                   </span>
                 )}
               </div>

@@ -27,6 +27,12 @@ public class CrmController(ISender mediator) : ControllerBase
     public async Task<ActionResult<CrmPipelineSummaryDto>> Summary([FromQuery] Guid? branchId, CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetCrmPipelineSummaryQuery(branchId), cancellationToken));
 
+    // Referrals are an acquisition channel, so their leaderboard lives with the rest of CRM.
+    [HttpGet("top-referrers")]
+    [RequirePermission(PermissionCodes.Crm.View)]
+    public async Task<ActionResult<List<TopReferrerDto>>> TopReferrers([FromQuery] Guid? branchId, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetTopReferrersQuery(branchId), cancellationToken));
+
     [HttpGet("{id:guid}")]
     [RequirePermission(PermissionCodes.Crm.View)]
     public async Task<ActionResult<LeadDetailDto>> GetById(Guid id, CancellationToken cancellationToken)

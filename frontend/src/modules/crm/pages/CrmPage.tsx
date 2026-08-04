@@ -1,8 +1,8 @@
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -16,6 +16,7 @@ import {
   PIPELINE_STAGES,
   useCrmPipelineSummary,
   useLeadsList,
+  useTopReferrers,
   useUpdateLeadStage,
   type LeadStage,
 } from '@/modules/crm/api/crmApi'
@@ -32,6 +33,7 @@ const STAGE_LABELS: Record<LeadStage, string> = {
 export default function CrmPage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
   const { data: summary } = useCrmPipelineSummary(branchId)
+  const { data: topReferrers } = useTopReferrers(branchId)
   // The Kanban board buckets every lead into a stage column client-side, so it needs the full
   // set in one page rather than a paginated slice — 200 (the API's max page size) comfortably
   // covers this app's demo data volumes.
@@ -67,6 +69,35 @@ export default function CrmPage() {
               <span>{summary.trialCount} Trial</span>
               <span className="text-success">{summary.memberCount} Converted</span>
               <span className="text-destructive">{summary.lostCount} Lost</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {topReferrers && topReferrers.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="size-4" />
+              Top referrers
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {topReferrers.map((r, i) => (
+                <div key={r.memberId} className="flex items-center justify-between gap-3 py-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="w-5 shrink-0 text-sm font-semibold text-muted-foreground">#{i + 1}</span>
+                    <Link to={`/members/${r.memberId}`} className="truncate text-sm font-medium hover:underline">
+                      {r.fullName}
+                    </Link>
+                    <span className="shrink-0 text-xs text-muted-foreground">{r.memberCode}</span>
+                  </div>
+                  <Badge variant="secondary" className="shrink-0">
+                    {r.referralCount} {r.referralCount === 1 ? 'referral' : 'referrals'}
+                  </Badge>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

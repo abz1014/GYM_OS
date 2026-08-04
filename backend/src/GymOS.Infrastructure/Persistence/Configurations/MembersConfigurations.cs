@@ -18,6 +18,11 @@ public class MemberConfiguration : IEntityTypeConfiguration<Member>
 
         builder.HasOne(m => m.User).WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.SetNull);
 
+        // Self-reference: who brought this member in. SetNull — losing the referrer must never
+        // take the referred member down with it. Indexed for the top-referrers aggregation.
+        builder.HasOne(m => m.ReferredByMember).WithMany().HasForeignKey(m => m.ReferredByMemberId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasIndex(m => m.ReferredByMemberId);
+
         builder.HasMany(m => m.EmergencyContacts).WithOne(c => c.Member).HasForeignKey(c => c.MemberId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(m => m.MedicalNotes).WithOne(n => n.Member).HasForeignKey(n => n.MemberId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(m => m.Measurements).WithOne(x => x.Member).HasForeignKey(x => x.MemberId).OnDelete(DeleteBehavior.Cascade);

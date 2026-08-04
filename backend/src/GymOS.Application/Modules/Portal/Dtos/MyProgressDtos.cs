@@ -13,3 +13,7 @@ public record MyProgressDto(
     IReadOnlyList<MyWeightPointDto> WeightTrend,
     IReadOnlyList<MyGoalDto> Goals,
     IReadOnlyList<MyProgressPhotoDto> Photos);
+
+public record MyReferredMemberDto(string FirstName, DateOnly JoinDate);
+
+public record MyReferralsDto(string MemberCode, int ReferralCount, IReadOnlyList<MyReferredMemberDto> ReferredMembers);

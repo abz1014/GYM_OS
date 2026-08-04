@@ -42,6 +42,8 @@ public record MemberDetailDto(
     MemberStatus Status,
     string QrCodeToken,
     Guid BranchId,
+    Guid? ReferredByMemberId,
+    string? ReferredByName,
     IReadOnlyList<EmergencyContactDto> EmergencyContacts,
     IReadOnlyList<MedicalNoteDto> MedicalNotes,
     IReadOnlyList<MemberMeasurementDto> Measurements,

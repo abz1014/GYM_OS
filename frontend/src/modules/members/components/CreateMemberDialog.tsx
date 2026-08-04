@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, UserPlus } from 'lucide-react'
+import { Loader2, UserPlus, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { apiClient } from '@/lib/apiClient'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,7 +17,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useCreateMember } from '@/modules/members/api/membersApi'
+import { useCreateMember, type MemberListItem } from '@/modules/members/api/membersApi'
+import type { PagedList } from '@/types/paging'
 
 interface Branch {
   id: string
@@ -30,10 +32,22 @@ export function CreateMemberDialog() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [branchId, setBranchId] = useState<string>('')
+  const [referrerSearch, setReferrerSearch] = useState('')
+  const [referrer, setReferrer] = useState<{ id: string; name: string } | null>(null)
 
   const { data: branches } = useQuery({
     queryKey: ['branches'],
     queryFn: async () => (await apiClient.get<Branch[]>('/api/branches')).data,
+  })
+
+  // Referred-by lookup: search kicks in from 2 characters and pauses once a referrer is chosen.
+  const { data: referrerMatches } = useQuery({
+    queryKey: ['members', 'referrer-search', referrerSearch],
+    queryFn: async () =>
+      (await apiClient.get<PagedList<MemberListItem>>('/api/members', {
+        params: { searchTerm: referrerSearch, page: 1, pageSize: 5 },
+      })).data,
+    enabled: open && referrer === null && referrerSearch.trim().length >= 2,
   })
 
   const createMember = useCreateMember()
@@ -44,6 +58,8 @@ export function CreateMemberDialog() {
     setEmail('')
     setPhone('')
     setBranchId('')
+    setReferrerSearch('')
+    setReferrer(null)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -54,7 +70,7 @@ export function CreateMemberDialog() {
     }
 
     createMember.mutate(
-      { firstName, lastName, email, phone: phone || undefined, branchId },
+      { firstName, lastName, email, phone: phone || undefined, branchId, referredByMemberId: referrer?.id ?? null },
       {
         onSuccess: () => {
           toast.success('Member registered.')
@@ -111,6 +127,44 @@ export function CreateMemberDialog() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="referrer">Referred by (optional)</Label>
+            {referrer ? (
+              <Badge variant="secondary" className="gap-1">
+                {referrer.name}
+                <button type="button" aria-label="Clear referrer" onClick={() => setReferrer(null)}>
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            ) : (
+              <>
+                <Input
+                  id="referrer"
+                  placeholder="Search members by name or code"
+                  value={referrerSearch}
+                  onChange={(e) => setReferrerSearch(e.target.value)}
+                />
+                {referrerMatches && referrerSearch.trim().length >= 2 && (
+                  <div className="divide-y rounded-md border">
+                    {referrerMatches.items.length === 0 && (
+                      <p className="p-2 text-xs text-muted-foreground">No members match.</p>
+                    )}
+                    {referrerMatches.items.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 p-2 text-left text-sm hover:bg-accent"
+                        onClick={() => setReferrer({ id: m.id, name: m.fullName })}
+                      >
+                        <span className="truncate">{m.fullName}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{m.memberCode}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={createMember.isPending}>

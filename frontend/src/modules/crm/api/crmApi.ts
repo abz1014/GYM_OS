@@ -68,6 +68,21 @@ export function useCrmPipelineSummary(branchId?: string | null) {
   })
 }
 
+export interface TopReferrer {
+  memberId: string
+  fullName: string
+  memberCode: string
+  referralCount: number
+}
+
+export function useTopReferrers(branchId?: string | null) {
+  return useQuery({
+    queryKey: ['crm-top-referrers', branchId],
+    queryFn: async () => (await apiClient.get<TopReferrer[]>('/api/leads/top-referrers', { params: { branchId } })).data,
+    enabled: !!branchId,
+  })
+}
+
 export function useLead(id: string | undefined) {
   return useQuery({
     queryKey: ['lead', id],

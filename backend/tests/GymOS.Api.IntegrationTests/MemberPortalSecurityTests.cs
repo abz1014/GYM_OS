@@ -234,6 +234,31 @@ public class MemberPortalSecurityTests(GymOsWebApplicationFactory factory) : ICl
         progress.totalVisits.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task Referrals_endpoint_shows_only_members_the_caller_referred()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var attacker = await TestDataSeeder.SeedPortalMemberAsync(db);
+        var victim = await TestDataSeeder.SeedPortalMemberAsync(db);
+        var referredByVictim = await TestDataSeeder.SeedPortalMemberAsync(db);
+
+        await db.Members.IgnoreQueryFilters()
+            .Where(m => m.Id == referredByVictim.MemberId)
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.ReferredByMemberId, victim.MemberId));
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, attacker.Email));
+
+        var response = await client.GetAsync("/api/me/referrals");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var referrals = await response.Content.ReadFromJsonAsync<MeReferrals>();
+
+        // The victim's referral must not leak into the attacker's list.
+        referrals!.referralCount.ShouldBe(0);
+        referrals.referredMembers.ShouldBeEmpty();
+    }
+
     private static async Task<string> LoginAsync(HttpClient client, string email)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new LoginCommand(email, TestDataSeeder.Password, null));
@@ -255,4 +280,8 @@ public class MemberPortalSecurityTests(GymOsWebApplicationFactory factory) : ICl
     private record MeGoal(Guid id, string title, bool isAchieved);
 
     private record MeProgress(int weeklyStreak, int totalVisits, List<MeGoal> goals);
+
+    private record MeReferredMember(string firstName);
+
+    private record MeReferrals(string memberCode, int referralCount, List<MeReferredMember> referredMembers);
 }

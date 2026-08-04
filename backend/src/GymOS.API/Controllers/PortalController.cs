@@ -104,4 +104,9 @@ public class PortalController(ISender mediator) : ControllerBase
         await mediator.Send(new AchieveMyGoalCommand(goalId), cancellationToken);
         return NoContent();
     }
+
+    [HttpGet("referrals")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyReferralsDto>> Referrals(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyReferralsQuery(), cancellationToken));
 }

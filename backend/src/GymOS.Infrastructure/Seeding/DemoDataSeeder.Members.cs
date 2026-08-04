@@ -146,6 +146,13 @@ public partial class DemoDataSeeder
                 });
             }
 
+            // Roughly a fifth of later joiners were brought in by an existing member — enough
+            // signal for the CRM top-referrers leaderboard to have a real shape.
+            if (members.Count >= 30 && rng.Next(100) < 20)
+            {
+                member.ReferredByMemberId = members[rng.Next(members.Count)].Id;
+            }
+
             db.Members.Add(member);
             members.Add(member);
         }
@@ -247,6 +254,18 @@ public partial class DemoDataSeeder
             AchievedAt = now.AddDays(-10),
             CreatedAt = now.AddDays(-50)
         });
+
+        // Make the demo member a referrer of two others so the portal's refer-a-friend card and
+        // their row on the CRM leaderboard both show real data.
+        var referees = await db.Members.IgnoreQueryFilters()
+            .Where(m => m.TenantId == candidate.TenantId && m.Id != candidate.Id)
+            .OrderBy(m => m.MemberCode)
+            .Take(2)
+            .ToListAsync(cancellationToken);
+        foreach (var referee in referees)
+        {
+            referee.ReferredByMemberId = candidate.Id;
+        }
 
         await db.SaveChangesAsync(cancellationToken);
     }

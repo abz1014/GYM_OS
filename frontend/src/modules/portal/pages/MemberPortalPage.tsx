@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets } from 'lucide-react'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import {
   useMyClassBookings,
   useMyDietPlans,
   useMyProfile,
+  useMyReferrals,
   useMyWaterLogs,
   useMyWorkoutAssignments,
   useMyWorkoutLogs,
@@ -47,6 +48,7 @@ export default function MemberPortalPage() {
   const classBookings = useMyClassBookings()
   const dietPlans = useMyDietPlans()
   const waterLogs = useMyWaterLogs()
+  const referrals = useMyReferrals()
 
   if (profile.isError) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -248,6 +250,41 @@ export default function MemberPortalPage() {
               No water intake logged yet.
             </div>
           )}
+        </SectionCard>
+
+        <SectionCard title="Refer a Friend">
+          {referrals.isLoading ? (
+            <Skeleton className="h-40 w-full" />
+          ) : referrals.data ? (
+            <div className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                Bring a friend along — have them mention your member code{' '}
+                <span className="font-mono font-medium text-foreground">{referrals.data.memberCode}</span> at the front
+                desk when they sign up.
+              </p>
+              {referrals.data.referralCount > 0 ? (
+                <div>
+                  <p className="mb-1 font-medium">
+                    You've brought in {referrals.data.referralCount}{' '}
+                    {referrals.data.referralCount === 1 ? 'member' : 'members'} 🎉
+                  </p>
+                  <ul className="space-y-1">
+                    {referrals.data.referredMembers.map((m, i) => (
+                      <li key={i} className="flex items-center justify-between border-b pb-1 last:border-0">
+                        <span>{m.firstName}</span>
+                        <span className="text-muted-foreground">joined {dateFormat.format(new Date(m.joinDate))}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-4 text-center text-muted-foreground">
+                  <Gift className="size-6" />
+                  No referrals yet — your next workout buddy is one invite away.
+                </div>
+              )}
+            </div>
+          ) : null}
         </SectionCard>
       </div>
     </div>

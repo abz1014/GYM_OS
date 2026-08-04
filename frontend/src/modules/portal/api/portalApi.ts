@@ -181,3 +181,17 @@ export function useAchieveMyGoal() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'progress'] }),
   })
 }
+
+export interface MyReferrals {
+  memberCode: string
+  referralCount: number
+  referredMembers: { firstName: string; joinDate: string }[]
+}
+
+export function useMyReferrals() {
+  return useQuery({
+    queryKey: ['portal', 'referrals'],
+    queryFn: async () => (await apiClient.get<MyReferrals>('/api/me/referrals')).data,
+    retry: false,
+  })
+}

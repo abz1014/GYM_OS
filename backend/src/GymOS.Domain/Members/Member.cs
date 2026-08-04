@@ -35,6 +35,15 @@ public class Member : BaseEntity, IBranchScoped, IAuditable, ISoftDelete
 
     public DateOnly JoinDate { get; set; }
 
+    /// <summary>
+    /// The existing member who brought this one in, when the gym knows it. Powers the referral
+    /// surfaces (top referrers for staff, "friends you brought in" for the member) — word of mouth
+    /// is most gyms' #1 acquisition channel and this makes it measurable.
+    /// </summary>
+    public Guid? ReferredByMemberId { get; set; }
+
+    public Member? ReferredByMember { get; set; }
+
     public MemberStatus Status { get; set; } = MemberStatus.Active;
 
     public string QrCodeToken { get; set; } = string.Empty;

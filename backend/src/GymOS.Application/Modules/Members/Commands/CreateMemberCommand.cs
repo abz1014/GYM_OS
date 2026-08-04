@@ -16,7 +16,8 @@ public record CreateMemberCommand(
     DateOnly? DateOfBirth,
     string? Gender,
     string? Address,
-    Guid BranchId) : ICommand<Guid>;
+    Guid BranchId,
+    Guid? ReferredByMemberId = null) : ICommand<Guid>;
 
 public class CreateMemberCommandValidator : AbstractValidator<CreateMemberCommand>
 {
@@ -42,6 +43,14 @@ public class CreateMemberCommandHandler(IApplicationDbContext db, ICurrentUserSe
             throw new NotFoundException(nameof(Domain.Tenancy.Branch), request.BranchId);
         }
 
+        // The referrer must be a real member of this tenant — the global query filter makes a
+        // cross-tenant id indistinguishable from a nonexistent one, which is exactly right.
+        if (request.ReferredByMemberId is not null
+            && !await db.Members.AnyAsync(m => m.Id == request.ReferredByMemberId, cancellationToken))
+        {
+            throw new NotFoundException(nameof(Member), request.ReferredByMemberId);
+        }
+
         var sequence = await db.Members.IgnoreQueryFilters().CountAsync(m => m.TenantId == tenantId, cancellationToken) + 1;
 
         var member = new Member
@@ -58,7 +67,8 @@ public class CreateMemberCommandHandler(IApplicationDbContext db, ICurrentUserSe
             Address = request.Address,
             JoinDate = DateOnly.FromDateTime(DateTime.UtcNow),
             Status = MemberStatus.Active,
-            QrCodeToken = Guid.NewGuid().ToString("N")
+            QrCodeToken = Guid.NewGuid().ToString("N"),
+            ReferredByMemberId = request.ReferredByMemberId
         };
 
         db.Members.Add(member);

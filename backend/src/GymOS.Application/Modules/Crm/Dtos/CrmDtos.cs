@@ -14,3 +14,5 @@ public record LeadDetailDto(
     IReadOnlyList<LeadActivityDto> Activities);
 
 public record CrmPipelineSummaryDto(int LeadCount, int FollowUpCount, int TrialCount, int MemberCount, int LostCount, double ConversionRatePercent);
+
+public record TopReferrerDto(Guid MemberId, string FullName, string MemberCode, int ReferralCount);
