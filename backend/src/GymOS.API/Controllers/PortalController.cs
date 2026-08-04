@@ -41,6 +41,11 @@ public class PortalController(ISender mediator) : ControllerBase
     public async Task<ActionResult<List<WorkoutLogDto>>> Workouts(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyWorkoutLogsQuery(), cancellationToken));
 
+    [HttpGet("workout-assignments")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<WorkoutAssignmentListItemDto>>> WorkoutAssignments(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyWorkoutAssignmentsQuery(), cancellationToken));
+
     [HttpGet("nutrition/diet-plans")]
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<DietPlanListItemDto>>> DietPlans(CancellationToken cancellationToken)

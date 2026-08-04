@@ -6,10 +6,52 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useMembersList } from '@/modules/members/api/membersApi'
-import { useExercisesList, useMemberWorkoutLogs, useWorkoutTemplatesList } from '@/modules/workouts/api/workoutsApi'
+import {
+  useExercisesList,
+  useMemberWorkoutAssignments,
+  useMemberWorkoutLogs,
+  useWorkoutTemplatesList,
+} from '@/modules/workouts/api/workoutsApi'
+import { AssignWorkoutTemplateDialog } from '@/modules/workouts/components/AssignWorkoutTemplateDialog'
 import { CreateExerciseDialog } from '@/modules/workouts/components/CreateExerciseDialog'
 import { CreateWorkoutTemplateDialog } from '@/modules/workouts/components/CreateWorkoutTemplateDialog'
 import { LogWorkoutDialog } from '@/modules/workouts/components/LogWorkoutDialog'
+
+function MemberAssignedPlans({ memberId }: { memberId: string }) {
+  const { data: assignments, isLoading } = useMemberWorkoutAssignments(memberId)
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">Assigned plans</p>
+        <AssignWorkoutTemplateDialog memberId={memberId} />
+      </div>
+      {isLoading && <Skeleton className="h-20 w-full" />}
+      {assignments?.length === 0 && <p className="text-sm text-muted-foreground">No workout plan assigned yet.</p>}
+      {assignments?.map((a) => (
+        <Card key={a.id}>
+          <CardContent className="space-y-2 p-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">{a.workoutTemplateName}</span>
+              <span className="text-muted-foreground">
+                {a.startDate}
+                {a.endDate ? ` → ${a.endDate}` : ' → ongoing'}
+              </span>
+            </div>
+            {a.notes && <p className="text-sm text-muted-foreground">{a.notes}</p>}
+            <div className="flex flex-wrap gap-1">
+              {a.exercises.map((e) => (
+                <Badge key={e.id} variant="outline">
+                  {e.exerciseName}: {e.setsCount}×{e.repsCount}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
 
 function MemberWorkoutLogs() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -52,8 +94,10 @@ function MemberWorkoutLogs() {
 
       {memberId && (
         <>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">{memberName}'s workout logs</p>
+          <p className="text-sm font-medium">{memberName}</p>
+          <MemberAssignedPlans memberId={memberId} />
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-sm font-medium">Workout logs</p>
             <LogWorkoutDialog memberId={memberId} />
           </div>
           {isLoading && <Skeleton className="h-24 w-full" />}

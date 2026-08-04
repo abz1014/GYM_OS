@@ -10,6 +10,7 @@ import {
   useMyDietPlans,
   useMyProfile,
   useMyWaterLogs,
+  useMyWorkoutAssignments,
   useMyWorkoutLogs,
 } from '@/modules/portal/api/portalApi'
 
@@ -32,6 +33,7 @@ export default function MemberPortalPage() {
   const profile = useMyProfile()
   const attendance = useMyAttendance({ page: 1, pageSize: 10 })
   const workouts = useMyWorkoutLogs()
+  const workoutAssignments = useMyWorkoutAssignments()
   const dietPlans = useMyDietPlans()
   const waterLogs = useMyWaterLogs()
 
@@ -121,6 +123,39 @@ export default function MemberPortalPage() {
             <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
               <Dumbbell className="size-6" />
               No workouts logged yet.
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Assigned Workouts">
+          {workoutAssignments.isLoading ? (
+            <Skeleton className="h-40 w-full" />
+          ) : workoutAssignments.data && workoutAssignments.data.length > 0 ? (
+            <ul className="space-y-3 text-sm">
+              {workoutAssignments.data.map((a) => (
+                <li key={a.id} className="space-y-1.5 border-b pb-3 last:border-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{a.workoutTemplateName}</span>
+                    <span className="text-muted-foreground">
+                      {dateFormat.format(new Date(a.startDate))}
+                      {a.endDate ? ` → ${dateFormat.format(new Date(a.endDate))}` : ' → ongoing'}
+                    </span>
+                  </div>
+                  {a.notes && <p className="text-muted-foreground">{a.notes}</p>}
+                  <div className="flex flex-wrap gap-1">
+                    {a.exercises.map((e) => (
+                      <Badge key={e.id} variant="outline">
+                        {e.exerciseName}: {e.setsCount}×{e.repsCount}
+                      </Badge>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
+              <Dumbbell className="size-6" />
+              No workout plan assigned yet.
             </div>
           )}
         </SectionCard>

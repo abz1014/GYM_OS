@@ -11,3 +11,7 @@ public record WorkoutTemplateDetailDto(Guid Id, string Name, string? Description
 public record WorkoutLogEntryDto(Guid Id, Guid ExerciseId, string ExerciseName, int SetsCompleted, int RepsCompleted, decimal? WeightKg);
 
 public record WorkoutLogDto(Guid Id, Guid MemberId, Guid? WorkoutTemplateId, string? WorkoutTemplateName, DateTimeOffset LoggedAt, IReadOnlyList<WorkoutLogEntryDto> Entries);
+
+public record WorkoutAssignmentListItemDto(
+    Guid Id, Guid WorkoutTemplateId, string WorkoutTemplateName, string? TemplateDescription,
+    DateOnly StartDate, DateOnly? EndDate, string? Notes, IReadOnlyList<WorkoutTemplateExerciseDto> Exercises);

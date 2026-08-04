@@ -118,3 +118,38 @@ export function useLogWorkout() {
     onSuccess: (_, variables) => queryClient.invalidateQueries({ queryKey: ['workout-logs', variables.memberId] }),
   })
 }
+
+export interface WorkoutAssignmentListItem {
+  id: string
+  workoutTemplateId: string
+  workoutTemplateName: string
+  templateDescription: string | null
+  startDate: string
+  endDate: string | null
+  notes: string | null
+  exercises: { id: string; exerciseId: string; exerciseName: string; setsCount: number; repsCount: number; orderIndex: number }[]
+}
+
+export function useMemberWorkoutAssignments(memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['workout-assignments', memberId],
+    queryFn: async () => (await apiClient.get<WorkoutAssignmentListItem[]>(`/api/workouts/assignments/member/${memberId}`)).data,
+    enabled: !!memberId,
+  })
+}
+
+interface AssignWorkoutTemplateInput {
+  memberId: string
+  workoutTemplateId: string
+  startDate: string
+  endDate?: string
+  notes?: string
+}
+
+export function useAssignWorkoutTemplate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: AssignWorkoutTemplateInput) => (await apiClient.post<string>('/api/workouts/assignments', input)).data,
+    onSuccess: (_, variables) => queryClient.invalidateQueries({ queryKey: ['workout-assignments', variables.memberId] }),
+  })
+}

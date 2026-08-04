@@ -139,6 +139,8 @@ public interface IApplicationDbContext
 
     DbSet<WorkoutLogEntry> WorkoutLogEntries { get; }
 
+    DbSet<WorkoutAssignment> WorkoutAssignments { get; }
+
     // Nutrition (Wave 3)
     DbSet<FoodItem> FoodItems { get; }
 

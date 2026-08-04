@@ -105,6 +105,7 @@ public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantPro
     public DbSet<WorkoutTemplateExercise> WorkoutTemplateExercises => Set<WorkoutTemplateExercise>();
     public DbSet<WorkoutLog> WorkoutLogs => Set<WorkoutLog>();
     public DbSet<WorkoutLogEntry> WorkoutLogEntries => Set<WorkoutLogEntry>();
+    public DbSet<WorkoutAssignment> WorkoutAssignments => Set<WorkoutAssignment>();
 
     // Nutrition (Wave 3)
     public DbSet<FoodItem> FoodItems => Set<FoodItem>();

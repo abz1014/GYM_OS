@@ -4,7 +4,9 @@ using System.Net.Http.Json;
 using GymOS.Api.IntegrationTests.TestSupport;
 using GymOS.Application.Modules.Auth.Commands;
 using GymOS.Application.Modules.Auth.Dtos;
+using GymOS.Domain.Workouts;
 using GymOS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 
@@ -92,6 +94,34 @@ public class MemberPortalSecurityTests(GymOsWebApplicationFactory factory) : ICl
         (await client.GetAsync("/api/me")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task Portal_member_sees_only_their_own_assigned_workout_plan()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var attacker = await TestDataSeeder.SeedPortalMemberAsync(db);
+        var victim = await TestDataSeeder.SeedPortalMemberAsync(db);
+
+        var template = new WorkoutTemplate { TenantId = victim.TenantId, Name = "Victim's Plan", CreatedByUserId = victim.UserId };
+        db.WorkoutTemplates.Add(template);
+        db.WorkoutAssignments.Add(new WorkoutAssignment
+        {
+            MemberId = victim.MemberId,
+            WorkoutTemplateId = template.Id,
+            AssignedByUserId = victim.UserId,
+            StartDate = DateOnly.FromDateTime(DateTime.UtcNow)
+        });
+        await db.SaveChangesAsync();
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, attacker.Email));
+
+        var response = await client.GetAsync("/api/me/workout-assignments");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var assignments = await response.Content.ReadFromJsonAsync<List<MeWorkoutAssignment>>();
+        assignments.ShouldBeEmpty();
+    }
+
     private static async Task<string> LoginAsync(HttpClient client, string email)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new LoginCommand(email, TestDataSeeder.Password, null));
@@ -107,4 +137,6 @@ public class MemberPortalSecurityTests(GymOsWebApplicationFactory factory) : ICl
     private record MeAttendanceItem(Guid memberId);
 
     private record MePagedAttendance(List<MeAttendanceItem> items, int totalCount);
+
+    private record MeWorkoutAssignment(Guid id);
 }

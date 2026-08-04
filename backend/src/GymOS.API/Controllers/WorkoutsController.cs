@@ -51,4 +51,14 @@ public class WorkoutsController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Workouts.Manage)]
     public async Task<ActionResult<Guid>> LogWorkout(LogWorkoutCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpGet("assignments/member/{memberId:guid}")]
+    [RequirePermission(PermissionCodes.Workouts.View)]
+    public async Task<ActionResult<List<WorkoutAssignmentListItemDto>>> MemberAssignments(Guid memberId, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMemberWorkoutAssignmentsQuery(memberId), cancellationToken));
+
+    [HttpPost("assignments")]
+    [RequirePermission(PermissionCodes.Workouts.Manage)]
+    public async Task<ActionResult<Guid>> AssignTemplate(AssignWorkoutTemplateCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
 }

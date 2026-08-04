@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import type { MemberDetail } from '@/modules/members/api/membersApi'
 import type { AttendanceRecord } from '@/modules/attendance/api/attendanceApi'
-import type { WorkoutLog } from '@/modules/workouts/api/workoutsApi'
+import type { WorkoutAssignmentListItem, WorkoutLog } from '@/modules/workouts/api/workoutsApi'
 import type { DietPlanListItem, WaterLog } from '@/modules/nutrition/api/nutritionApi'
 import type { PagedList } from '@/types/paging'
 
@@ -34,6 +34,14 @@ export function useMyWorkoutLogs() {
   return useQuery({
     queryKey: ['portal', 'workouts'],
     queryFn: async () => (await apiClient.get<WorkoutLog[]>('/api/me/workouts')).data,
+    retry: false,
+  })
+}
+
+export function useMyWorkoutAssignments() {
+  return useQuery({
+    queryKey: ['portal', 'workout-assignments'],
+    queryFn: async () => (await apiClient.get<WorkoutAssignmentListItem[]>('/api/me/workout-assignments')).data,
     retry: false,
   })
 }
