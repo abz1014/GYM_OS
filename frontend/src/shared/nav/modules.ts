@@ -32,8 +32,12 @@ export interface NavModule {
 
 export const NAV_MODULES: NavModule[] = [
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, permission: 'dashboard.view', wave: 1 },
-  { key: 'portal', label: 'My Account', path: '/portal', icon: UserCircle, permission: 'portal.view', wave: 1 },
-  // These three (My Account / My Classes / My Progress) are the member self-service surface, gated
+  // "My Membership", not "My Account": the Topbar avatar menu already owns "My Account" -> /account
+  // (password + MFA settings, available to everyone). This sidebar entry is the member's gym home
+  // (membership status, today's activity, classes, nutrition), so a distinct name avoids two
+  // different "My Account" destinations for a member who sees both at once.
+  { key: 'portal', label: 'My Membership', path: '/portal', icon: UserCircle, permission: 'portal.view', wave: 1 },
+  // These three (My Membership / My Classes / My Progress) are the member self-service surface, gated
   // on portal.view — the Member role's only permission, and deliberately not granted to any staff
   // role (see DemoDataSeeder), so staff never see dead "link your account" links. "My Classes" is
   // labelled distinctly from the staff "Classes" module below to keep the member-facing page
