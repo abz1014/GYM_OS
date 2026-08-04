@@ -155,3 +155,51 @@ public class ExportNutritionReportQueryHandler(IApplicationDbContext db, IDateTi
         return exporter.ExportToXlsx("Nutrition", ["Section", "Category", "Times Logged", "Calories"], rows);
     }
 }
+
+public record ExportAtRiskMembersReportQuery : IQuery<byte[]>;
+
+public class ExportAtRiskMembersReportQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, IReportExporter exporter)
+    : IRequestHandler<ExportAtRiskMembersReportQuery, byte[]>
+{
+    public async Task<byte[]> Handle(ExportAtRiskMembersReportQuery request, CancellationToken cancellationToken)
+    {
+        var rows = await GetAtRiskMembersReportQueryHandler.BuildAsync(db, dateTimeProvider, cancellationToken);
+
+        return exporter.ExportToXlsx(
+            "At-Risk Members",
+            ["Member", "Code", "Last Check-in", "Days Since Last Visit"],
+            rows.Select(r => (IReadOnlyList<object?>)[r.FullName, r.MemberCode, r.LastCheckInDate, r.DaysSinceLastVisit]).ToList());
+    }
+}
+
+public record ExportCohortRetentionReportQuery(int MonthsBack = 12) : IQuery<byte[]>;
+
+public class ExportCohortRetentionReportQueryHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider, IReportExporter exporter)
+    : IRequestHandler<ExportCohortRetentionReportQuery, byte[]>
+{
+    public async Task<byte[]> Handle(ExportCohortRetentionReportQuery request, CancellationToken cancellationToken)
+    {
+        var points = await GetCohortRetentionReportQueryHandler.BuildAsync(db, dateTimeProvider, request.MonthsBack, cancellationToken);
+
+        return exporter.ExportToXlsx(
+            "Cohort Retention",
+            ["Join Month", "Cohort Size", "Still Active", "Retention Rate (%)"],
+            points.Select(p => (IReadOnlyList<object?>)[p.CohortMonth, p.CohortSize, p.StillActiveCount, p.RetentionRatePercent]).ToList());
+    }
+}
+
+public record ExportLtvByAcquisitionSourceQuery : IQuery<byte[]>;
+
+public class ExportLtvByAcquisitionSourceQueryHandler(IApplicationDbContext db, IReportExporter exporter)
+    : IRequestHandler<ExportLtvByAcquisitionSourceQuery, byte[]>
+{
+    public async Task<byte[]> Handle(ExportLtvByAcquisitionSourceQuery request, CancellationToken cancellationToken)
+    {
+        var rows = await GetLtvByAcquisitionSourceQueryHandler.BuildAsync(db, cancellationToken);
+
+        return exporter.ExportToXlsx(
+            "LTV by Acquisition Source",
+            ["Source", "Members", "Total Revenue (USD)", "Average LTV (USD)"],
+            rows.Select(r => (IReadOnlyList<object?>)[r.Source, r.MemberCount, r.TotalRevenue, r.AverageLtv]).ToList());
+    }
+}

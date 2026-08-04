@@ -27,3 +27,12 @@ public record NutritionFoodItemRowDto(string FoodItemName, int TimesLogged, deci
 public record NutritionReportDto(
     List<NutritionFoodItemRowDto> TopFoodItems, int TotalMealEntriesLogged, decimal TotalCaloriesLogged,
     int TotalWaterLogsLogged, int TotalWaterMlLogged);
+
+public record AtRiskMemberRowDto(
+    Guid MemberId, string FullName, string MemberCode, DateOnly LastCheckInDate, int DaysSinceLastVisit);
+
+public record CohortRetentionPointDto(
+    string CohortMonth, int CohortSize, int StillActiveCount, double RetentionRatePercent);
+
+public record LtvBySourceRowDto(
+    string Source, int MemberCount, decimal TotalRevenue, decimal AverageLtv);

@@ -71,6 +71,28 @@ export interface NutritionReport {
   totalWaterMlLogged: number
 }
 
+export interface AtRiskMemberRow {
+  memberId: string
+  fullName: string
+  memberCode: string
+  lastCheckInDate: string
+  daysSinceLastVisit: number
+}
+
+export interface CohortRetentionPoint {
+  cohortMonth: string
+  cohortSize: number
+  stillActiveCount: number
+  retentionRatePercent: number
+}
+
+export interface LtvBySourceRow {
+  source: string
+  memberCount: number
+  totalRevenue: number
+  averageLtv: number
+}
+
 export function useRevenueReport(monthsBack = 6) {
   return useQuery({
     queryKey: ['reports', 'revenue', monthsBack],
@@ -140,6 +162,28 @@ export function useNutritionReport(daysBack = 30) {
   })
 }
 
+export function useAtRiskMembersReport() {
+  return useQuery({
+    queryKey: ['reports', 'at-risk-members'],
+    queryFn: async () => (await apiClient.get<AtRiskMemberRow[]>('/api/reports/at-risk-members')).data,
+  })
+}
+
+export function useCohortRetentionReport(monthsBack = 12) {
+  return useQuery({
+    queryKey: ['reports', 'cohort-retention', monthsBack],
+    queryFn: async () =>
+      (await apiClient.get<CohortRetentionPoint[]>('/api/reports/cohort-retention', { params: { monthsBack } })).data,
+  })
+}
+
+export function useLtvBySourceReport() {
+  return useQuery({
+    queryKey: ['reports', 'ltv-by-source'],
+    queryFn: async () => (await apiClient.get<LtvBySourceRow[]>('/api/reports/ltv-by-source')).data,
+  })
+}
+
 async function downloadFile(url: string, params: Record<string, unknown>, filename: string) {
   const response = await apiClient.get<Blob>(url, { params, responseType: 'blob' })
   const objectUrl = window.URL.createObjectURL(response.data)
@@ -178,3 +222,12 @@ export const exportWorkoutActivityReport = (daysBack = 30) =>
 
 export const exportNutritionReport = (daysBack = 30) =>
   downloadFile('/api/reports/nutrition/export', { daysBack }, 'nutrition-report.xlsx')
+
+export const exportAtRiskMembersReport = () =>
+  downloadFile('/api/reports/at-risk-members/export', {}, 'at-risk-members-report.xlsx')
+
+export const exportCohortRetentionReport = (monthsBack = 12) =>
+  downloadFile('/api/reports/cohort-retention/export', { monthsBack }, 'cohort-retention-report.xlsx')
+
+export const exportLtvBySourceReport = () =>
+  downloadFile('/api/reports/ltv-by-source/export', {}, 'ltv-by-source-report.xlsx')

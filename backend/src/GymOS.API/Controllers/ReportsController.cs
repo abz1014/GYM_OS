@@ -129,4 +129,43 @@ public class ReportsController(ISender mediator) : ControllerBase
         var bytes = await mediator.Send(new ExportNutritionReportQuery(daysBack), cancellationToken);
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "nutrition-report.xlsx");
     }
+
+    [HttpGet("at-risk-members")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<ActionResult<List<AtRiskMemberRowDto>>> AtRiskMembers(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetAtRiskMembersReportQuery(), cancellationToken));
+
+    [HttpGet("at-risk-members/export")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<IActionResult> ExportAtRiskMembers(CancellationToken cancellationToken)
+    {
+        var bytes = await mediator.Send(new ExportAtRiskMembersReportQuery(), cancellationToken);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "at-risk-members-report.xlsx");
+    }
+
+    [HttpGet("cohort-retention")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<ActionResult<List<CohortRetentionPointDto>>> CohortRetention(int monthsBack = 12, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetCohortRetentionReportQuery(monthsBack), cancellationToken));
+
+    [HttpGet("cohort-retention/export")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<IActionResult> ExportCohortRetention(int monthsBack = 12, CancellationToken cancellationToken = default)
+    {
+        var bytes = await mediator.Send(new ExportCohortRetentionReportQuery(monthsBack), cancellationToken);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "cohort-retention-report.xlsx");
+    }
+
+    [HttpGet("ltv-by-source")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<ActionResult<List<LtvBySourceRowDto>>> LtvBySource(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetLtvByAcquisitionSourceQuery(), cancellationToken));
+
+    [HttpGet("ltv-by-source/export")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<IActionResult> ExportLtvBySource(CancellationToken cancellationToken)
+    {
+        var bytes = await mediator.Send(new ExportLtvByAcquisitionSourceQuery(), cancellationToken);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ltv-by-source-report.xlsx");
+    }
 }

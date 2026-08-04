@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Download } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -11,19 +12,25 @@ import { useAssetsList } from '@/modules/equipment/api/equipmentApi'
 import { useInventoryItemsList } from '@/modules/inventory/api/inventoryApi'
 import { useWorkOrdersList } from '@/modules/maintenance/api/maintenanceApi'
 import {
+  exportAtRiskMembersReport,
   exportAttendanceReport,
+  exportCohortRetentionReport,
   exportCrmPipelineReport,
   exportEquipmentDowntimeReport,
   exportInventoryStockMovementReport,
+  exportLtvBySourceReport,
   exportMembershipReport,
   exportNutritionReport,
   exportRevenueReport,
   exportTrainerCommissionReport,
   exportWorkoutActivityReport,
+  useAtRiskMembersReport,
   useAttendanceReport,
+  useCohortRetentionReport,
   useCrmPipelineConversionReport,
   useEquipmentDowntimeReport,
   useInventoryStockMovementReport,
+  useLtvBySourceReport,
   useMembershipBreakdownReport,
   useNutritionReport,
   useRevenueReport,
@@ -452,6 +459,79 @@ function NutritionTab() {
   )
 }
 
+function AnalyticsTab() {
+  const { data: atRisk, isLoading: isLoadingAtRisk } = useAtRiskMembersReport()
+  const { data: cohorts, isLoading: isLoadingCohorts } = useCohortRetentionReport(12)
+  const { data: ltv, isLoading: isLoadingLtv } = useLtvBySourceReport()
+
+  return (
+    <div className="space-y-4">
+      <ReportCard
+        title={`At-Risk Members${atRisk ? ` — ${atRisk.length} quiet ${atRisk.length === 1 ? 'member' : 'members'}` : ''}`}
+        action={<ExportButton onExport={exportAtRiskMembersReport} />}
+      >
+        {isLoadingAtRisk ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (atRisk ?? []).length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No active members have gone quiet right now.</p>
+        ) : (
+          <DataTable
+            rows={atRisk ?? []}
+            keyFor={(r) => r.memberId}
+            columns={[
+              {
+                header: 'Member',
+                render: (r) => (
+                  <Link to={`/members/${r.memberId}`} className="hover:underline">
+                    {r.fullName}
+                  </Link>
+                ),
+              },
+              { header: 'Code', render: (r) => r.memberCode },
+              { header: 'Last Check-in', render: (r) => r.lastCheckInDate },
+              {
+                header: 'Days Quiet',
+                render: (r) => <Badge variant={r.daysSinceLastVisit >= 30 ? 'destructive' : 'secondary'}>{r.daysSinceLastVisit}</Badge>,
+              },
+            ]}
+          />
+        )}
+      </ReportCard>
+
+      <ReportCard
+        title="Cohort Retention (last 12 months)"
+        action={<ExportButton onExport={() => exportCohortRetentionReport(12)} />}
+      >
+        {isLoadingCohorts ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <SimpleBarChart
+            data={(cohorts ?? []).map((c) => ({ label: c.cohortMonth, value: c.retentionRatePercent }))}
+            valueFormatter={(v) => `${v}%`}
+          />
+        )}
+      </ReportCard>
+
+      <ReportCard title="Lifetime Value by Acquisition Source" action={<ExportButton onExport={exportLtvBySourceReport} />}>
+        {isLoadingLtv ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <DataTable
+            rows={ltv ?? []}
+            keyFor={(r) => r.source}
+            columns={[
+              { header: 'Source', render: (r) => r.source },
+              { header: 'Members', render: (r) => r.memberCount },
+              { header: 'Total Revenue', render: (r) => `$${r.totalRevenue.toLocaleString()}` },
+              { header: 'Avg LTV / Member', render: (r) => `$${r.averageLtv.toLocaleString()}` },
+            ]}
+          />
+        )}
+      </ReportCard>
+    </div>
+  )
+}
+
 export default function ReportsPage() {
   return (
     <div className="space-y-4">
@@ -472,6 +552,7 @@ export default function ReportsPage() {
           <TabsTrigger value="crm">CRM</TabsTrigger>
           <TabsTrigger value="workouts">Workouts</TabsTrigger>
           <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="revenue"><RevenueTab /></TabsContent>
@@ -484,6 +565,7 @@ export default function ReportsPage() {
         <TabsContent value="crm"><CrmTab /></TabsContent>
         <TabsContent value="workouts"><WorkoutsTab /></TabsContent>
         <TabsContent value="nutrition"><NutritionTab /></TabsContent>
+        <TabsContent value="analytics"><AnalyticsTab /></TabsContent>
       </Tabs>
     </div>
   )
