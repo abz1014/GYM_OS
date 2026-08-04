@@ -123,6 +123,7 @@ public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantPro
     public DbSet<ClassType> ClassTypes => Set<ClassType>();
     public DbSet<ClassSchedule> ClassSchedules => Set<ClassSchedule>();
     public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
+    public DbSet<ClassBooking> ClassBookings => Set<ClassBooking>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

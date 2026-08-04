@@ -67,7 +67,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
 
         var trainers = await SeedTrainersAsync(tenant.Id, branches, demoUsers, cancellationToken);
         await SeedTrainerAssignmentsAsync(trainers, members, cancellationToken);
-        await SeedClassesAsync(tenant.Id, branches, trainers, cancellationToken);
+        await SeedClassesAsync(tenant.Id, branches, trainers, members, cancellationToken);
 
         var assets = await SeedEquipmentAsync(tenant.Id, branches, cancellationToken);
         await SeedMaintenanceAsync(tenant.Id, branches, assets, demoUsers, cancellationToken);

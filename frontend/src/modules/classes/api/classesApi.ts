@@ -42,6 +42,32 @@ export interface ClassSession {
   capacity: number
   location: string | null
   status: ClassSessionStatus
+  bookedCount: number
+  waitlistCount: number
+}
+
+export type ClassBookingStatus = 'Booked' | 'Waitlisted' | 'CheckedIn' | 'NoShow' | 'Cancelled'
+
+export interface ClassBooking {
+  id: string
+  memberId: string
+  memberName: string
+  memberCode: string
+  status: ClassBookingStatus
+  bookedAt: string
+  checkedInAt: string | null
+}
+
+export interface ClassSessionRoster {
+  sessionId: string
+  classTypeId: string
+  classTypeName: string
+  startsAt: string
+  capacity: number
+  bookedCount: number
+  waitlistCount: number
+  status: ClassSessionStatus
+  bookings: ClassBooking[]
 }
 
 export function useClassTypes() {
@@ -116,5 +142,46 @@ export function useCancelClassSession() {
   return useMutation({
     mutationFn: async (sessionId: string) => apiClient.post(`/api/classes/sessions/${sessionId}/cancel`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['class-sessions'] }),
+  })
+}
+
+export function useClassSessionRoster(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ['class-roster', sessionId],
+    queryFn: async () => (await apiClient.get<ClassSessionRoster>(`/api/classes/sessions/${sessionId}/roster`)).data,
+    enabled: !!sessionId,
+  })
+}
+
+// Shared invalidation for anything that changes a session's roster: the roster itself and the
+// session list's booked/waitlist counts.
+function invalidateRoster(queryClient: ReturnType<typeof useQueryClient>, sessionId: string) {
+  queryClient.invalidateQueries({ queryKey: ['class-roster', sessionId] })
+  queryClient.invalidateQueries({ queryKey: ['class-sessions'] })
+}
+
+export function useBookClassSession(sessionId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (memberId: string) =>
+      (await apiClient.post<ClassBookingStatus>(`/api/classes/sessions/${sessionId}/bookings`, { memberId })).data,
+    onSuccess: () => invalidateRoster(queryClient, sessionId),
+  })
+}
+
+export function useCancelClassBooking(sessionId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (bookingId: string) => apiClient.post(`/api/classes/bookings/${bookingId}/cancel`),
+    onSuccess: () => invalidateRoster(queryClient, sessionId),
+  })
+}
+
+export function useRecordClassBookingAttendance(sessionId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { bookingId: string; attended: boolean }) =>
+      apiClient.post(`/api/classes/bookings/${input.bookingId}/attendance`, { attended: input.attended }),
+    onSuccess: () => invalidateRoster(queryClient, sessionId),
   })
 }

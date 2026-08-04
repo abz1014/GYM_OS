@@ -14,6 +14,7 @@ import {
   useSetClassScheduleActive,
   type ClassSession,
 } from '@/modules/classes/api/classesApi'
+import { ClassRosterDialog } from '@/modules/classes/components/ClassRosterDialog'
 import { CreateClassScheduleDialog } from '@/modules/classes/components/CreateClassScheduleDialog'
 import { CreateClassTypeDialog } from '@/modules/classes/components/CreateClassTypeDialog'
 import { useUiStore } from '@/stores/uiStore'
@@ -213,16 +214,19 @@ function SessionsTab() {
                     </div>
                     <p className="text-xs text-muted-foreground">{s.trainerName ?? 'No instructor'}</p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    disabled={cancelSession.isPending}
-                    onClick={() => cancel(s.id)}
-                  >
-                    <Ban className="size-4" />
-                    Cancel
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <ClassRosterDialog session={s} />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Cancel session"
+                      className="text-muted-foreground hover:text-destructive"
+                      disabled={cancelSession.isPending}
+                      onClick={() => cancel(s.id)}
+                    >
+                      <Ban className="size-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}

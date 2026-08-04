@@ -10,12 +10,13 @@ namespace GymOS.Application.Modules.Classes.Commands;
 
 /// <summary>
 /// Cancel a single dated session (public holiday, instructor sick) without touching its recurring
-/// schedule — the rest of the weekly slot keeps running. In Step 2 this is also where booked
-/// members get their spots released and are notified.
+/// schedule — the rest of the weekly slot keeps running. Every still-active booking (confirmed or
+/// waitlisted) is released too, since the class isn't happening; there is no waitlist promotion
+/// here, because the session itself is gone.
 /// </summary>
 public record CancelClassSessionCommand(Guid ClassSessionId) : ICommand<Unit>;
 
-public class CancelClassSessionCommandHandler(IApplicationDbContext db)
+public class CancelClassSessionCommandHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider)
     : IRequestHandler<CancelClassSessionCommand, Unit>
 {
     public async Task<Unit> Handle(CancelClassSessionCommand request, CancellationToken cancellationToken)
@@ -29,6 +30,18 @@ public class CancelClassSessionCommandHandler(IApplicationDbContext db)
         }
 
         session.Status = ClassSessionStatus.Cancelled;
+
+        var activeBookings = await db.ClassBookings
+            .Where(b => b.ClassSessionId == session.Id
+                        && (b.Status == ClassBookingStatus.Booked || b.Status == ClassBookingStatus.Waitlisted))
+            .ToListAsync(cancellationToken);
+
+        foreach (var booking in activeBookings)
+        {
+            booking.Status = ClassBookingStatus.Cancelled;
+            booking.CancelledAt = dateTimeProvider.UtcNow;
+        }
+
         await db.SaveChangesAsync(cancellationToken);
 
         return Unit.Value;

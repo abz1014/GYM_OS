@@ -32,8 +32,20 @@ public class ClassSessionConfiguration : IEntityTypeConfiguration<ClassSession>
         builder.HasOne(s => s.ClassSchedule).WithMany().HasForeignKey(s => s.ClassScheduleId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(s => s.ClassType).WithMany().HasForeignKey(s => s.ClassTypeId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(s => s.Trainer).WithMany().HasForeignKey(s => s.TrainerId).OnDelete(DeleteBehavior.SetNull);
-        // Bookings (Step 2) and the member-facing "what's on this week" query both filter by branch
-        // + time window, so index the pair that query will hit.
+        builder.HasMany(s => s.Bookings).WithOne(b => b.ClassSession).HasForeignKey(b => b.ClassSessionId).OnDelete(DeleteBehavior.Cascade);
+        // Bookings and the member-facing "what's on this week" query both filter by branch + time
+        // window, so index the pair that query will hit.
         builder.HasIndex(s => new { s.BranchId, s.StartsAt });
+    }
+}
+
+public class ClassBookingConfiguration : IEntityTypeConfiguration<ClassBooking>
+{
+    public void Configure(EntityTypeBuilder<ClassBooking> builder)
+    {
+        builder.HasOne(b => b.Member).WithMany().HasForeignKey(b => b.MemberId).OnDelete(DeleteBehavior.Cascade);
+        // The roster query, the capacity count, and waitlist promotion all read a session's bookings
+        // in status order, so index the session + status pair those hit.
+        builder.HasIndex(b => new { b.ClassSessionId, b.Status });
     }
 }

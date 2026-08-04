@@ -52,7 +52,9 @@ public class GetClassSessionsListQueryHandler(IApplicationDbContext db, ICurrent
             .Select(s => new ClassSessionDto(
                 s.Id, s.ClassScheduleId, s.ClassTypeId, s.ClassType!.Name, s.ClassType.ColorHex,
                 s.TrainerId, s.Trainer == null ? null : s.Trainer.User!.FirstName + " " + s.Trainer.User.LastName,
-                s.StartsAt, s.DurationMinutes, s.Capacity, s.Location, s.Status))
+                s.StartsAt, s.DurationMinutes, s.Capacity, s.Location, s.Status,
+                s.Bookings.Count(b => b.Status == ClassBookingStatus.Booked || b.Status == ClassBookingStatus.CheckedIn),
+                s.Bookings.Count(b => b.Status == ClassBookingStatus.Waitlisted)))
             .ToListAsync(cancellationToken);
     }
 }

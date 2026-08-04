@@ -165,5 +165,7 @@ public interface IApplicationDbContext
 
     DbSet<ClassSession> ClassSessions { get; }
 
+    DbSet<ClassBooking> ClassBookings { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

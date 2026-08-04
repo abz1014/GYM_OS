@@ -2,6 +2,7 @@ using GymOS.API.Authorization;
 using GymOS.Application.Modules.Classes.Commands;
 using GymOS.Application.Modules.Classes.Dtos;
 using GymOS.Application.Modules.Classes.Queries;
+using GymOS.Domain.Classes;
 using GymOS.Shared;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -54,6 +55,32 @@ public class ClassesController(ISender mediator) : ControllerBase
     public async Task<IActionResult> CancelSession(Guid id, CancellationToken cancellationToken)
     {
         await mediator.Send(new CancelClassSessionCommand(id), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpGet("sessions/{id:guid}/roster")]
+    [RequirePermission(PermissionCodes.Classes.View)]
+    public async Task<ActionResult<ClassSessionRosterDto>> Roster(Guid id, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetClassSessionRosterQuery(id), cancellationToken));
+
+    [HttpPost("sessions/{id:guid}/bookings")]
+    [RequirePermission(PermissionCodes.Classes.Manage)]
+    public async Task<ActionResult<ClassBookingStatus>> Book(Guid id, BookClassSessionCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command with { ClassSessionId = id }, cancellationToken));
+
+    [HttpPost("bookings/{id:guid}/cancel")]
+    [RequirePermission(PermissionCodes.Classes.Manage)]
+    public async Task<IActionResult> CancelBooking(Guid id, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new CancelClassBookingCommand(id), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("bookings/{id:guid}/attendance")]
+    [RequirePermission(PermissionCodes.Classes.Manage)]
+    public async Task<IActionResult> RecordAttendance(Guid id, RecordClassBookingAttendanceCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command with { ClassBookingId = id }, cancellationToken);
         return NoContent();
     }
 }

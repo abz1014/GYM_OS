@@ -40,4 +40,6 @@ public class ClassSession : BaseEntity, IBranchScoped
     public string? Location { get; set; }
 
     public ClassSessionStatus Status { get; set; } = ClassSessionStatus.Scheduled;
+
+    public ICollection<ClassBooking> Bookings { get; set; } = [];
 }
