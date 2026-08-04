@@ -234,7 +234,8 @@ function TrainersTab() {
 }
 
 function InventoryTab() {
-  const { data, isLoading } = useInventoryItemsList({})
+  const { data: inventoryPage, isLoading } = useInventoryItemsList({ page: 1, pageSize: 100 })
+  const data = inventoryPage?.items
   const lowStockCount = data?.filter((i) => i.isLowStock).length ?? 0
   const { data: movements, isLoading: isLoadingMovements } = useInventoryStockMovementReport(30)
 

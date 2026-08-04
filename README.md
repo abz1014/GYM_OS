@@ -104,6 +104,50 @@ npm run dev
 
 Open `http://localhost:5173` and log in with any demo account above.
 
+## Production Deployment
+
+The checked-in `appsettings.json` is for local development only — its JWT
+signing key is a placeholder (literally named `CHANGE_ME_...`) and its DB
+password won't match a real database. ASP.NET Core's standard configuration
+precedence lets environment variables override any `appsettings.json` value
+without editing the file, using `Section__Key` (double underscore) naming:
+
+```bash
+export ASPNETCORE_ENVIRONMENT=Production
+export Jwt__SigningKey="<a real random secret, e.g. openssl rand -base64 48>"
+export ConnectionStrings__GymOsDb="Host=<prod-host>;Port=5432;Database=<prod-db>;Username=<user>;Password=<real-password>"
+```
+
+**The API refuses to start** in Production if `Jwt__SigningKey` still equals
+the checked-in placeholder — this is a deliberate fail-fast guard (see
+`Program.cs`) so a deploy that forgot to set the secret fails loudly at
+startup instead of silently running with a signing key visible in source
+control. `ConnectionStrings__GymOsDb` has no equivalent guard (a bad value
+just fails to connect, which is self-evident), but it must be overridden too.
+
+Other settings that follow the same override pattern once a real integration
+is ready (`Storage__Provider`, `Storage__*` for S3, or swapping the
+`NoOpPaymentGateway`/`NoOpEmailSender`/etc. registrations in
+`GymOS.Infrastructure/DependencyInjection.cs` for real ones) — see
+"Deferred integrations" below.
+
+Before first request, apply migrations against the target database:
+
+```bash
+cd backend
+dotnet ef database update --project src/GymOS.Infrastructure --startup-project src/GymOS.API \
+  --connection "Host=<prod-host>;Port=5432;Database=<prod-db>;Username=<user>;Password=<real-password>"
+```
+
+Verified this way end-to-end: with both variables set, the API starts with
+`Hosting environment: Production`, Swagger UI is unreachable (404, gated by
+`app.Environment.IsDevelopment()`), and login/JWT issuance works normally.
+
+**What this does not cover** — a real deploy still needs a backup/restore
+runbook and production monitoring/alerting, neither of which exist yet
+(tracked in `PHASE9_COMMERCIAL_READINESS.md`'s gap list, not a Foundation-exit
+blocker per `PHASE12_ARCHITECTURE_FREEZE_REVIEW.md`).
+
 ## Architecture
 
 - **Backend**: Clean Architecture — `GymOS.Domain` (entities, zero deps) →

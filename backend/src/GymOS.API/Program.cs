@@ -50,6 +50,19 @@ var jwtSection = builder.Configuration.GetSection(GymOS.Infrastructure.Identity.
 var signingKey = jwtSection[nameof(GymOS.Infrastructure.Identity.JwtSettings.SigningKey)]
     ?? throw new InvalidOperationException("Jwt:SigningKey is not configured.");
 
+// The checked-in appsettings.json fallback is a placeholder ("CHANGE_ME...") meant only for local
+// Development, where appsettings.Development.json (gitignored) overrides it with a real value —
+// see README "Production Deployment". Without this guard, deploying with ASPNETCORE_ENVIRONMENT
+// unset or set to something other than Development/Testing and no Jwt__SigningKey environment
+// variable would silently start the API signing real user tokens with a key visible to anyone who
+// reads this public source file. Fail loudly instead of shipping that silently.
+if (builder.Environment.IsProduction() && signingKey.StartsWith("CHANGE_ME", StringComparison.Ordinal))
+{
+    throw new InvalidOperationException(
+        "Refusing to start in Production with the placeholder Jwt:SigningKey from appsettings.json. " +
+        "Set the Jwt__SigningKey environment variable to a real secret before deploying.");
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

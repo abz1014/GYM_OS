@@ -17,9 +17,10 @@ public class InventoryController(ISender mediator) : ControllerBase
 {
     [HttpGet]
     [RequirePermission(PermissionCodes.Inventory.View)]
-    public async Task<ActionResult<List<InventoryItemListDto>>> List(
-        [FromQuery] Guid? branchId, [FromQuery] InventoryCategory? category, [FromQuery] bool? lowStockOnly, CancellationToken cancellationToken)
-        => Ok(await mediator.Send(new GetInventoryItemsListQuery(branchId, category, lowStockOnly), cancellationToken));
+    public async Task<ActionResult<PagedList<InventoryItemListDto>>> List(
+        [FromQuery] Guid? branchId, [FromQuery] InventoryCategory? category, [FromQuery] bool? lowStockOnly,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetInventoryItemsListQuery(branchId, category, lowStockOnly, page, pageSize), cancellationToken));
 
     [HttpGet("{id:guid}")]
     [RequirePermission(PermissionCodes.Inventory.View)]

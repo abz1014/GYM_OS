@@ -14,7 +14,13 @@ import { useUiStore } from '@/stores/uiStore'
 export default function InventoryPage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
   const [lowStockOnly, setLowStockOnly] = useState(false)
-  const { data: items, isLoading } = useInventoryItemsList({ branchId, lowStockOnly: lowStockOnly || undefined })
+  const { data, isLoading } = useInventoryItemsList({
+    branchId,
+    lowStockOnly: lowStockOnly || undefined,
+    page: 1,
+    pageSize: 100,
+  })
+  const items = data?.items
 
   const lowStockCount = items?.filter((i) => i.isLowStock).length ?? 0
 
@@ -24,7 +30,7 @@ export default function InventoryPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            {items?.length ?? '—'} items
+            {data?.totalCount ?? '—'} items
             {lowStockCount > 0 && (
               <span className="flex items-center gap-1 text-destructive">
                 <AlertTriangle className="size-3.5" /> {lowStockCount} low stock

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
+import type { PagedList } from '@/types/paging'
 
 export type InventoryCategory = 'Supplement' | 'Merchandise' | 'CleaningSupply' | 'SparePart'
 
@@ -15,10 +16,16 @@ export interface InventoryItemListItem {
   unitPrice: number | null
 }
 
-export function useInventoryItemsList(params: { branchId?: string | null; category?: InventoryCategory; lowStockOnly?: boolean }) {
+export function useInventoryItemsList(params: {
+  branchId?: string | null
+  category?: InventoryCategory
+  lowStockOnly?: boolean
+  page?: number
+  pageSize?: number
+}) {
   return useQuery({
     queryKey: ['inventory-items', params],
-    queryFn: async () => (await apiClient.get<InventoryItemListItem[]>('/api/inventory', { params })).data,
+    queryFn: async () => (await apiClient.get<PagedList<InventoryItemListItem>>('/api/inventory', { params })).data,
   })
 }
 
