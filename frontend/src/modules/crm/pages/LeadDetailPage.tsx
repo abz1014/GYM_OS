@@ -17,6 +17,13 @@ const STAGE_LABELS: Record<LeadStage, string> = {
   Lost: 'Lost',
 }
 
+// Matches LeadScorePolicy's 0-100 scale: >=70 is hot, <40 is cooling off.
+function scoreBadgeVariant(score: number): 'success' | 'warning' | 'outline' {
+  if (score >= 70) return 'success'
+  if (score >= 40) return 'warning'
+  return 'outline'
+}
+
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { data: lead, isLoading } = useLead(id)
@@ -50,6 +57,7 @@ export default function LeadDetailPage() {
                 {lead.firstName} {lead.lastName}
               </h1>
               <Badge variant="secondary">{lead.source}</Badge>
+              <Badge variant={scoreBadgeVariant(lead.score)}>Score {lead.score}</Badge>
             </div>
             <p className="text-sm text-muted-foreground">{lead.email}</p>
             {lead.phone && <p className="text-sm text-muted-foreground">{lead.phone}</p>}
@@ -92,8 +100,9 @@ export default function LeadDetailPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{a.type}</Badge>
+                  <span className="text-xs text-muted-foreground">Logged {new Date(a.createdAt).toLocaleDateString()}</span>
                   {a.dueDate && (
-                    <span className="text-xs text-muted-foreground">Due {new Date(a.dueDate).toLocaleString()}</span>
+                    <span className="text-xs text-muted-foreground">· Due {new Date(a.dueDate).toLocaleString()}</span>
                   )}
                 </div>
                 <p className="mt-1 text-sm">{a.notes}</p>

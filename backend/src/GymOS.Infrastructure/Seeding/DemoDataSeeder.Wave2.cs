@@ -291,12 +291,22 @@ public partial class DemoDataSeeder
     {
         var rng = new Random(9009);
         var assignees = new[] { demoUsers[RoleNames.Receptionist].Id, demoUsers[RoleNames.Manager].Id };
+        var now = DateTimeOffset.UtcNow;
+        var leads = new List<Lead>();
 
         for (var i = 0; i < 50; i++)
         {
             var firstName = _faker.Name.FirstName();
             var lastName = _faker.Name.LastName();
             var stageRoll = rng.Next(100);
+            var stage = stageRoll switch
+            {
+                < 30 => LeadStage.Lead,
+                < 55 => LeadStage.FollowUp,
+                < 75 => LeadStage.Trial,
+                < 90 => LeadStage.Member,
+                _ => LeadStage.Lost
+            };
 
             var lead = new Lead
             {
@@ -307,27 +317,40 @@ public partial class DemoDataSeeder
                 Email = _faker.Internet.Email(firstName, lastName).ToLowerInvariant(),
                 Phone = _faker.Phone.PhoneNumber("(###) ###-####"),
                 Source = _faker.PickRandom<LeadSource>(),
-                Stage = stageRoll switch
-                {
-                    < 30 => LeadStage.Lead,
-                    < 55 => LeadStage.FollowUp,
-                    < 75 => LeadStage.Trial,
-                    < 90 => LeadStage.Member,
-                    _ => LeadStage.Lost
-                },
+                Stage = stage,
                 AssignedToUserId = assignees[rng.Next(assignees.Length)]
             };
 
             db.Leads.Add(lead);
+            leads.Add(lead);
 
-            db.LeadActivities.Add(new LeadActivity
+            // Roughly a third of Lead/FollowUp leads go completely untouched — a realistic "fell
+            // through the cracks" population for the lead-drip automation to actually have work to
+            // do, and for LeadScorePolicy's recency penalty to show up in the demo.
+            var leaveUntouched = stage is LeadStage.Lead or LeadStage.FollowUp && rng.Next(100) < 35;
+            if (!leaveUntouched)
             {
-                Lead = lead,
-                Type = _faker.PickRandom<LeadActivityType>(),
-                Notes = _faker.Lorem.Sentence(8),
-                DueDate = DateTimeOffset.UtcNow.AddDays(rng.Next(-5, 14)),
-                CreatedByUserId = lead.AssignedToUserId
-            });
+                db.LeadActivities.Add(new LeadActivity
+                {
+                    Lead = lead,
+                    Type = _faker.PickRandom<LeadActivityType>(),
+                    Notes = _faker.Lorem.Sentence(8),
+                    DueDate = now.AddDays(rng.Next(-5, 14)),
+                    CreatedByUserId = lead.AssignedToUserId,
+                    CreatedAt = now.AddDays(-rng.Next(0, 10))
+                });
+            }
+        }
+
+        // First save lands CreatedAt = now for every lead (the audit interceptor stamps it on
+        // Added). Backdating afterward, on the same tracked entities, lets the interceptor's
+        // Modified-state branch (which only touches UpdatedAt) leave these deliberate values alone —
+        // without this, every seeded lead would look "just created" and never age into a drip step.
+        await db.SaveChangesAsync(cancellationToken);
+
+        foreach (var lead in leads)
+        {
+            lead.CreatedAt = now.AddDays(-rng.Next(0, 25));
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -383,6 +406,24 @@ public partial class DemoDataSeeder
                 TenantId = tenantId, Code = "class-reminder", Category = NotificationCategory.ClassReminder,
                 Channel = NotificationChannel.Email, Subject = "Your class is coming up",
                 BodyTemplate = "Hi {{FirstName}}, reminder: {{ClassName}} starts {{StartsAt}}. See you there!"
+            },
+            new NotificationTemplate
+            {
+                TenantId = tenantId, Code = "lead-drip-day-3", Category = NotificationCategory.LeadDrip,
+                Channel = NotificationChannel.Email, Subject = "Still thinking it over?",
+                BodyTemplate = "Hi {{FirstName}}, thanks for your interest in Titan Fitness! Have any questions about memberships or classes? We're happy to help."
+            },
+            new NotificationTemplate
+            {
+                TenantId = tenantId, Code = "lead-drip-day-7", Category = NotificationCategory.LeadDrip,
+                Channel = NotificationChannel.Email, Subject = "Come try a free class on us",
+                BodyTemplate = "Hi {{FirstName}}, no pressure — but we'd love to have you try a free class this week. Reply and we'll get you booked in."
+            },
+            new NotificationTemplate
+            {
+                TenantId = tenantId, Code = "lead-drip-day-14", Category = NotificationCategory.LeadDrip,
+                Channel = NotificationChannel.Email, Subject = "Still interested in joining Titan Fitness?",
+                BodyTemplate = "Hi {{FirstName}}, we haven't heard back in a couple weeks. If now isn't the right time, no worries — just let us know if you'd like us to check back later."
             });
 
         await db.SaveChangesAsync(cancellationToken);

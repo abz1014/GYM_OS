@@ -1,4 +1,4 @@
-import { TrendingUp, Users } from 'lucide-react'
+import { Flame, TrendingUp, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +18,7 @@ import {
   useLeadsList,
   useTopReferrers,
   useUpdateLeadStage,
+  type LeadListItem,
   type LeadStage,
 } from '@/modules/crm/api/crmApi'
 import { CreateLeadDialog } from '@/modules/crm/components/CreateLeadDialog'
@@ -28,6 +29,22 @@ const STAGE_LABELS: Record<LeadStage, string> = {
   Trial: 'Trial',
   Member: 'Member',
   Lost: 'Lost',
+}
+
+// >=70 is genuinely hot (deep into the pipeline, engaged recently); <40 is cooling off and worth a
+// nudge; the band between is a normal working lead. Matches LeadScorePolicy's 0-100 scale.
+function scoreBadgeVariant(score: number): 'success' | 'warning' | 'outline' {
+  if (score >= 70) return 'success'
+  if (score >= 40) return 'warning'
+  return 'outline'
+}
+
+function ScoreBadge({ score }: { score: number }) {
+  return (
+    <Badge variant={scoreBadgeVariant(score)} className="text-[10px]">
+      {score}
+    </Badge>
+  )
 }
 
 export default function CrmPage() {
@@ -42,6 +59,13 @@ export default function CrmPage() {
   const updateStage = useUpdateLeadStage()
 
   const leadsByStage = (stage: LeadStage) => leads?.filter((l) => l.stage === stage) ?? []
+
+  // The board already buckets stages client-side, so the hottest-leads list is just a client-side
+  // sort of the same data rather than a separate endpoint — mirrors the Top Referrers card above.
+  const hotLeads: LeadListItem[] = [...(leads ?? [])]
+    .filter((l) => l.stage !== 'Member' && l.stage !== 'Lost')
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
 
   return (
     <div className="space-y-6">
@@ -69,6 +93,36 @@ export default function CrmPage() {
               <span>{summary.trialCount} Trial</span>
               <span className="text-success">{summary.memberCount} Converted</span>
               <span className="text-destructive">{summary.lostCount} Lost</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {hotLeads.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Flame className="size-4 text-orange-500" />
+              Hot leads
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {hotLeads.map((lead) => (
+                <Link
+                  key={lead.id}
+                  to={`/crm/${lead.id}`}
+                  className="flex items-center justify-between gap-3 py-2 hover:underline"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm font-medium">{lead.fullName}</span>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      {STAGE_LABELS[lead.stage]}
+                    </Badge>
+                  </div>
+                  <ScoreBadge score={lead.score} />
+                </Link>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -122,7 +176,10 @@ export default function CrmPage() {
                   <Card key={lead.id}>
                     <CardContent className="space-y-2 p-3">
                       <Link to={`/crm/${lead.id}`} className="block hover:underline">
-                        <p className="text-sm font-medium">{lead.fullName}</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-sm font-medium">{lead.fullName}</p>
+                          <ScoreBadge score={lead.score} />
+                        </div>
                         <p className="truncate text-xs text-muted-foreground">{lead.email}</p>
                       </Link>
                       <Badge variant="secondary" className="text-[10px]">

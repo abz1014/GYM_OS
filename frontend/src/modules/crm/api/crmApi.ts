@@ -16,6 +16,7 @@ export interface LeadListItem {
   stage: LeadStage
   assignedToUserId: string | null
   createdAt: string
+  score: number
 }
 
 export interface LeadActivityItem {
@@ -24,6 +25,7 @@ export interface LeadActivityItem {
   notes: string
   dueDate: string | null
   completedAt: string | null
+  createdAt: string
 }
 
 export interface LeadDetail {
@@ -39,6 +41,7 @@ export interface LeadDetail {
   convertedMemberId: string | null
   notes: string | null
   createdAt: string
+  score: number
   activities: LeadActivityItem[]
 }
 

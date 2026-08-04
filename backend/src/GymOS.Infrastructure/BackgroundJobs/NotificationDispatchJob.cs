@@ -102,6 +102,22 @@ public class NotificationDispatchJob(
             placeholders["FirstName"] = user.FirstName;
             placeholders["LastName"] = user.LastName;
         }
+        else if (notification.RecipientLeadId is not null)
+        {
+            // A lead has no User/Member row yet — address them directly via the contact info already
+            // on the Lead record itself.
+            var lead = await db.Leads.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(l => l.Id == notification.RecipientLeadId, cancellationToken);
+
+            if (lead is null)
+            {
+                return null;
+            }
+
+            address = channel == NotificationChannel.Email ? lead.Email : lead.Phone;
+            placeholders["FirstName"] = lead.FirstName;
+            placeholders["LastName"] = lead.LastName;
+        }
 
         if (string.IsNullOrEmpty(address))
         {

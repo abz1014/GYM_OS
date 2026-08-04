@@ -16,6 +16,10 @@ public class ScheduledNotification : BaseEntity, IBranchScoped
 
     public Guid? RecipientMemberId { get; set; }
 
+    // A CRM lead has no User/Member row yet — the drip automation addresses them directly via the
+    // contact info already on the Lead record.
+    public Guid? RecipientLeadId { get; set; }
+
     public DateTimeOffset ScheduledFor { get; set; }
 
     public ScheduledNotificationStatus Status { get; set; } = ScheduledNotificationStatus.Pending;

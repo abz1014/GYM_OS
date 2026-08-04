@@ -19,7 +19,7 @@ public class AddLeadActivityCommandValidator : AbstractValidator<AddLeadActivity
     }
 }
 
-public class AddLeadActivityCommandHandler(IApplicationDbContext db, ICurrentUserService currentUser)
+public class AddLeadActivityCommandHandler(IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
     : IRequestHandler<AddLeadActivityCommand, Guid>
 {
     public async Task<Guid> Handle(AddLeadActivityCommand request, CancellationToken cancellationToken)
@@ -36,7 +36,8 @@ public class AddLeadActivityCommandHandler(IApplicationDbContext db, ICurrentUse
             Type = request.Type,
             Notes = request.Notes,
             DueDate = request.DueDate,
-            CreatedByUserId = currentUser.UserId
+            CreatedByUserId = currentUser.UserId,
+            CreatedAt = dateTimeProvider.UtcNow
         };
 
         db.LeadActivities.Add(activity);

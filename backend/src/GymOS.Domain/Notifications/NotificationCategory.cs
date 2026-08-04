@@ -15,5 +15,8 @@ public enum NotificationCategory
     ChurnRisk,
 
     /// <summary>A class the member booked is starting soon.</summary>
-    ClassReminder
+    ClassReminder,
+
+    /// <summary>An automated nurture nudge to a cold lead nobody has followed up with yet.</summary>
+    LeadDrip
 }

@@ -151,6 +151,7 @@ RecurringJob.AddOrUpdate<FollowUpReminderCheckJob>("follow-up-reminder-check", j
 RecurringJob.AddOrUpdate<ClassSessionGenerationJob>("class-session-generation", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<RecurringBillingJob>("recurring-billing", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<ChurnRiskWinBackJob>("churn-risk-winback", job => job.RunAsync(CancellationToken.None), Cron.Daily);
+RecurringJob.AddOrUpdate<LeadDripJob>("lead-drip", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 // Class reminders fire on the dispatch cadence, not daily — a 3-hour-ahead nudge is only useful in a narrow window.
 RecurringJob.AddOrUpdate<ClassReminderJob>("class-reminder", job => job.RunAsync(CancellationToken.None), "*/5 * * * *");
 RecurringJob.AddOrUpdate<NotificationDispatchJob>("notification-dispatch", job => job.RunAsync(CancellationToken.None), "*/5 * * * *");
