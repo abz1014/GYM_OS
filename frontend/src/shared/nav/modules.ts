@@ -33,8 +33,11 @@ export interface NavModule {
 export const NAV_MODULES: NavModule[] = [
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, permission: 'dashboard.view', wave: 1 },
   { key: 'portal', label: 'My Account', path: '/portal', icon: UserCircle, permission: 'portal.view', wave: 1 },
-  // Labelled "My Classes", not "Classes": Owner/Manager hold both portal.view and classes.view, so
-  // an identical label would render two indistinguishable "Classes" links in their sidebar.
+  // These three (My Account / My Classes / My Progress) are the member self-service surface, gated
+  // on portal.view — the Member role's only permission, and deliberately not granted to any staff
+  // role (see DemoDataSeeder), so staff never see dead "link your account" links. "My Classes" is
+  // labelled distinctly from the staff "Classes" module below to keep the member-facing page
+  // self-evident even though no single user now holds both permissions at once.
   { key: 'my-classes', label: 'My Classes', path: '/my-classes', icon: CalendarDays, permission: 'portal.view', wave: 1 },
   { key: 'my-progress', label: 'My Progress', path: '/my-progress', icon: Flame, permission: 'portal.view', wave: 1 },
   { key: 'members', label: 'Members', path: '/members', icon: Users, permission: 'members.view', wave: 1 },

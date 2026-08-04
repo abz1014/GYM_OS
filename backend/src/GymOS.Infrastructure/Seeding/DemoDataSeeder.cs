@@ -137,8 +137,16 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
 
         var rolePermissionMap = new Dictionary<string, string[]>
         {
-            [RoleNames.Owner] = permissions.Keys.ToArray(),
-            [RoleNames.Manager] = permissions.Keys.Where(c => c != PermissionCodes.Settings.ManagePermissions).ToArray(),
+            // Portal.View is the member self-service grant, not a staff capability — its own catalog
+            // entry reads "view OWN member profile". Owner/Manager are staff and are never linked to
+            // a Member row, so handing it to them (as a side effect of "all permissions") only put
+            // three dead sidebar links — My Account / My Classes / My Progress — that can render
+            // nothing but "ask the front desk to link your account". Excluded from every staff role;
+            // the Member role below is the only one that gets it.
+            [RoleNames.Owner] = permissions.Keys.Where(c => c != PermissionCodes.Portal.View).ToArray(),
+            [RoleNames.Manager] = permissions.Keys
+                .Where(c => c != PermissionCodes.Settings.ManagePermissions && c != PermissionCodes.Portal.View)
+                .ToArray(),
             [RoleNames.Receptionist] =
             [
                 PermissionCodes.Dashboard.View, PermissionCodes.Members.View, PermissionCodes.Members.Create, PermissionCodes.Members.Update,
