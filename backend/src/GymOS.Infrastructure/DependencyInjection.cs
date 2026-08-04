@@ -67,6 +67,9 @@ public static class DependencyInjection
         services.AddScoped<BackgroundJobs.LowStockCheckJob>();
         services.AddScoped<BackgroundJobs.FollowUpReminderCheckJob>();
         services.AddScoped<BackgroundJobs.ClassSessionGenerationJob>();
+        services.AddScoped<BackgroundJobs.RecurringBillingJob>();
+        services.AddScoped<BackgroundJobs.ChurnRiskWinBackJob>();
+        services.AddScoped<BackgroundJobs.ClassReminderJob>();
         services.AddScoped<BackgroundJobs.NotificationDispatchJob>();
         services.AddScoped<INotificationSchedulerService, BackgroundJobs.NotificationSchedulerService>();
 

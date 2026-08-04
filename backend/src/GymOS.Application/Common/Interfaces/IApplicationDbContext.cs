@@ -78,6 +78,8 @@ public interface IApplicationDbContext
 
     DbSet<PaymentReminder> PaymentReminders { get; }
 
+    DbSet<RecurringBillingAttempt> RecurringBillingAttempts { get; }
+
     DbSet<AttendanceRecord> AttendanceRecords { get; }
 
     DbSet<NotificationTemplate> NotificationTemplates { get; }

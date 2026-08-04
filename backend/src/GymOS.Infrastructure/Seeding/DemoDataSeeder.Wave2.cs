@@ -365,6 +365,24 @@ public partial class DemoDataSeeder
                 TenantId = tenantId, Code = "low-stock", Category = NotificationCategory.LowStock,
                 Channel = NotificationChannel.Email, Subject = "Low stock alert",
                 BodyTemplate = "{{ItemName}} is running low ({{QuantityOnHand}} remaining)."
+            },
+            new NotificationTemplate
+            {
+                TenantId = tenantId, Code = "payment-failed", Category = NotificationCategory.PaymentFailed,
+                Channel = NotificationChannel.Email, Subject = "We couldn't process your payment",
+                BodyTemplate = "Hi {{FirstName}}, your membership renewal payment didn't go through. We'll try again shortly — please check your payment details to avoid losing access."
+            },
+            new NotificationTemplate
+            {
+                TenantId = tenantId, Code = "churn-risk-winback", Category = NotificationCategory.ChurnRisk,
+                Channel = NotificationChannel.Email, Subject = "We miss you at the gym!",
+                BodyTemplate = "Hi {{FirstName}}, we haven't seen you in a while. Your membership is still active — come back this week and pick up where you left off."
+            },
+            new NotificationTemplate
+            {
+                TenantId = tenantId, Code = "class-reminder", Category = NotificationCategory.ClassReminder,
+                Channel = NotificationChannel.Email, Subject = "Your class is coming up",
+                BodyTemplate = "Hi {{FirstName}}, reminder: {{ClassName}} starts {{StartsAt}}. See you there!"
             });
 
         await db.SaveChangesAsync(cancellationToken);

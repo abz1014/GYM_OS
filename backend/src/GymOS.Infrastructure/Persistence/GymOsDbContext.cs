@@ -62,6 +62,7 @@ public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantPro
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<PaymentReminder> PaymentReminders => Set<PaymentReminder>();
+    public DbSet<RecurringBillingAttempt> RecurringBillingAttempts => Set<RecurringBillingAttempt>();
 
     // Attendance
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();

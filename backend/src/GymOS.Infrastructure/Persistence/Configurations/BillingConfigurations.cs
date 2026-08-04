@@ -46,3 +46,19 @@ public class RefundConfiguration : IEntityTypeConfiguration<Refund>
         builder.Property(r => r.Reason).HasMaxLength(500).IsRequired();
     }
 }
+
+public class RecurringBillingAttemptConfiguration : IEntityTypeConfiguration<RecurringBillingAttempt>
+{
+    public void Configure(EntityTypeBuilder<RecurringBillingAttempt> builder)
+    {
+        builder.Property(a => a.Currency).HasMaxLength(3).IsRequired();
+        builder.Property(a => a.LastFailureReason).HasMaxLength(500);
+
+        builder.HasOne(a => a.MemberMembership).WithMany().HasForeignKey(a => a.MemberMembershipId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(a => a.Member).WithMany().HasForeignKey(a => a.MemberId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(a => a.Invoice).WithMany().HasForeignKey(a => a.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+
+        // The daily job scans for "pending and due today or earlier" — index exactly that pair.
+        builder.HasIndex(a => new { a.Status, a.NextAttemptDate });
+    }
+}
