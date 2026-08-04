@@ -25,7 +25,8 @@ public class GetDietPlanByIdQueryHandler(IApplicationDbContext db) : IRequestHan
             .ToDictionaryAsync(f => f.Id, f => f.Name, cancellationToken);
 
         return new DietPlanDetailDto(
-            plan.Id, plan.MemberId, plan.Name, plan.TargetCalories, plan.StartDate, plan.EndDate,
+            plan.Id, plan.MemberId, plan.Name, plan.TargetCalories, plan.TargetProteinG, plan.TargetCarbsG, plan.TargetFatG,
+            plan.StartDate, plan.EndDate,
             plan.MealEntries
                 .OrderByDescending(e => e.ConsumedAt)
                 .Select(e => new MealEntryDto(e.Id, e.FoodItemId, foodItemNames.GetValueOrDefault(e.FoodItemId, string.Empty), e.MealType, e.Quantity, e.ConsumedAt))

@@ -109,4 +109,15 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<MyReferralsDto>> Referrals(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyReferralsQuery(), cancellationToken));
+
+    // Workout/nutrition intelligence: derived from the member's own logged history, not staff input.
+    [HttpGet("nutrition/summary")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyNutritionSummaryDto>> NutritionSummary(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyNutritionSummaryQuery(), cancellationToken));
+
+    [HttpGet("workout-suggestions")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyExerciseSuggestionDto>>> WorkoutSuggestions(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyWorkoutSuggestionsQuery(), cancellationToken));
 }

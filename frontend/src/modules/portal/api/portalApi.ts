@@ -195,3 +195,45 @@ export function useMyReferrals() {
     retry: false,
   })
 }
+
+export interface MyNutritionSummary {
+  activeDietPlanName: string | null
+  targetCalories: number | null
+  targetProteinG: number | null
+  targetCarbsG: number | null
+  targetFatG: number | null
+  consumedCalories: number
+  consumedProteinG: number
+  consumedCarbsG: number
+  consumedFatG: number
+  waterMl: number
+}
+
+export function useMyNutritionSummary() {
+  return useQuery({
+    queryKey: ['portal', 'nutrition-summary'],
+    queryFn: async () => (await apiClient.get<MyNutritionSummary>('/api/me/nutrition/summary')).data,
+    retry: false,
+  })
+}
+
+export type OverloadSuggestion = 'InsufficientData' | 'Progressing' | 'ReadyToIncreaseWeight' | 'ConsiderDeload'
+
+export interface MyExerciseSuggestion {
+  exerciseId: string
+  exerciseName: string
+  muscleGroup: string | null
+  suggestion: OverloadSuggestion
+  lastWeightKg: number | null
+  lastTotalReps: number | null
+  suggestedNextWeightKg: number | null
+  lastLoggedAt: string
+}
+
+export function useMyWorkoutSuggestions() {
+  return useQuery({
+    queryKey: ['portal', 'workout-suggestions'],
+    queryFn: async () => (await apiClient.get<MyExerciseSuggestion[]>('/api/me/workout-suggestions')).data,
+    retry: false,
+  })
+}

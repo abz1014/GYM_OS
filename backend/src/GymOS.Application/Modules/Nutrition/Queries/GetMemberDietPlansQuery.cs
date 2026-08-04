@@ -14,6 +14,6 @@ public class GetMemberDietPlansQueryHandler(IApplicationDbContext db) : IRequest
         => db.DietPlans.AsNoTracking()
             .Where(p => p.MemberId == request.MemberId)
             .OrderByDescending(p => p.StartDate)
-            .Select(p => new DietPlanListItemDto(p.Id, p.Name, p.TargetCalories, p.StartDate, p.EndDate))
+            .Select(p => new DietPlanListItemDto(p.Id, p.Name, p.TargetCalories, p.TargetProteinG, p.TargetCarbsG, p.TargetFatG, p.StartDate, p.EndDate))
             .ToListAsync(cancellationToken);
 }

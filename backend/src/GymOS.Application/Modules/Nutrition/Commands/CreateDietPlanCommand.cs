@@ -8,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymOS.Application.Modules.Nutrition.Commands;
 
-public record CreateDietPlanCommand(Guid MemberId, string Name, decimal? TargetCalories, DateOnly StartDate, DateOnly? EndDate) : ICommand<Guid>;
+public record CreateDietPlanCommand(
+    Guid MemberId, string Name, decimal? TargetCalories, decimal? TargetProteinG, decimal? TargetCarbsG, decimal? TargetFatG,
+    DateOnly StartDate, DateOnly? EndDate) : ICommand<Guid>;
 
 public class CreateDietPlanCommandValidator : AbstractValidator<CreateDietPlanCommand>
 {
@@ -36,6 +38,9 @@ public class CreateDietPlanCommandHandler(IApplicationDbContext db, ICurrentUser
             Name = request.Name,
             CreatedByUserId = currentUser.UserId,
             TargetCalories = request.TargetCalories,
+            TargetProteinG = request.TargetProteinG,
+            TargetCarbsG = request.TargetCarbsG,
+            TargetFatG = request.TargetFatG,
             StartDate = request.StartDate,
             EndDate = request.EndDate
         };

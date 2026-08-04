@@ -19,6 +19,9 @@ export function CreateDietPlanDialog({ memberId }: { memberId: string }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [targetCalories, setTargetCalories] = useState('')
+  const [targetProteinG, setTargetProteinG] = useState('')
+  const [targetCarbsG, setTargetCarbsG] = useState('')
+  const [targetFatG, setTargetFatG] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
@@ -27,6 +30,9 @@ export function CreateDietPlanDialog({ memberId }: { memberId: string }) {
   const reset = () => {
     setName('')
     setTargetCalories('')
+    setTargetProteinG('')
+    setTargetCarbsG('')
+    setTargetFatG('')
     setStartDate('')
     setEndDate('')
   }
@@ -43,6 +49,9 @@ export function CreateDietPlanDialog({ memberId }: { memberId: string }) {
         memberId,
         name,
         targetCalories: targetCalories ? Number(targetCalories) : undefined,
+        targetProteinG: targetProteinG ? Number(targetProteinG) : undefined,
+        targetCarbsG: targetCarbsG ? Number(targetCarbsG) : undefined,
+        targetFatG: targetFatG ? Number(targetFatG) : undefined,
         startDate,
         endDate: endDate || undefined,
       },
@@ -83,6 +92,20 @@ export function CreateDietPlanDialog({ memberId }: { memberId: string }) {
               value={targetCalories}
               onChange={(e) => setTargetCalories(e.target.value)}
             />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="targetProteinG">Protein g (optional)</Label>
+              <Input id="targetProteinG" type="number" min={0} value={targetProteinG} onChange={(e) => setTargetProteinG(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="targetCarbsG">Carbs g (optional)</Label>
+              <Input id="targetCarbsG" type="number" min={0} value={targetCarbsG} onChange={(e) => setTargetCarbsG(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="targetFatG">Fat g (optional)</Label>
+              <Input id="targetFatG" type="number" min={0} value={targetFatG} onChange={(e) => setTargetFatG(e.target.value)} />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

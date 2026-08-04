@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift } from 'lucide-react'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,11 +11,14 @@ import {
   useMyAttendance,
   useMyClassBookings,
   useMyDietPlans,
+  useMyNutritionSummary,
   useMyProfile,
   useMyReferrals,
   useMyWaterLogs,
   useMyWorkoutAssignments,
   useMyWorkoutLogs,
+  useMyWorkoutSuggestions,
+  type OverloadSuggestion,
 } from '@/modules/portal/api/portalApi'
 
 const classTimeFormat = new Intl.DateTimeFormat('en-US', {
@@ -36,6 +39,35 @@ function SectionCard({ title, children }: { title: string; children: React.React
   )
 }
 
+function MacroBar({ label, consumed, target, unit }: { label: string; consumed: number; target: number | null; unit: string }) {
+  const percent = target && target > 0 ? Math.min(100, Math.round((consumed / target) * 100)) : null
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium">{label}</span>
+        <span className="text-muted-foreground">
+          {Math.round(consumed)}
+          {target ? ` / ${Math.round(target)}` : ''} {unit}
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${percent ?? Math.min(100, consumed > 0 ? 100 : 0)}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+const SUGGESTION_CONFIG: Record<OverloadSuggestion, { label: string; icon: typeof TrendingUp; variant: 'success' | 'warning' | 'secondary' | 'outline' }> = {
+  Progressing: { label: 'Progressing', icon: TrendingUp, variant: 'success' },
+  ReadyToIncreaseWeight: { label: 'Add weight next time', icon: Sparkles, variant: 'warning' },
+  ConsiderDeload: { label: 'Consider a lighter session', icon: TrendingDown, variant: 'secondary' },
+  InsufficientData: { label: 'Log again to get a suggestion', icon: Minus, variant: 'outline' },
+}
+
 const dateFormat = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
 const dateTimeFormat = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -49,6 +81,8 @@ export default function MemberPortalPage() {
   const dietPlans = useMyDietPlans()
   const waterLogs = useMyWaterLogs()
   const referrals = useMyReferrals()
+  const nutritionSummary = useMyNutritionSummary()
+  const workoutSuggestions = useMyWorkoutSuggestions()
 
   if (profile.isError) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -142,6 +176,72 @@ export default function MemberPortalPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <p className="font-medium">Today's Nutrition</p>
+          </CardHeader>
+          <CardContent>
+            {nutritionSummary.isLoading ? (
+              <Skeleton className="h-32 w-full" />
+            ) : nutritionSummary.data?.activeDietPlanName ? (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">{nutritionSummary.data.activeDietPlanName}</p>
+                <MacroBar label="Calories" consumed={nutritionSummary.data.consumedCalories} target={nutritionSummary.data.targetCalories} unit="kcal" />
+                <MacroBar label="Protein" consumed={nutritionSummary.data.consumedProteinG} target={nutritionSummary.data.targetProteinG} unit="g" />
+                <MacroBar label="Carbs" consumed={nutritionSummary.data.consumedCarbsG} target={nutritionSummary.data.targetCarbsG} unit="g" />
+                <MacroBar label="Fat" consumed={nutritionSummary.data.consumedFatG} target={nutritionSummary.data.targetFatG} unit="g" />
+                <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                  <Droplets className="size-3.5" />
+                  {nutritionSummary.data.waterMl} ml water today
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
+                <Apple className="size-6" />
+                No active diet plan right now.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <p className="font-medium">Workout Suggestions</p>
+          </CardHeader>
+          <CardContent>
+            {workoutSuggestions.isLoading ? (
+              <Skeleton className="h-32 w-full" />
+            ) : workoutSuggestions.data && workoutSuggestions.data.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {workoutSuggestions.data.slice(0, 6).map((s) => {
+                  const config = SUGGESTION_CONFIG[s.suggestion]
+                  const Icon = config.icon
+                  return (
+                    <li key={s.exerciseId} className="flex items-center justify-between gap-2 border-b pb-2 last:border-0">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{s.exerciseName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Last: {s.lastWeightKg ? `${s.lastWeightKg} kg × ${s.lastTotalReps} reps` : `${s.lastTotalReps} reps`}
+                          {s.suggestedNextWeightKg ? ` → try ${s.suggestedNextWeightKg} kg` : ''}
+                        </p>
+                      </div>
+                      <Badge variant={config.variant} className="shrink-0 gap-1">
+                        <Icon className="size-3" />
+                        {config.label}
+                      </Badge>
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
+                <Dumbbell className="size-6" />
+                Log a couple of sessions to start getting suggestions.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <SectionCard title="Recent Check-ins">
           {attendance.isLoading ? (
             <Skeleton className="h-40 w-full" />

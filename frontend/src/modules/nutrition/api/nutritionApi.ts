@@ -40,6 +40,9 @@ export interface DietPlanListItem {
   id: string
   name: string
   targetCalories: number | null
+  targetProteinG: number | null
+  targetCarbsG: number | null
+  targetFatG: number | null
   startDate: string
   endDate: string | null
 }
@@ -58,6 +61,9 @@ export interface DietPlanDetail {
   memberId: string
   name: string
   targetCalories: number | null
+  targetProteinG: number | null
+  targetCarbsG: number | null
+  targetFatG: number | null
   startDate: string
   endDate: string | null
   mealEntries: MealEntry[]
@@ -89,6 +95,9 @@ interface CreateDietPlanInput {
   memberId: string
   name: string
   targetCalories?: number
+  targetProteinG?: number
+  targetCarbsG?: number
+  targetFatG?: number
   startDate: string
   endDate?: string
 }
