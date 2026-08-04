@@ -25,22 +25,21 @@ public class AddMealEntryCommandHandler(IApplicationDbContext db, IDateTimeProvi
 {
     public async Task<Guid> Handle(AddMealEntryCommand request, CancellationToken cancellationToken)
     {
-        var planExists = await db.DietPlans.AnyAsync(p => p.Id == request.DietPlanId, cancellationToken);
-        if (!planExists)
-        {
-            throw new NotFoundException(nameof(DietPlan), request.DietPlanId);
-        }
+        var plan = await db.DietPlans.FirstOrDefaultAsync(p => p.Id == request.DietPlanId, cancellationToken)
+            ?? throw new NotFoundException(nameof(DietPlan), request.DietPlanId);
 
+        var consumedAt = dateTimeProvider.UtcNow;
         var entry = new MealEntry
         {
             DietPlanId = request.DietPlanId,
             FoodItemId = request.FoodItemId,
             MealType = request.MealType,
             Quantity = request.Quantity,
-            ConsumedAt = dateTimeProvider.UtcNow
+            ConsumedAt = consumedAt
         };
 
         db.MealEntries.Add(entry);
+        plan.RaiseMealLogged(DateOnly.FromDateTime(consumedAt.UtcDateTime));
         await db.SaveChangesAsync(cancellationToken);
 
         return entry.Id;

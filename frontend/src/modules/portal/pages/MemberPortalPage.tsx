@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy, Award } from 'lucide-react'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy, Award, Flame } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import {
   useMyPersonalRecords,
   useMyMastery,
   useMyAchievements,
+  useMyStreaks,
   type OverloadSuggestion,
   type GroupMastery,
   type AchievementTier,
@@ -137,6 +138,7 @@ export default function MemberPortalPage() {
   const personalRecords = useMyPersonalRecords()
   const mastery = useMyMastery()
   const achievements = useMyAchievements()
+  const streaks = useMyStreaks()
 
   if (profile.isError) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -289,6 +291,44 @@ export default function MemberPortalPage() {
                 />
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {streaks.data && (
+        <Card>
+          <CardHeader>
+            <p className="flex items-center gap-2 font-medium">
+              <Flame className="size-4 text-orange-500" />
+              Weekly Streaks
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-3">
+              {(
+                [
+                  { label: 'Check-ins', weeks: streaks.data.attendanceWeeks, Icon: CalendarCheck },
+                  { label: 'Workouts', weeks: streaks.data.workoutWeeks, Icon: Dumbbell },
+                  { label: 'Nutrition', weeks: streaks.data.nutritionWeeks, Icon: Apple },
+                ] as const
+              ).map(({ label, weeks, Icon }) => (
+                <div
+                  key={label}
+                  className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-center ${
+                    weeks > 0 ? 'border-orange-500/40' : 'border-dashed opacity-60'
+                  }`}
+                >
+                  <Icon className={`size-5 ${weeks > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                  <p className="text-2xl font-semibold leading-none">{weeks}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {label} · {weeks === 1 ? 'week' : 'weeks'}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Consecutive weeks with at least one logged activity. Keep the flame alive!
+            </p>
           </CardContent>
         </Card>
       )}

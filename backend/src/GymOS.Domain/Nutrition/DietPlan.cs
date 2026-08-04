@@ -2,7 +2,7 @@ using GymOS.Domain.Common;
 
 namespace GymOS.Domain.Nutrition;
 
-public class DietPlan : BaseEntity
+public class DietPlan : AggregateRoot
 {
     public Guid MemberId { get; set; }
 
@@ -25,4 +25,8 @@ public class DietPlan : BaseEntity
     public DateOnly? EndDate { get; set; }
 
     public ICollection<MealEntry> MealEntries { get; set; } = [];
+
+    /// <summary>Signals the Member Experience Engine that this plan's member logged a meal on the
+    /// given day. Called by AddMealEntryCommand after the entry is added; dispatched after save.</summary>
+    public void RaiseMealLogged(DateOnly consumedDate) => AddDomainEvent(new MealLoggedEvent(MemberId, consumedDate));
 }

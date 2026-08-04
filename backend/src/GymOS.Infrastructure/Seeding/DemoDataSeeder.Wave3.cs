@@ -1,3 +1,4 @@
+using GymOS.Domain.Attendance;
 using GymOS.Domain.Experience;
 using GymOS.Domain.Identity;
 using GymOS.Domain.Nutrition;
@@ -150,6 +151,27 @@ public partial class DemoDataSeeder
         }
 
         db.WaterLogs.Add(new WaterLog { MemberId = member.Id, AmountMl = 750, LoggedAt = now.AddHours(-3) });
+
+        // Four consecutive weeks of habit activity so the portal's weekly-streak card reads as a
+        // meaningful 4-week streak on all three tracks (check-ins, workouts, nutrition). Subtracting
+        // exactly 7*w days keeps the same weekday, so each entry lands cleanly inside its week bucket
+        // (Monday-start) regardless of what day the demo is seeded — no week-boundary flakiness.
+        var streakFood = await db.FoodItems.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(f => f.TenantId == member.TenantId && f.Name == "Greek Yogurt (plain)", cancellationToken);
+        for (var w = 0; w < 4; w++)
+        {
+            var at = now.AddDays(-7 * w);
+            db.AttendanceRecords.Add(new AttendanceRecord
+            {
+                TenantId = member.TenantId, BranchId = member.BranchId, MemberId = member.Id,
+                CheckInAt = at, CheckOutAt = at.AddHours(1), Method = AttendanceMethod.QrSimulated
+            });
+            db.WorkoutLogs.Add(new WorkoutLog { MemberId = member.Id, LoggedAt = at });
+            if (streakFood is not null)
+            {
+                dietPlan.MealEntries.Add(new MealEntry { FoodItemId = streakFood.Id, MealType = MealType.Snack, Quantity = 1m, ConsumedAt = at });
+            }
+        }
 
         // Member Experience Engine (mastery + personal records): mirror the two lifts seeded above so
         // the demo member's mastery and PR cards are populated. Seeded directly (values match what the

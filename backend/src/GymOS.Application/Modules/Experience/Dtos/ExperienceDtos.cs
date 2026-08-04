@@ -46,3 +46,7 @@ public record MyAchievementDto(
     string Icon,
     bool Unlocked,
     DateTimeOffset? UnlockedAt);
+
+/// <summary>A member's habit streaks — consecutive weeks with at least one attendance, workout, and
+/// logged meal respectively (all via the same weekly StreakCalculator).</summary>
+public record MyStreaksDto(int AttendanceWeeks, int WorkoutWeeks, int NutritionWeeks);

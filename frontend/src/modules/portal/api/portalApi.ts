@@ -330,3 +330,17 @@ export function useMyAchievements() {
     retry: false,
   })
 }
+
+export interface MyStreaks {
+  attendanceWeeks: number
+  workoutWeeks: number
+  nutritionWeeks: number
+}
+
+export function useMyStreaks() {
+  return useQuery({
+    queryKey: ['portal', 'streaks'],
+    queryFn: async () => (await apiClient.get<MyStreaks>('/api/me/streaks')).data,
+    retry: false,
+  })
+}

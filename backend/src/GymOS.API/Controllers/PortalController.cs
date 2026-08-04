@@ -144,4 +144,9 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<MyAchievementDto>>> Achievements(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyAchievementsQuery(), cancellationToken));
+
+    [HttpGet("streaks")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyStreaksDto>> Streaks(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyStreaksQuery(), cancellationToken));
 }
