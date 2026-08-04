@@ -50,6 +50,8 @@ public class LogWorkoutCommandHandler(IApplicationDbContext db, IDateTimeProvide
             });
         }
 
+        log.RaiseLogged();
+
         db.WorkoutLogs.Add(log);
         await db.SaveChangesAsync(cancellationToken);
 

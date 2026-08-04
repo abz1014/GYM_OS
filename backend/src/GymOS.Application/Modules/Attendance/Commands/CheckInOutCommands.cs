@@ -48,6 +48,8 @@ public class CheckInCommandHandler(
             RecordedByUserId = request.Method == AttendanceMethod.Manual ? currentUser.UserId : null
         };
 
+        record.RaiseCheckedIn();
+
         db.AttendanceRecords.Add(record);
         await db.SaveChangesAsync(cancellationToken);
 

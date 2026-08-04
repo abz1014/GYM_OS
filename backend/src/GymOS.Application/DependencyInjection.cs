@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using GymOS.Application.Common.Behaviors;
+using GymOS.Application.Modules.Experience.Services;
 using GymOS.Application.Modules.Migration.EntityHandlers;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +33,9 @@ public static class DependencyInjection
         services.AddScoped<IImportEntityHandler, MembershipImportEntityHandler>();
         services.AddScoped<IImportEntityHandler, AttendanceImportEntityHandler>();
         services.AddScoped<IImportEntityHandler, PaymentImportEntityHandler>();
+
+        // Member Experience Engine: shared idempotent XP write-path used by the domain-event handlers.
+        services.AddScoped<IMemberXpService, MemberXpService>();
 
         return services;
     }

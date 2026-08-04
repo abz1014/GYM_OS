@@ -4,6 +4,7 @@ using GymOS.Domain.Billing;
 using GymOS.Domain.Classes;
 using GymOS.Domain.Crm;
 using GymOS.Domain.Equipment;
+using GymOS.Domain.Experience;
 using GymOS.Domain.Identity;
 using GymOS.Domain.Inventory;
 using GymOS.Domain.Maintenance;
@@ -170,6 +171,11 @@ public interface IApplicationDbContext
     DbSet<ClassSession> ClassSessions { get; }
 
     DbSet<ClassBooking> ClassBookings { get; }
+
+    // Member Experience Engine
+    DbSet<MemberProgression> MemberProgressions { get; }
+
+    DbSet<XpTransaction> XpTransactions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,5 @@
 using GymOS.Application.Common.Interfaces;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -20,7 +21,22 @@ public class GymOsDbContextFactory : IDesignTimeDbContextFactory<GymOsDbContext>
         var optionsBuilder = new DbContextOptionsBuilder<GymOsDbContext>();
         optionsBuilder.UseNpgsql(connectionString);
 
-        return new GymOsDbContext(optionsBuilder.Options, new DesignTimeTenantProvider(), new DesignTimeCurrentUserService(), new DesignTimeDateTimeProvider());
+        return new GymOsDbContext(
+            optionsBuilder.Options,
+            new DesignTimeTenantProvider(),
+            new DesignTimeCurrentUserService(),
+            new DesignTimeDateTimeProvider(),
+            new DesignTimePublisher());
+    }
+
+    // Design-time only (migrations): nothing dispatches domain events during `dotnet ef`, so a
+    // no-op publisher is sufficient and avoids pulling the MediatR pipeline into the tooling path.
+    private class DesignTimePublisher : IPublisher
+    {
+        public Task Publish(object notification, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default)
+            where TNotification : INotification => Task.CompletedTask;
     }
 
     private class DesignTimeTenantProvider : ITenantProvider

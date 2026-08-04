@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using GymOS.Application.Common.Interfaces;
+using GymOS.Application.Common.Messaging;
 using GymOS.Domain.Attendance;
 using GymOS.Domain.Auditing;
 using GymOS.Domain.Billing;
@@ -7,6 +8,7 @@ using GymOS.Domain.Classes;
 using GymOS.Domain.Common;
 using GymOS.Domain.Crm;
 using GymOS.Domain.Equipment;
+using GymOS.Domain.Experience;
 using GymOS.Domain.Identity;
 using GymOS.Domain.Inventory;
 using GymOS.Domain.Maintenance;
@@ -19,12 +21,18 @@ using GymOS.Domain.Settings;
 using GymOS.Domain.Tenancy;
 using GymOS.Domain.Trainers;
 using GymOS.Domain.Workouts;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace GymOS.Infrastructure.Persistence;
 
-public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantProvider tenantProvider, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
+public class GymOsDbContext(
+    DbContextOptions<GymOsDbContext> options,
+    ITenantProvider tenantProvider,
+    ICurrentUserService currentUser,
+    IDateTimeProvider dateTimeProvider,
+    IPublisher publisher)
     : DbContext(options), IApplicationDbContext
 {
     // Tenancy / Settings
@@ -127,6 +135,10 @@ public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantPro
     public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
     public DbSet<ClassBooking> ClassBookings => Set<ClassBooking>();
 
+    // Member Experience Engine
+    public DbSet<MemberProgression> MemberProgressions => Set<MemberProgression>();
+    public DbSet<XpTransaction> XpTransactions => Set<XpTransaction>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<decimal>().HavePrecision(18, 2);
@@ -135,6 +147,10 @@ public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantPro
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Domain events are a behavioural concern dispatched from SaveChanges, never persisted — keep
+        // AggregateRoot.DomainEvents out of the model so EF doesn't try to map it as a navigation.
+        modelBuilder.Ignore<DomainEvent>();
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(GymOsDbContext).Assembly);
 
@@ -231,6 +247,63 @@ public class GymOsDbContext(DbContextOptions<GymOsDbContext> options, ITenantPro
             }
         }
 
-        return await base.SaveChangesAsync(cancellationToken);
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        // Dispatch domain events AFTER the source rows are persisted, so handlers see committed
+        // state. Handler writes (XP ledger, projections) join the same ambient transaction that
+        // TransactionBehavior already opened, so the trigger and its projections commit atomically.
+        await DispatchDomainEventsAsync(cancellationToken);
+
+        return result;
+    }
+
+    private bool _dispatchingDomainEvents;
+
+    private async Task DispatchDomainEventsAsync(CancellationToken cancellationToken)
+    {
+        // Re-entrancy guard: the follow-up save below can itself be a no-op or (in future slices)
+        // raise further events; we only ever run one dispatch pass per outermost SaveChanges.
+        if (_dispatchingDomainEvents)
+        {
+            return;
+        }
+
+        var aggregates = ChangeTracker.Entries<IHasDomainEvents>()
+            .Where(e => e.Entity.DomainEvents.Count > 0)
+            .Select(e => e.Entity)
+            .ToList();
+
+        if (aggregates.Count == 0)
+        {
+            return;
+        }
+
+        var domainEvents = aggregates.SelectMany(a => a.DomainEvents).ToList();
+        aggregates.ForEach(a => a.ClearDomainEvents());
+
+        _dispatchingDomainEvents = true;
+        try
+        {
+            foreach (var domainEvent in domainEvents)
+            {
+                // Wrap in the Application-layer adapter so Domain stays MediatR-free; handlers
+                // subscribe to DomainEventNotification<TEvent>.
+                var notificationType = typeof(DomainEventNotification<>).MakeGenericType(domainEvent.GetType());
+                var notification = (INotification)Activator.CreateInstance(notificationType, domainEvent)!;
+                await publisher.Publish(notification, cancellationToken);
+            }
+
+            // Persist whatever the handlers changed (XP ledger, MemberProgression). base.SaveChanges,
+            // not this.SaveChanges, so we don't re-run the stamping pass or recurse into dispatch —
+            // handler-written rows set their own TenantId/timestamps.
+            if (ChangeTracker.HasChanges())
+            {
+                await base.SaveChangesAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            _dispatchingDomainEvents = false;
+        }
     }
 }

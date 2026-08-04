@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,8 +18,22 @@ import {
   useMyWorkoutAssignments,
   useMyWorkoutLogs,
   useMyWorkoutSuggestions,
+  useMyExperience,
   type OverloadSuggestion,
 } from '@/modules/portal/api/portalApi'
+
+// Reasons come back from the API as the XpReason enum name; give members friendly labels.
+const XP_REASON_LABELS: Record<string, string> = {
+  WorkoutCompleted: 'Workout logged',
+  GymVisit: 'Gym visit',
+  StreakMilestone: 'Streak milestone',
+  ProgressiveImprovement: 'Progressive improvement',
+  GoalCompleted: 'Goal completed',
+  TrainerVerified: 'Trainer verified',
+  NutritionAdherence: 'Nutrition on target',
+  RecoveryLogged: 'Recovery logged',
+  ChallengeCompleted: 'Challenge completed',
+}
 
 const classTimeFormat = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
@@ -83,6 +97,7 @@ export default function MemberPortalPage() {
   const referrals = useMyReferrals()
   const nutritionSummary = useMyNutritionSummary()
   const workoutSuggestions = useMyWorkoutSuggestions()
+  const experience = useMyExperience()
 
   if (profile.isError) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -134,6 +149,53 @@ export default function MemberPortalPage() {
             icon={CalendarDays}
           />
         </div>
+      )}
+
+      {experience.data && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <p className="flex items-center gap-2 font-medium">
+              <Zap className="size-4 text-amber-500" />
+              Level {experience.data.level}
+            </p>
+            <span className="text-sm text-muted-foreground">{experience.data.totalXp.toLocaleString()} XP</span>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Level {experience.data.level}</span>
+                <span>
+                  {experience.data.xpIntoLevel} / {experience.data.xpForNextLevel} XP to level {experience.data.level + 1}
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-amber-500 transition-all"
+                  style={{
+                    width: `${
+                      experience.data.xpForNextLevel > 0
+                        ? Math.min(100, Math.round((experience.data.xpIntoLevel / experience.data.xpForNextLevel) * 100))
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {experience.data.recent.length > 0 && (
+              <div className="divide-y">
+                {experience.data.recent.slice(0, 5).map((entry, i) => (
+                  <div key={i} className="flex items-center justify-between py-1.5 text-sm">
+                    <span className="text-muted-foreground">
+                      {XP_REASON_LABELS[entry.reason] ?? entry.reason}
+                    </span>
+                    <span className="font-medium text-amber-600">+{entry.amount} XP</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <Card>

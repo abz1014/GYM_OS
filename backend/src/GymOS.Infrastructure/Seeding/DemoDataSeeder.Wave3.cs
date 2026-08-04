@@ -1,3 +1,4 @@
+using GymOS.Domain.Experience;
 using GymOS.Domain.Identity;
 using GymOS.Domain.Nutrition;
 using GymOS.Domain.Workouts;
@@ -149,6 +150,44 @@ public partial class DemoDataSeeder
         }
 
         db.WaterLogs.Add(new WaterLog { MemberId = member.Id, AmountMl = 750, LoggedAt = now.AddHours(-3) });
+
+        // Member Experience Engine: give the linked demo member a populated Level/XP card out of the
+        // box. Awards are written directly here because the seeder runs outside an HTTP context, so
+        // the event-driven XP path that fires on live check-ins/workouts never runs during seeding —
+        // the WorkoutLogs added above deliberately don't call RaiseLogged(). Four workouts (50 XP
+        // each) + ten visits (20 XP each) = 400 XP, which lands the member at level 3.
+        var xpSeeds = new List<(XpReason Reason, XpSourceType Source, int DaysAgo)>();
+        for (var d = 1; d <= 4; d++)
+        {
+            xpSeeds.Add((XpReason.WorkoutCompleted, XpSourceType.WorkoutLog, d * 2));
+        }
+
+        for (var d = 1; d <= 10; d++)
+        {
+            xpSeeds.Add((XpReason.GymVisit, XpSourceType.Attendance, d));
+        }
+
+        long totalXp = 0;
+        foreach (var (reason, source, daysAgo) in xpSeeds)
+        {
+            var amount = XpPolicy.AwardFor(reason);
+            totalXp += amount;
+            db.XpTransactions.Add(new XpTransaction
+            {
+                TenantId = member.TenantId,
+                MemberId = member.Id,
+                Amount = amount,
+                Reason = reason,
+                SourceType = source,
+                SourceId = Guid.NewGuid(),
+                OccurredAt = now.AddDays(-daysAgo)
+            });
+        }
+
+        var progression = new MemberProgression { TenantId = member.TenantId, MemberId = member.Id };
+        progression.SetTotalXp(totalXp);
+        progression.UpdatedAt = now;
+        db.MemberProgressions.Add(progression);
 
         await db.SaveChangesAsync(cancellationToken);
     }

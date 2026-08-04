@@ -1,5 +1,7 @@
 using GymOS.API.Authorization;
 using GymOS.Application.Modules.Attendance.Dtos;
+using GymOS.Application.Modules.Experience.Dtos;
+using GymOS.Application.Modules.Experience.Queries;
 using GymOS.Application.Modules.Members.Dtos;
 using GymOS.Application.Modules.Nutrition.Dtos;
 using GymOS.Application.Modules.Portal.Commands;
@@ -120,4 +122,11 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<MyExerciseSuggestionDto>>> WorkoutSuggestions(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyWorkoutSuggestionsQuery(), cancellationToken));
+
+    // Member Experience Engine: the member's level, XP, and recent XP ledger. Self-scoped like the
+    // rest of /api/me — no member id is accepted from the caller.
+    [HttpGet("experience")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyExperienceDto>> Experience(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyExperienceQuery(), cancellationToken));
 }

@@ -237,3 +237,25 @@ export function useMyWorkoutSuggestions() {
     retry: false,
   })
 }
+
+export interface MyXpEntry {
+  amount: number
+  reason: string
+  occurredAt: string
+}
+
+export interface MyExperience {
+  level: number
+  totalXp: number
+  xpIntoLevel: number
+  xpForNextLevel: number
+  recent: MyXpEntry[]
+}
+
+export function useMyExperience() {
+  return useQuery({
+    queryKey: ['portal', 'experience'],
+    queryFn: async () => (await apiClient.get<MyExperience>('/api/me/experience')).data,
+    retry: false,
+  })
+}
