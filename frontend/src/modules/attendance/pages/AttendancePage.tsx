@@ -68,52 +68,74 @@ export default function AttendancePage() {
           <PeakHoursCard />
         </div>
 
-        <div className="lg:col-span-2 rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Check-in</TableHead>
-                <TableHead>Check-out</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading &&
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={5}>
-                      <Skeleton className="h-6 w-full" />
-                    </TableCell>
-                  </TableRow>
-                ))}
-
-              {!isLoading && data?.items.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                    No attendance records yet.
-                  </TableCell>
-                </TableRow>
-              )}
-
-              {data?.items.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell>{record.memberName}</TableCell>
-                  <TableCell className="text-muted-foreground">{new Date(record.checkInAt).toLocaleString()}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {record.checkOutAt ? new Date(record.checkOutAt).toLocaleString() : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{record.method === 'QrSimulated' ? 'QR' : 'Manual'}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {!record.checkOutAt && <CheckOutButton attendanceRecordId={record.id} />}
-                  </TableCell>
-                </TableRow>
+        <div className="lg:col-span-2">
+          {isLoading && (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full lg:h-10" />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          )}
+
+          {!isLoading && data?.items.length === 0 && (
+            <p className="rounded-lg border py-8 text-center text-sm text-muted-foreground">No attendance records yet.</p>
+          )}
+
+          {!isLoading && data && data.items.length > 0 && (
+            <>
+              {/* Mobile: card list — check-in/check-out datetimes are long strings that clip
+                  badly in a table on a phone screen. */}
+              <div className="space-y-2 lg:hidden">
+                {data.items.map((record) => (
+                  <div key={record.id} className="space-y-2 rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate font-medium">{record.memberName}</p>
+                      <Badge variant="outline" className="shrink-0">
+                        {record.method === 'QrSimulated' ? 'QR' : 'Manual'}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      <p>In: {new Date(record.checkInAt).toLocaleString()}</p>
+                      <p>Out: {record.checkOutAt ? new Date(record.checkOutAt).toLocaleString() : '—'}</p>
+                    </div>
+                    {!record.checkOutAt && <CheckOutButton attendanceRecordId={record.id} />}
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop / tablet: full table */}
+              <div className="hidden rounded-lg border lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Check-in</TableHead>
+                      <TableHead>Check-out</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.items.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell>{record.memberName}</TableCell>
+                        <TableCell className="text-muted-foreground">{new Date(record.checkInAt).toLocaleString()}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {record.checkOutAt ? new Date(record.checkOutAt).toLocaleString() : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{record.method === 'QrSimulated' ? 'QR' : 'Manual'}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {!record.checkOutAt && <CheckOutButton attendanceRecordId={record.id} />}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

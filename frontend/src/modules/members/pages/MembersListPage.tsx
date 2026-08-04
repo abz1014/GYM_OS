@@ -64,63 +64,94 @@ export default function MembersListPage() {
         </Select>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Joined</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading &&
-              Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={6}>
-                    <Skeleton className="h-6 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))}
+      {isLoading && (
+        <div className="space-y-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full md:h-10" />
+          ))}
+        </div>
+      )}
 
-            {!isLoading && data?.items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                  No members found.
-                </TableCell>
-              </TableRow>
-            )}
+      {!isLoading && data?.items.length === 0 && (
+        <p className="py-8 text-center text-sm text-muted-foreground">No members found.</p>
+      )}
 
-            {data?.items.map((member) => (
-              <TableRow
+      {!isLoading && data && data.items.length > 0 && (
+        <>
+          {/* Mobile: card list — a table's Email/Phone/Joined columns have no room on a phone
+              screen and end up hard-clipped mid-word, so small screens get a scannable card
+              instead of a shrunk table. */}
+          <div className="space-y-2 md:hidden">
+            {data.items.map((member) => (
+              <button
                 key={member.id}
-                className="cursor-pointer"
+                type="button"
                 onClick={() => navigate(`/members/${member.id}`)}
+                className="flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left active:bg-accent"
               >
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="size-7">
-                      <AvatarImage src={member.profilePhotoUrl ?? undefined} />
-                      <AvatarFallback className="text-xs">{member.fullName.at(0)}</AvatarFallback>
-                    </Avatar>
-                    {member.fullName}
+                <Avatar className="size-10 shrink-0">
+                  <AvatarImage src={member.profilePhotoUrl ?? undefined} />
+                  <AvatarFallback>{member.fullName.at(0)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate font-medium">{member.fullName}</p>
+                    <Badge variant={STATUS_VARIANT[member.status]} className="shrink-0">
+                      {member.status}
+                    </Badge>
                   </div>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{member.memberCode}</TableCell>
-                <TableCell className="text-muted-foreground">{member.email}</TableCell>
-                <TableCell className="text-muted-foreground">{member.phone ?? '—'}</TableCell>
-                <TableCell className="text-muted-foreground">{new Date(member.joinDate).toLocaleDateString()}</TableCell>
-                <TableCell>
-                  <Badge variant={STATUS_VARIANT[member.status]}>{member.status}</Badge>
-                </TableCell>
-              </TableRow>
+                  <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {member.memberCode} · Joined {new Date(member.joinDate).toLocaleDateString()}
+                  </p>
+                </div>
+              </button>
             ))}
-          </TableBody>
-        </Table>
-      </div>
+          </div>
+
+          {/* Desktop / tablet: full table */}
+          <div className="hidden rounded-lg border md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.items.map((member) => (
+                  <TableRow
+                    key={member.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/members/${member.id}`)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="size-7">
+                          <AvatarImage src={member.profilePhotoUrl ?? undefined} />
+                          <AvatarFallback className="text-xs">{member.fullName.at(0)}</AvatarFallback>
+                        </Avatar>
+                        {member.fullName}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{member.memberCode}</TableCell>
+                    <TableCell className="text-muted-foreground">{member.email}</TableCell>
+                    <TableCell className="text-muted-foreground">{member.phone ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{new Date(member.joinDate).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_VARIANT[member.status]}>{member.status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
     </div>
   )
 }

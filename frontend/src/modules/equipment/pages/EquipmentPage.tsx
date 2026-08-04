@@ -57,48 +57,72 @@ export default function EquipmentPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Asset</TableHead>
-              <TableHead>Tag</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Warranty</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading &&
-              Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={6}>
-                    <Skeleton className="h-6 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))}
+      {isLoading && (
+        <div className="space-y-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full md:h-10" />
+          ))}
+        </div>
+      )}
 
-            {assets?.map((asset) => (
-              <TableRow key={asset.id}>
-                <TableCell className="flex items-center gap-2 font-medium">
-                  <QrCode className="size-4 text-muted-foreground" />
-                  {asset.name}
-                </TableCell>
-                <TableCell className="text-muted-foreground">{asset.assetTag}</TableCell>
-                <TableCell className="text-muted-foreground">{asset.category ?? '—'}</TableCell>
-                <TableCell className="text-muted-foreground">{asset.supplierName ?? '—'}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {asset.warrantyExpiresAt ? new Date(asset.warrantyExpiresAt).toLocaleDateString() : '—'}
-                </TableCell>
-                <TableCell>
-                  <AssetStatusCell assetId={asset.id} status={asset.status} />
-                </TableCell>
-              </TableRow>
+      {!isLoading && assets && assets.length > 0 && (
+        <>
+          {/* Mobile: card list */}
+          <div className="space-y-2 md:hidden">
+            {assets.map((asset) => (
+              <div key={asset.id} className="space-y-2 rounded-lg border bg-card p-3">
+                <div className="flex items-center gap-2 font-medium">
+                  <QrCode className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{asset.name}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {asset.assetTag} · {asset.category ?? 'Uncategorized'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {asset.supplierName ?? 'No supplier'}
+                  {asset.warrantyExpiresAt && ` · Warranty to ${new Date(asset.warrantyExpiresAt).toLocaleDateString()}`}
+                </p>
+                <AssetStatusCell assetId={asset.id} status={asset.status} />
+              </div>
             ))}
-          </TableBody>
-        </Table>
-      </div>
+          </div>
+
+          {/* Desktop / tablet: full table */}
+          <div className="hidden rounded-lg border md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Asset</TableHead>
+                  <TableHead>Tag</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Warranty</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assets.map((asset) => (
+                  <TableRow key={asset.id}>
+                    <TableCell className="flex items-center gap-2 font-medium">
+                      <QrCode className="size-4 text-muted-foreground" />
+                      {asset.name}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{asset.assetTag}</TableCell>
+                    <TableCell className="text-muted-foreground">{asset.category ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{asset.supplierName ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {asset.warrantyExpiresAt ? new Date(asset.warrantyExpiresAt).toLocaleDateString() : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <AssetStatusCell assetId={asset.id} status={asset.status} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
     </div>
   )
 }

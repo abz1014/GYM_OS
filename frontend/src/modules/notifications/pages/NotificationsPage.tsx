@@ -99,32 +99,53 @@ function ScheduledTab() {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-muted-foreground">
-            <th className="py-2 pr-4">Recipient</th>
-            <th className="py-2 pr-4">Category</th>
-            <th className="py-2 pr-4">Channel</th>
-            <th className="py-2 pr-4">Scheduled For</th>
-            <th className="py-2 pr-4">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((n) => (
-            <tr key={n.id} className="border-b last:border-0">
-              <td className="py-2 pr-4">{n.recipientName ?? '—'}</td>
-              <td className="py-2 pr-4">{n.category}</td>
-              <td className="py-2 pr-4">{n.channel}</td>
-              <td className="py-2 pr-4">{new Date(n.scheduledFor).toLocaleString()}</td>
-              <td className="py-2 pr-4">
-                <Badge variant={statusVariant(n.status)}>{n.status}</Badge>
-              </td>
+    <>
+      {/* Mobile: card list */}
+      <div className="space-y-2 md:hidden">
+        {data.map((n) => (
+          <div key={n.id} className="space-y-1.5 rounded-lg border bg-card p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate font-medium">{n.recipientName ?? 'Unassigned'}</p>
+              <Badge variant={statusVariant(n.status)} className="shrink-0">
+                {n.status}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {n.category} · {n.channel}
+            </p>
+            <p className="text-sm text-muted-foreground">{new Date(n.scheduledFor).toLocaleString()}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop / tablet: full table */}
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left text-muted-foreground">
+              <th className="py-2 pr-4">Recipient</th>
+              <th className="py-2 pr-4">Category</th>
+              <th className="py-2 pr-4">Channel</th>
+              <th className="py-2 pr-4">Scheduled For</th>
+              <th className="py-2 pr-4">Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {data.map((n) => (
+              <tr key={n.id} className="border-b last:border-0">
+                <td className="py-2 pr-4">{n.recipientName ?? '—'}</td>
+                <td className="py-2 pr-4">{n.category}</td>
+                <td className="py-2 pr-4">{n.channel}</td>
+                <td className="py-2 pr-4">{new Date(n.scheduledFor).toLocaleString()}</td>
+                <td className="py-2 pr-4">
+                  <Badge variant={statusVariant(n.status)}>{n.status}</Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }
 

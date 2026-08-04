@@ -89,37 +89,56 @@ function AuditLogTab() {
       {isLoading && <Skeleton className="h-64 w-full" />}
       {data && (
         <>
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Module</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>When</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.items.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
-                      No audit entries yet.
-                    </TableCell>
-                  </TableRow>
-                )}
+          {data.items.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">No audit entries yet.</p>
+          )}
+
+          {data.items.length > 0 && (
+            <>
+              {/* Mobile: card list */}
+              <div className="space-y-2 md:hidden">
                 {data.items.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell className="font-mono text-xs">{entry.action}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{entry.entityType}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{entry.userName ?? '—'}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{new Date(entry.occurredAt).toLocaleString()}</TableCell>
-                  </TableRow>
+                  <div key={entry.id} className="space-y-1.5 rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-mono text-xs">{entry.action}</span>
+                      <Badge variant="outline" className="shrink-0">
+                        {entry.entityType}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {entry.userName ?? 'System'} · {new Date(entry.occurredAt).toLocaleString()}
+                    </p>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
-          </div>
+              </div>
+
+              {/* Desktop / tablet: full table */}
+              <div className="hidden rounded-lg border md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Module</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>When</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.items.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell className="font-mono text-xs">{entry.action}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{entry.entityType}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{entry.userName ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{new Date(entry.occurredAt).toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
               Page {data.page} of {data.totalPages || 1} · {data.totalCount} total

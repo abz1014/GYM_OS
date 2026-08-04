@@ -31,11 +31,15 @@ export function BranchSwitcher() {
     return null
   }
 
+  const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name
+
   return (
     <Select value={selectedBranchId ?? undefined} onValueChange={setSelectedBranchId}>
-      <SelectTrigger size="sm" className="w-[180px]">
-        <Building2 className="size-4" />
-        <SelectValue placeholder="Select branch" />
+      <SelectTrigger size="sm" className="w-[120px] min-w-0 sm:w-[180px]">
+        <Building2 className="size-4 shrink-0" />
+        <SelectValue placeholder="Select branch">
+          <span className="block min-w-0 truncate">{selectedBranchName}</span>
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {branches.map((branch) => (

@@ -46,53 +46,83 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Item</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>On Hand</TableHead>
-              <TableHead>Reorder Level</TableHead>
-              <TableHead>Adjust</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading &&
-              Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={6}>
-                    <Skeleton className="h-6 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))}
+      {isLoading && (
+        <div className="space-y-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full md:h-10" />
+          ))}
+        </div>
+      )}
 
-            {items?.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell className="text-muted-foreground">{item.sku}</TableCell>
-                <TableCell className="text-muted-foreground">{item.category}</TableCell>
-                <TableCell className={item.isLowStock ? 'font-medium text-destructive' : ''}>
-                  {item.quantityOnHand}
+      {!isLoading && items && items.length > 0 && (
+        <>
+          {/* Mobile: card list */}
+          <div className="space-y-2 md:hidden">
+            {items.map((item) => (
+              <div key={item.id} className="space-y-2 rounded-lg border bg-card p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate font-medium">{item.name}</p>
                   {item.isLowStock && (
-                    <Badge variant="destructive" className="ml-2 text-[10px]">
+                    <Badge variant="destructive" className="shrink-0 text-[10px]">
                       Low
                     </Badge>
                   )}
-                </TableCell>
-                <TableCell className="text-muted-foreground">{item.reorderLevel}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <StockAdjustButtons itemId={item.id} />
-                    <InventoryItemDetailDialog itemId={item.id} itemName={item.name} />
-                  </div>
-                </TableCell>
-              </TableRow>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {item.sku} · {item.category}
+                </p>
+                <p className={item.isLowStock ? 'text-sm font-medium text-destructive' : 'text-sm text-muted-foreground'}>
+                  {item.quantityOnHand} on hand · reorder at {item.reorderLevel}
+                </p>
+                <div className="flex items-center gap-1">
+                  <StockAdjustButtons itemId={item.id} />
+                  <InventoryItemDetailDialog itemId={item.id} itemName={item.name} />
+                </div>
+              </div>
             ))}
-          </TableBody>
-        </Table>
-      </div>
+          </div>
+
+          {/* Desktop / tablet: full table */}
+          <div className="hidden rounded-lg border md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>On Hand</TableHead>
+                  <TableHead>Reorder Level</TableHead>
+                  <TableHead>Adjust</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{item.sku}</TableCell>
+                    <TableCell className="text-muted-foreground">{item.category}</TableCell>
+                    <TableCell className={item.isLowStock ? 'font-medium text-destructive' : ''}>
+                      {item.quantityOnHand}
+                      {item.isLowStock && (
+                        <Badge variant="destructive" className="ml-2 text-[10px]">
+                          Low
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{item.reorderLevel}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <StockAdjustButtons itemId={item.id} />
+                        <InventoryItemDetailDialog itemId={item.id} itemName={item.name} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
     </div>
   )
 }
