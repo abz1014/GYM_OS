@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Apple, BarChart3, Bell, CalendarDays, CreditCard, Dumbbell, Flag, Flame, Hammer, LayoutDashboard, NotebookPen, Package, QrCode, Receipt, Settings, Target, UploadCloud, UserCircle, Users, Wrench } from 'lucide-react'
+import { Activity, Apple, BarChart3, Bell, CalendarDays, CreditCard, Dumbbell, Flag, Hammer, LayoutDashboard, Package, QrCode, Receipt, Settings, Target, UploadCloud, Users, Wrench } from 'lucide-react'
 
 export interface NavModule {
   key: string
@@ -10,24 +10,14 @@ export interface NavModule {
   wave: 1 | 2 | 3
 }
 
+/**
+ * The STAFF sidebar. Member navigation is not here — a member-only login renders MemberTabBar
+ * instead of the sidebar entirely (see AppShell / shared/nav/memberNav.ts), so portal.view entries
+ * in this list could never be shown to anyone: members don't get a sidebar, and no staff role is
+ * granted portal.view.
+ */
 export const NAV_MODULES: NavModule[] = [
   { key: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, permission: 'dashboard.view', wave: 1 },
-  // "My Membership", not "My Account": the Topbar avatar menu already owns "My Account" -> /account
-  // (password + MFA settings, available to everyone). This sidebar entry is the member's gym home
-  // (membership status, today's activity, classes, nutrition), so a distinct name avoids two
-  // different "My Account" destinations for a member who sees both at once.
-  { key: 'portal', label: 'My Membership', path: '/portal', icon: UserCircle, permission: 'portal.view', wave: 1 },
-  // These three (My Membership / My Classes / My Progress) are the member self-service surface, gated
-  // on portal.view — the Member role's only permission, and deliberately not granted to any staff
-  // role (see DemoDataSeeder), so staff never see dead "link your account" links. "My Classes" is
-  // labelled distinctly from the staff "Classes" module below to keep the member-facing page
-  // self-evident even though no single user now holds both permissions at once.
-  { key: 'log-activity', label: 'Log Activity', path: '/log-activity', icon: NotebookPen, permission: 'portal.view', wave: 1 },
-  { key: 'my-classes', label: 'My Classes', path: '/my-classes', icon: CalendarDays, permission: 'portal.view', wave: 1 },
-  { key: 'my-training', label: 'My Training', path: '/my-training', icon: Dumbbell, permission: 'portal.view', wave: 1 },
-  { key: 'my-nutrition', label: 'My Nutrition', path: '/my-nutrition', icon: Apple, permission: 'portal.view', wave: 1 },
-  { key: 'my-progress', label: 'My Progress', path: '/my-progress', icon: Flame, permission: 'portal.view', wave: 1 },
-  { key: 'my-challenges', label: 'Challenges', path: '/my-challenges', icon: Flag, permission: 'portal.view', wave: 1 },
   { key: 'members', label: 'Members', path: '/members', icon: Users, permission: 'members.view', wave: 1 },
   { key: 'memberships', label: 'Memberships', path: '/memberships', icon: CreditCard, permission: 'memberships.view', wave: 1 },
   { key: 'attendance', label: 'Attendance', path: '/attendance', icon: QrCode, permission: 'attendance.view', wave: 1 },
