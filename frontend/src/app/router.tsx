@@ -32,6 +32,7 @@ const WorkoutsPage = lazy(() => import('@/modules/workouts/pages/WorkoutsPage'))
 const NutritionPage = lazy(() => import('@/modules/nutrition/pages/NutritionPage'))
 const ReportsPage = lazy(() => import('@/modules/reports/pages/ReportsPage'))
 const NotificationsPage = lazy(() => import('@/modules/notifications/pages/NotificationsPage'))
+const ChallengesPage = lazy(() => import('@/modules/challenges/pages/ChallengesPage'))
 const SettingsPage = lazy(() => import('@/modules/settings/pages/SettingsPage'))
 const MigrationListPage = lazy(() => import('@/modules/migration/pages/MigrationListPage'))
 const ImportJobDetailPage = lazy(() => import('@/modules/migration/pages/ImportJobDetailPage'))
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
           { path: 'nutrition', element: withSuspense(<NutritionPage />) },
           { path: 'reports', element: withSuspense(<ReportsPage />) },
           { path: 'notifications', element: withSuspense(<NotificationsPage />) },
+          { path: 'challenges', element: withSuspense(<ChallengesPage />) },
           { path: 'settings', element: withSuspense(<SettingsPage />) },
           { path: 'migration', element: withSuspense(<MigrationListPage />) },
           { path: 'migration/:id', element: withSuspense(<ImportJobDetailPage />) },

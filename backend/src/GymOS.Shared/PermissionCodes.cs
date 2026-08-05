@@ -131,4 +131,11 @@ public static class PermissionCodes
     {
         public const string Manage = "migration.manage";
     }
+
+    /// <summary>Staff management of Member Experience Engine content (currently: creating community
+    /// challenges). Distinct from Portal.View, which gates the member's own self-service surface.</summary>
+    public static class Experience
+    {
+        public const string Manage = "experience.manage";
+    }
 }

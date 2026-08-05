@@ -1,8 +1,10 @@
 namespace GymOS.Domain.Experience;
 
 /// <summary>The member stats an achievement predicate is evaluated against — all derivable from data
-/// the engine already tracks.</summary>
-public record AchievementStats(int WorkoutCount, int VisitCount, int Level, int PersonalRecordCount, int DistinctMuscleGroups);
+/// the engine already tracks. ChallengesCompleted defaults to 0 so every existing call site (tests
+/// included) keeps compiling unchanged.</summary>
+public record AchievementStats(
+    int WorkoutCount, int VisitCount, int Level, int PersonalRecordCount, int DistinctMuscleGroups, int ChallengesCompleted = 0);
 
 /// <summary>A single achievement's definition: how it reads, its badge tier/icon, and the pure
 /// predicate that decides whether a member has earned it.</summary>
@@ -51,6 +53,9 @@ public static class AchievementCatalog
             AchievementTier.Gold, AchievementCategory.Strength, "trophy", s => s.PersonalRecordCount >= 10),
         new("balanced-athlete", "Balanced Athlete", "Trained 4 or more muscle groups.",
             AchievementTier.Silver, AchievementCategory.Strength, "activity", s => s.DistinctMuscleGroups >= 4),
+
+        new("first-challenge", "Challenge Accepted", "Completed your first community challenge.",
+            AchievementTier.Bronze, AchievementCategory.Milestone, "flag", s => s.ChallengesCompleted >= 1),
     ];
 
     /// <summary>The codes a member with these stats should have earned.</summary>

@@ -19,6 +19,7 @@ import {
   UserCircle,
   CalendarDays,
   Flame,
+  Flag,
 } from 'lucide-react'
 
 export interface NavModule {
@@ -58,6 +59,7 @@ export const NAV_MODULES: NavModule[] = [
   { key: 'nutrition', label: 'Nutrition', path: '/nutrition', icon: Apple, permission: 'nutrition.view', wave: 1 },
   { key: 'reports', label: 'Reports', path: '/reports', icon: BarChart3, permission: 'reports.view', wave: 1 },
   { key: 'notifications', label: 'Notification Center', path: '/notifications', icon: Bell, permission: 'notifications.view', wave: 1 },
+  { key: 'challenges', label: 'Community Challenges', path: '/challenges', icon: Flag, permission: 'experience.manage', wave: 1 },
   { key: 'migration', label: 'Migration Center', path: '/migration', icon: UploadCloud, permission: 'migration.manage', wave: 1 },
   { key: 'settings', label: 'Settings', path: '/settings', icon: Settings, permission: 'settings.view', wave: 1 },
 ]

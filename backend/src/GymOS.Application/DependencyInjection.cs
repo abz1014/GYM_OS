@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using GymOS.Application.Common.Behaviors;
+using GymOS.Application.Modules.Challenges.Services;
 using GymOS.Application.Modules.Experience.Services;
 using GymOS.Application.Modules.Migration.EntityHandlers;
 using MediatR;
@@ -38,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IMemberXpService, MemberXpService>();
         services.AddScoped<IWorkoutProgressionService, WorkoutProgressionService>();
         services.AddScoped<IAchievementService, AchievementService>();
+        services.AddScoped<IChallengeProgressService, ChallengeProgressService>();
 
         return services;
     }

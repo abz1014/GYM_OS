@@ -353,4 +353,64 @@ public partial class DemoDataSeeder
 
         await db.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Two community challenges so the portal has a real example of each state: one the demo member
+    /// hasn't joined yet (a live "join" click completes it immediately, since their recent workout
+    /// history already clears its target — the intended, convincing demo path), and one they're
+    /// already partway through (seeded as an in-progress participant, not yet at its higher target).
+    /// </summary>
+    private async Task SeedCommunityChallengesAsync(Dictionary<string, User> demoUsers, CancellationToken cancellationToken)
+    {
+        var member = await db.Members.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.UserId == demoUsers[RoleNames.Member].Id, cancellationToken);
+        if (member is null)
+        {
+            return;
+        }
+
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+
+        // Tenant-wide, easy target — the demo member's last week already clears it, so joining live
+        // completes it immediately and grants challenge XP + the "Challenge Accepted" achievement.
+        var quickChallenge = new CommunityChallenge
+        {
+            TenantId = member.TenantId,
+            BranchId = null,
+            Name = "August Consistency Challenge",
+            Description = "Log 3 workouts this week to earn the badge.",
+            StartDate = today.AddDays(-6),
+            EndDate = today.AddDays(7),
+            TargetWorkoutCount = 3,
+            CreatedByUserId = demoUsers[RoleNames.Owner].Id
+        };
+        db.CommunityChallenges.Add(quickChallenge);
+
+        // Branch-specific, higher target — the member is already in it but hasn't hit 10 yet, so the
+        // portal shows a genuine "in progress" state alongside the completed one above.
+        var enduranceChallenge = new CommunityChallenge
+        {
+            TenantId = member.TenantId,
+            BranchId = member.BranchId,
+            Name = "Titan Iron Challenge",
+            Description = "10 workouts in two weeks — for the truly committed.",
+            StartDate = today.AddDays(-13),
+            EndDate = today,
+            TargetWorkoutCount = 10,
+            CreatedByUserId = demoUsers[RoleNames.Owner].Id
+        };
+        db.CommunityChallenges.Add(enduranceChallenge);
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        db.ChallengeParticipants.Add(new ChallengeParticipant
+        {
+            ChallengeId = enduranceChallenge.Id,
+            MemberId = member.Id,
+            JoinedAt = DateTimeOffset.UtcNow.AddDays(-12),
+            IsCompleted = false
+        });
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
 }

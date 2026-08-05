@@ -144,6 +144,8 @@ public class GymOsDbContext(
     public DbSet<RecoveryLog> RecoveryLogs => Set<RecoveryLog>();
     public DbSet<SkillTree> SkillTrees => Set<SkillTree>();
     public DbSet<SkillNode> SkillNodes => Set<SkillNode>();
+    public DbSet<CommunityChallenge> CommunityChallenges => Set<CommunityChallenge>();
+    public DbSet<ChallengeParticipant> ChallengeParticipants => Set<ChallengeParticipant>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

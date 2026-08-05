@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy, Award, Flame, HeartPulse, Moon, Target, BarChart3, Shuffle, ClipboardList, Lightbulb } from 'lucide-react'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy, Award, Flame, HeartPulse, Moon, Target, BarChart3, Shuffle, ClipboardList, Lightbulb, Flag, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ import {
   type RecoveryStatus,
   type RecommendationType,
 } from '@/modules/portal/api/portalApi'
+import { useMyChallenges, useJoinChallenge, useLeaveChallenge, type MyChallenge } from '@/modules/challenges/api/challengesApi'
 
 // Badge tier -> ring/text colour for unlocked achievements.
 const TIER_COLOR: Record<AchievementTier, string> = {
@@ -136,6 +138,59 @@ function MasteryBar({ label, percent, hint }: { label: string; percent: number; 
   )
 }
 
+function ChallengeRow({ challenge }: { challenge: MyChallenge }) {
+  const join = useJoinChallenge()
+  const leave = useLeaveChallenge()
+  const pending = join.isPending || leave.isPending
+
+  const handleJoin = () =>
+    join.mutate(challenge.id, {
+      onSuccess: () => toast.success(challenge.isCompleted ? "You're in — challenge already complete!" : "You're in!"),
+      onError: () => toast.error('Could not join the challenge.'),
+    })
+
+  const handleLeave = () =>
+    leave.mutate(challenge.id, {
+      onError: () => toast.error('Could not leave the challenge.'),
+    })
+
+  return (
+    <div className="space-y-2 rounded-lg border p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <Flag className="size-3.5 shrink-0 text-amber-500" />
+            {challenge.name}
+          </p>
+          {challenge.description && <p className="text-xs text-muted-foreground">{challenge.description}</p>}
+        </div>
+        {challenge.isCompleted ? (
+          <Badge variant="success" className="shrink-0">
+            Completed
+          </Badge>
+        ) : challenge.joined ? (
+          <Button size="sm" variant="outline" className="shrink-0" disabled={pending} onClick={handleLeave}>
+            {leave.isPending && <Loader2 className="size-4 animate-spin" />}
+            Leave
+          </Button>
+        ) : (
+          <Button size="sm" className="shrink-0" disabled={pending} onClick={handleJoin}>
+            {join.isPending && <Loader2 className="size-4 animate-spin" />}
+            Join
+          </Button>
+        )}
+      </div>
+      {challenge.joined && (
+        <MasteryBar
+          label="Progress"
+          percent={Math.min(100, Math.round((challenge.myWorkoutCount / challenge.targetWorkoutCount) * 100))}
+          hint={`${challenge.myWorkoutCount} / ${challenge.targetWorkoutCount} workouts`}
+        />
+      )}
+    </div>
+  )
+}
+
 const SUGGESTION_CONFIG: Record<OverloadSuggestion, { label: string; icon: typeof TrendingUp; variant: 'success' | 'warning' | 'secondary' | 'outline' }> = {
   Progressing: { label: 'Progressing', icon: TrendingUp, variant: 'success' },
   ReadyToIncreaseWeight: { label: 'Add weight next time', icon: Sparkles, variant: 'warning' },
@@ -166,6 +221,7 @@ export default function MemberPortalPage() {
   const recovery = useMyRecovery()
   const logRecovery = useLogMyRecovery()
   const recommendations = useMyRecommendations()
+  const challenges = useMyChallenges()
 
   if (profile.isError) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -469,6 +525,22 @@ export default function MemberPortalPage() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {challenges.data && challenges.data.length > 0 && (
+        <Card>
+          <CardHeader>
+            <p className="flex items-center gap-2 font-medium">
+              <Flag className="size-4 text-amber-500" />
+              Community Challenges
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {challenges.data.map((c) => (
+              <ChallengeRow key={c.id} challenge={c} />
+            ))}
           </CardContent>
         </Card>
       )}

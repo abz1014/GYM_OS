@@ -37,6 +37,15 @@ public class AchievementService(IApplicationDbContext db, ICurrentUserService cu
             .ToListAsync(cancellationToken))
             .ToHashSet();
 
+        // Also fold in codes already added-but-not-yet-saved in this unit of work: a member can raise
+        // more than one MemberProgressionChangedEvent within a single dispatch pass (one AddXp call per
+        // award, e.g. WorkoutCompleted and ChallengeCompleted from the same workout log), so evaluation
+        // can run twice before the first run's inserts are persisted — a DB-only query would miss them.
+        foreach (var local in db.MemberAchievements.Local.Where(a => a.MemberId == memberId))
+        {
+            alreadyUnlocked.Add(local.Code);
+        }
+
         var now = dateTimeProvider.UtcNow;
 
         foreach (var code in AchievementCatalog.EarnedCodes(stats))
@@ -75,6 +84,9 @@ public class AchievementService(IApplicationDbContext db, ICurrentUserService cu
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        return new AchievementStats(workoutCount, visitCount, level, personalRecordCount, muscleGroups.Count);
+        var challengesCompleted = await db.ChallengeParticipants
+            .CountAsync(p => p.MemberId == memberId && p.IsCompleted, cancellationToken);
+
+        return new AchievementStats(workoutCount, visitCount, level, personalRecordCount, muscleGroups.Count, challengesCompleted);
     }
 }

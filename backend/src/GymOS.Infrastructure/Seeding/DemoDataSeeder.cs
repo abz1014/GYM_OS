@@ -82,6 +82,9 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         await SeedSkillTreesAsync(tenant.Id, cancellationToken);
         // Must run after both libraries above — it looks up exercises/food items by name.
         await SeedDemoMemberIntelligenceDataAsync(demoUsers, cancellationToken);
+        // Must run after the intelligence data above — its "already in progress" participant counts
+        // the demo member's just-seeded workout history.
+        await SeedCommunityChallengesAsync(demoUsers, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -240,7 +243,8 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         (PermissionCodes.Reports.View, "reports", "View reports"),
         (PermissionCodes.Migration.Manage, "migration", "Run data migration imports"),
         (PermissionCodes.Notifications.View, "notifications", "View notification center"),
-        (PermissionCodes.Notifications.Manage, "notifications", "Manage notification templates and trigger checks")
+        (PermissionCodes.Notifications.Manage, "notifications", "Manage notification templates and trigger checks"),
+        (PermissionCodes.Experience.Manage, "experience", "Create community challenges")
     ];
 
     private async Task<Dictionary<string, User>> SeedDemoUsersAsync(

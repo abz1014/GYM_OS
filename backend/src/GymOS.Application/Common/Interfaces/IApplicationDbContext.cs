@@ -189,5 +189,9 @@ public interface IApplicationDbContext
 
     DbSet<SkillNode> SkillNodes { get; }
 
+    DbSet<CommunityChallenge> CommunityChallenges { get; }
+
+    DbSet<ChallengeParticipant> ChallengeParticipants { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

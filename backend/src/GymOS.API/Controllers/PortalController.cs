@@ -1,5 +1,8 @@
 using GymOS.API.Authorization;
 using GymOS.Application.Modules.Attendance.Dtos;
+using GymOS.Application.Modules.Challenges.Commands;
+using GymOS.Application.Modules.Challenges.Dtos;
+using GymOS.Application.Modules.Challenges.Queries;
 using GymOS.Application.Modules.Experience.Commands;
 using GymOS.Application.Modules.Experience.Dtos;
 using GymOS.Application.Modules.Experience.Queries;
@@ -175,4 +178,27 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<MyTimelineEntryDto>>> Timeline(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyTimelineQuery(), cancellationToken));
+
+    // Community challenges: browse what's available (tenant-wide + own branch), join, and leave.
+    // Completion + challenge XP happen automatically off logged workouts, not through an action here.
+    [HttpGet("challenges")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyChallengeDto>>> Challenges(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyChallengesQuery(), cancellationToken));
+
+    [HttpPost("challenges/{challengeId:guid}/join")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> JoinChallenge(Guid challengeId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new JoinChallengeCommand(challengeId), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("challenges/{challengeId:guid}/leave")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> LeaveChallenge(Guid challengeId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new LeaveChallengeCommand(challengeId), cancellationToken);
+        return NoContent();
+    }
 }

@@ -79,3 +79,22 @@ public class SkillNodeConfiguration : IEntityTypeConfiguration<SkillNode>
         builder.HasIndex(n => new { n.SkillTreeId, n.OrderIndex });
     }
 }
+
+public class CommunityChallengeConfiguration : IEntityTypeConfiguration<CommunityChallenge>
+{
+    public void Configure(EntityTypeBuilder<CommunityChallenge> builder)
+    {
+        builder.Property(c => c.Name).HasMaxLength(150).IsRequired();
+        builder.Property(c => c.Description).HasMaxLength(1000);
+    }
+}
+
+public class ChallengeParticipantConfiguration : IEntityTypeConfiguration<ChallengeParticipant>
+{
+    public void Configure(EntityTypeBuilder<ChallengeParticipant> builder)
+    {
+        // One join per member per challenge — backs both the uniqueness rule and "is this member in
+        // this challenge" reads.
+        builder.HasIndex(p => new { p.ChallengeId, p.MemberId }).IsUnique();
+    }
+}

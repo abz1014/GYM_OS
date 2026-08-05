@@ -53,4 +53,16 @@ public class AchievementCatalogTests
         var codes = AchievementCatalog.All.Select(a => a.Code).ToList();
         codes.Distinct().Count().ShouldBe(codes.Count);
     }
+
+    [Fact]
+    public void Completing_a_challenge_unlocks_the_challenge_achievement_only()
+    {
+        var earned = AchievementCatalog.EarnedCodes(new AchievementStats(0, 0, 1, 0, 0, ChallengesCompleted: 1)).ToList();
+
+        earned.ShouldBe(["first-challenge"]);
+    }
+
+    [Fact]
+    public void ChallengesCompleted_defaults_to_zero_so_existing_callers_are_unaffected()
+        => AchievementCatalog.EarnedCodes(new AchievementStats(0, 0, 1, 0, 0)).ShouldNotContain("first-challenge");
 }

@@ -61,7 +61,13 @@ public class MemberXpService(IApplicationDbContext db, ICurrentUserService curre
             OccurredAt = now
         });
 
-        var progression = await db.MemberProgressions.FirstOrDefaultAsync(p => p.MemberId == memberId, cancellationToken);
+        // Check locally-tracked-but-unsaved rows first: a single domain event can have more than one
+        // handler award XP for the same member (e.g. a workout log both completing WorkoutCompleted
+        // XP and, via a challenge, ChallengeCompleted XP) — both run before this pass's SaveChanges,
+        // so a DB-only query would miss the first handler's not-yet-persisted MemberProgression and
+        // create a second one, violating its one-row-per-member constraint.
+        var progression = db.MemberProgressions.Local.FirstOrDefault(p => p.MemberId == memberId)
+            ?? await db.MemberProgressions.FirstOrDefaultAsync(p => p.MemberId == memberId, cancellationToken);
         if (progression is null)
         {
             progression = new MemberProgression { TenantId = tenantId.Value, MemberId = memberId };
