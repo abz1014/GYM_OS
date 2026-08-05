@@ -84,6 +84,20 @@ public class PortalController(ISender mediator) : ControllerBase
     public async Task<ActionResult<Guid>> LogMeasurement(LogMyMeasurementCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
 
+    /// <summary>The member home screen in one call — ring, streak, today's class and the top nudge.</summary>
+    [HttpGet("today")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyTodayDto>> Today(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyTodayQuery(), cancellationToken));
+
+    [HttpPut("weekly-goal")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> SetWeeklyGoal(SetMyWeeklyGoalCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
+
     [HttpGet("training-volume")]
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<MyDailyVolumeDto>>> TrainingVolume(

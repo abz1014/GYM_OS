@@ -53,3 +53,14 @@ public class MemberGoalConfiguration : IEntityTypeConfiguration<MemberGoal>
         builder.HasIndex(g => g.MemberId);
     }
 }
+
+public class MemberTrainingPreferenceConfiguration : IEntityTypeConfiguration<MemberTrainingPreference>
+{
+    public void Configure(EntityTypeBuilder<MemberTrainingPreference> builder)
+    {
+        builder.HasOne(p => p.Member).WithMany().HasForeignKey(p => p.MemberId).OnDelete(DeleteBehavior.Cascade);
+        // Exactly one preference row per member: the upsert in SetMyWeeklyGoalCommand reads by member
+        // and expects at most one, so the database enforces that rather than trusting it.
+        builder.HasIndex(p => p.MemberId).IsUnique();
+    }
+}

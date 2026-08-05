@@ -408,6 +408,41 @@ export function useMyRecommendations() {
   })
 }
 
+/**
+ * The whole home screen in one response. Previously assembled here in the browser from five separate
+ * queries, which meant the ring, the streak and the nudge could each be from a different moment —
+ * and the session count was derived client-side from training volume, so a session logged without
+ * weights didn't count. The server now owns that rule (WeeklyGoalPolicy) and hands back the answer.
+ */
+export interface MyToday {
+  firstName: string
+  sessionsThisWeek: number
+  weeklySessionGoal: number
+  remainingSessions: number
+  goalMet: boolean
+  workoutStreakWeeks: number
+  nextClassToday: MyClassBooking | null
+  topRecommendation: MyRecommendation | null
+}
+
+export function useMyToday() {
+  return useQuery({
+    queryKey: ['portal', 'today'],
+    queryFn: async () => (await apiClient.get<MyToday>('/api/me/today')).data,
+    retry: false,
+  })
+}
+
+export function useSetMyWeeklyGoal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (weeklySessionGoal: number) => {
+      await apiClient.put('/api/me/weekly-goal', { weeklySessionGoal })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal'] }),
+  })
+}
+
 export type TimelineEntryType = 'Measurement' | 'Photo' | 'GoalAchieved' | 'PersonalRecord' | 'Achievement'
 
 export interface MyTimelineEntry {

@@ -60,6 +60,8 @@ public class GymOsDbContext(
     public DbSet<MemberMembership> MemberMemberships => Set<MemberMembership>();
     public DbSet<MemberGoal> MemberGoals => Set<MemberGoal>();
 
+    public DbSet<MemberTrainingPreference> MemberTrainingPreferences => Set<MemberTrainingPreference>();
+
     // Memberships
     public DbSet<MembershipPlan> MembershipPlans => Set<MembershipPlan>();
     public DbSet<Discount> Discounts => Set<Discount>();

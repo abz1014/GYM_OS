@@ -1,27 +1,13 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, ChevronRight, Dumbbell, Flame, Lightbulb } from 'lucide-react'
+import { CalendarDays, ChevronRight, Dumbbell, Flame, Lightbulb, Pencil } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ActivityRing } from '@/shared/components/ActivityRing'
-import { useAuthStore } from '@/stores/authStore'
-import {
-  useMyClassBookings,
-  useMyProfile,
-  useMyRecommendations,
-  useMyStreaks,
-  useMyTrainingVolume,
-} from '@/modules/portal/api/portalApi'
-
-/**
- * Sessions per week the ring closes at.
- *
- * Hardcoded for now, deliberately: making this member-adjustable needs a stored preference, and
- * smuggling a backend change into a screen rebuild would blur what this phase actually changed.
- * Three is the standard "consistent trainee" baseline and matches the seeded demo member's cadence.
- */
-const WEEKLY_SESSION_GOAL = 3
+import { WeeklyGoalDialog } from '@/modules/portal/components/WeeklyGoalDialog'
+import { useMyToday } from '@/modules/portal/api/portalApi'
 
 const classTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
 
@@ -32,14 +18,6 @@ function greeting(): string {
   return 'Good evening'
 }
 
-/** Monday-start week, matching the StreakCalculator the backend uses so the two never disagree. */
-function startOfWeek(today: Date): Date {
-  const d = new Date(today)
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
-  return d
-}
-
 /**
  * The member's home. Previously this route showed membership status and a member code — real
  * information, but back-office information, and it forced a member to scroll past their admin
@@ -47,63 +25,55 @@ function startOfWeek(today: Date): Date {
  *
  * What's left answers one question on sight — "am I on track this week?" — and offers the single
  * action a member is here to take. Everything else is one tap away.
+ *
+ * Every number here comes from /api/me/today rather than being stitched together from separate
+ * calls: the week, the session count and the streak are one consistent answer computed once,
+ * server-side, instead of five independently-cached responses the browser had to reconcile.
  */
 export default function TodayPage() {
-  const user = useAuthStore((s) => s.user)
-  const profile = useMyProfile()
-  const streaks = useMyStreaks()
-  const bookings = useMyClassBookings()
-  const recommendations = useMyRecommendations()
-  // 7 days always covers the current Monday-start week, whatever day it is today.
-  const volume = useMyTrainingVolume(7)
+  const today = useMyToday()
+  const [editingGoal, setEditingGoal] = useState(false)
 
-  const firstName = profile.data?.firstName ?? user?.firstName ?? 'there'
-
-  const weekStart = startOfWeek(new Date())
-  const sessionsThisWeek = (volume.data ?? []).filter(
-    (d) => d.volumeKg > 0 && new Date(`${d.date}T00:00:00`) >= weekStart,
-  ).length
-
-  const streakWeeks = streaks.data?.workoutWeeks ?? 0
-  const remaining = Math.max(0, WEEKLY_SESSION_GOAL - sessionsThisWeek)
-  const goalMet = sessionsThisWeek >= WEEKLY_SESSION_GOAL
-
-  const todaysClass = (bookings.data ?? []).find((b) => {
-    const start = new Date(b.startsAt)
-    const now = new Date()
-    return start.toDateString() === now.toDateString() && start >= now
-  })
-
-  const nudge = recommendations.data?.[0]
+  const data = today.data
+  const goal = data?.weeklySessionGoal ?? 0
+  const sessions = data?.sessionsThisWeek ?? 0
+  const remaining = data?.remainingSessions ?? 0
+  const goalMet = data?.goalMet ?? false
+  const streakWeeks = data?.workoutStreakWeeks ?? 0
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {greeting()}, {firstName}
+          {greeting()}
+          {data ? `, ${data.firstName}` : ''}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          {goalMet
-            ? "You've hit your goal for the week. Anything else is a bonus."
-            : remaining === WEEKLY_SESSION_GOAL
-              ? "Let's get the week started."
-              : `${remaining} more session${remaining === 1 ? '' : 's'} to hit your week.`}
-        </p>
+        {today.isLoading ? (
+          <Skeleton className="mt-1 h-5 w-56" />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {goalMet
+              ? "You've hit your goal for the week. Anything else is a bonus."
+              : sessions === 0
+                ? "Let's get the week started."
+                : `${remaining} more session${remaining === 1 ? '' : 's'} to hit your week.`}
+          </p>
+        )}
       </div>
 
       {/* Hero: the whole "am I on track" answer, without reading a single number twice. */}
       <Card>
         <CardContent className="flex flex-col items-center gap-5 py-6 sm:flex-row sm:justify-center sm:gap-8">
-          {volume.isLoading ? (
+          {today.isLoading ? (
             <Skeleton className="size-40 rounded-full" />
           ) : (
             <ActivityRing
-              value={sessionsThisWeek}
-              goal={WEEKLY_SESSION_GOAL}
+              value={sessions}
+              goal={goal}
               colorClassName={goalMet ? 'text-emerald-500' : 'text-primary'}
             >
-              <span className="text-4xl leading-none font-bold tabular-nums">{sessionsThisWeek}</span>
-              <span className="mt-1 text-xs text-muted-foreground">of {WEEKLY_SESSION_GOAL} this week</span>
+              <span className="text-4xl leading-none font-bold tabular-nums">{sessions}</span>
+              <span className="mt-1 text-xs text-muted-foreground">of {goal} this week</span>
             </ActivityRing>
           )}
 
@@ -115,6 +85,17 @@ export default function TodayPage() {
             <span className="text-sm text-muted-foreground">week streak</span>
             {streakWeeks > 0 && !goalMet && (
               <span className="text-xs text-muted-foreground">Train this week to keep it alive</span>
+            )}
+            {data && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2 h-8 px-2 text-xs text-muted-foreground"
+                onClick={() => setEditingGoal(true)}
+              >
+                <Pencil className="size-3.5" />
+                Goal: {goal}/week
+              </Button>
             )}
           </div>
         </CardContent>
@@ -128,7 +109,7 @@ export default function TodayPage() {
         </Link>
       </Button>
 
-      {todaysClass && (
+      {data?.nextClassToday && (
         <Link
           to="/my-classes"
           className="flex items-center gap-3 rounded-xl border p-4 transition-colors hover:bg-accent"
@@ -139,7 +120,7 @@ export default function TodayPage() {
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-medium tracking-wide text-muted-foreground uppercase">Today</span>
             <span className="block truncate font-medium">
-              {classTimeFormat.format(new Date(todaysClass.startsAt))} · {todaysClass.classTypeName}
+              {classTimeFormat.format(new Date(data.nextClassToday.startsAt))} · {data.nextClassToday.classTypeName}
             </span>
           </span>
           <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
@@ -147,19 +128,21 @@ export default function TodayPage() {
       )}
 
       {/* A single nudge — the recommendation engine already explains itself, so one line is enough. */}
-      {nudge && (
+      {data?.topRecommendation && (
         <Link
           to="/my-training"
           className="flex items-start gap-3 rounded-xl border p-4 transition-colors hover:bg-accent"
         >
           <Lightbulb className="mt-0.5 size-5 shrink-0 text-amber-500" />
           <span className="min-w-0 flex-1">
-            <span className="block font-medium">{nudge.title}</span>
-            <span className="block text-sm text-muted-foreground">{nudge.explanation}</span>
+            <span className="block font-medium">{data.topRecommendation.title}</span>
+            <span className="block text-sm text-muted-foreground">{data.topRecommendation.explanation}</span>
           </span>
           <ChevronRight className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
         </Link>
       )}
+
+      <WeeklyGoalDialog open={editingGoal} onOpenChange={setEditingGoal} currentGoal={goal} />
     </div>
   )
 }
