@@ -28,6 +28,7 @@ import {
   useAttendanceReport,
   useCohortRetentionReport,
   useCrmPipelineConversionReport,
+  useEngagementSummary,
   useEquipmentDowntimeReport,
   useInventoryStockMovementReport,
   useLtvBySourceReport,
@@ -532,6 +533,74 @@ function AnalyticsTab() {
   )
 }
 
+function EngagementTab() {
+  const { data, isLoading } = useEngagementSummary()
+
+  return (
+    <div className="space-y-4">
+      <ReportCard title="Engagement Overview">
+        {isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+            <div>
+              <p className="text-2xl font-semibold">{data?.totalActiveMembers ?? 0}</p>
+              <p className="text-muted-foreground">Active members</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold">{(data?.xpEarnedLast30Days ?? 0).toLocaleString()}</p>
+              <p className="text-muted-foreground">XP earned (30d)</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold">{data?.membersWithActiveStreak ?? 0}</p>
+              <p className="text-muted-foreground">Members mid-streak</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold">
+                {data?.challengeCompletions ?? 0}
+                <span className="text-base text-muted-foreground"> / {data?.challengeParticipants ?? 0}</span>
+              </p>
+              <p className="text-muted-foreground">Challenges completed / joined</p>
+            </div>
+          </div>
+        )}
+      </ReportCard>
+
+      <ReportCard title="Level Distribution">
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (data?.levelDistribution ?? []).length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No members have earned XP yet.</p>
+        ) : (
+          <SimpleBarChart data={(data?.levelDistribution ?? []).map((r) => ({ label: `Lvl ${r.level}`, value: r.memberCount }))} />
+        )}
+      </ReportCard>
+
+      <ReportCard title="Retention Correlation">
+        {isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : (
+          <div className="flex flex-col gap-2 text-sm">
+            <p>
+              At-risk members ({data?.retention.atRiskMemberCount ?? 0}): average level{' '}
+              <span className="font-medium">{(data?.retention.atRiskAverageLevel ?? 0).toFixed(1)}</span>
+            </p>
+            <p>
+              Active members ({data?.retention.activeMemberCount ?? 0}): average level{' '}
+              <span className="font-medium">{(data?.retention.activeAverageLevel ?? 0).toFixed(1)}</span>
+            </p>
+            <p className="text-muted-foreground">
+              {data && data.retention.atRiskMemberCount > 0 && data.retention.activeAverageLevel > data.retention.atRiskAverageLevel
+                ? 'At-risk members are engaging with the experience system less than active ones — game-layer engagement tracks with retention.'
+                : 'Not enough at-risk members yet to draw a correlation.'}
+            </p>
+          </div>
+        )}
+      </ReportCard>
+    </div>
+  )
+}
+
 export default function ReportsPage() {
   return (
     <div className="space-y-4">
@@ -553,6 +622,7 @@ export default function ReportsPage() {
           <TabsTrigger value="workouts">Workouts</TabsTrigger>
           <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="engagement">Engagement</TabsTrigger>
         </TabsList>
 
         <TabsContent value="revenue"><RevenueTab /></TabsContent>
@@ -566,6 +636,7 @@ export default function ReportsPage() {
         <TabsContent value="workouts"><WorkoutsTab /></TabsContent>
         <TabsContent value="nutrition"><NutritionTab /></TabsContent>
         <TabsContent value="analytics"><AnalyticsTab /></TabsContent>
+        <TabsContent value="engagement"><EngagementTab /></TabsContent>
       </Tabs>
     </div>
   )

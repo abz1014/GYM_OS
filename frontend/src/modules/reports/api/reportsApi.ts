@@ -231,3 +231,32 @@ export const exportCohortRetentionReport = (monthsBack = 12) =>
 
 export const exportLtvBySourceReport = () =>
   downloadFile('/api/reports/ltv-by-source/export', {}, 'ltv-by-source-report.xlsx')
+
+export interface LevelDistributionRow {
+  level: number
+  memberCount: number
+}
+
+export interface RetentionCorrelation {
+  atRiskMemberCount: number
+  atRiskAverageLevel: number
+  activeMemberCount: number
+  activeAverageLevel: number
+}
+
+export interface EngagementSummary {
+  totalActiveMembers: number
+  xpEarnedLast30Days: number
+  membersWithActiveStreak: number
+  challengeParticipants: number
+  challengeCompletions: number
+  levelDistribution: LevelDistributionRow[]
+  retention: RetentionCorrelation
+}
+
+export function useEngagementSummary() {
+  return useQuery({
+    queryKey: ['engagement', 'summary'],
+    queryFn: async () => (await apiClient.get<EngagementSummary>('/api/engagement/summary')).data,
+  })
+}
