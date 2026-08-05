@@ -3,6 +3,7 @@ import { ChevronRight, LogOut } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useLogout } from '@/modules/auth/api/authApi'
+import { useMyProfile } from '@/modules/portal/api/portalApi'
 import { useAuthStore } from '@/stores/authStore'
 import { MEMBER_MORE_LINKS, type MemberMoreLink } from '@/shared/nav/memberNav'
 
@@ -15,6 +16,10 @@ const GROUP_ORDER: MemberMoreLink['group'][] = ['Training', 'Community', 'Accoun
  */
 export default function MorePage() {
   const user = useAuthStore((s) => s.user)
+  // The member profile is the authority on a member's name; the login account is only a fallback.
+  // Without this the same person is greeted as "Noah" on Home and "Member Demo" here, because the
+  // two names come from different rows and nothing forces them to agree.
+  const profile = useMyProfile()
   const refreshToken = useAuthStore((s) => s.refreshToken)
   const clearSession = useAuthStore((s) => s.clearSession)
   const logout = useLogout()
@@ -31,7 +36,11 @@ export default function MorePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">More</h1>
         <p className="text-sm text-muted-foreground">
-          {user ? `Signed in as ${user.firstName} ${user.lastName}` : 'Your gym'}
+          {profile.data
+            ? `Signed in as ${profile.data.firstName} ${profile.data.lastName}`
+            : user
+              ? `Signed in as ${user.firstName} ${user.lastName}`
+              : 'Your gym'}
         </p>
       </div>
 

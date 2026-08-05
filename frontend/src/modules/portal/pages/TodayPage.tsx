@@ -112,9 +112,7 @@ export default function TodayPage() {
               <Flame className={`size-7 ${streakWeeks > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
               <span className="text-4xl leading-none font-bold tabular-nums">{streakWeeks}</span>
             </span>
-            <span className="text-sm text-muted-foreground">
-              {streakWeeks === 1 ? 'week streak' : 'week streak'}
-            </span>
+            <span className="text-sm text-muted-foreground">week streak</span>
             {streakWeeks > 0 && !goalMet && (
               <span className="text-xs text-muted-foreground">Train this week to keep it alive</span>
             )}
