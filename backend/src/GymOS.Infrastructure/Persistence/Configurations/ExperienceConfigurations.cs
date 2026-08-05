@@ -60,3 +60,22 @@ public class RecoveryLogConfiguration : IEntityTypeConfiguration<RecoveryLog>
         builder.HasIndex(r => new { r.MemberId, r.LoggedOn });
     }
 }
+
+public class SkillTreeConfiguration : IEntityTypeConfiguration<SkillTree>
+{
+    public void Configure(EntityTypeBuilder<SkillTree> builder)
+    {
+        builder.Property(t => t.Name).HasMaxLength(150).IsRequired();
+        builder.Property(t => t.MuscleGroup).HasMaxLength(60);
+    }
+}
+
+public class SkillNodeConfiguration : IEntityTypeConfiguration<SkillNode>
+{
+    public void Configure(EntityTypeBuilder<SkillNode> builder)
+    {
+        builder.Property(n => n.UnlockExplanation).HasMaxLength(500).IsRequired();
+        // Backs "load this tree's nodes in order" — every read walks a tree front to back.
+        builder.HasIndex(n => new { n.SkillTreeId, n.OrderIndex });
+    }
+}

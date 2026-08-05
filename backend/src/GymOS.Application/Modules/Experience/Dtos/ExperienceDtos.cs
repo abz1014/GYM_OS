@@ -51,6 +51,9 @@ public record MyAchievementDto(
 /// logged meal respectively (all via the same weekly StreakCalculator).</summary>
 public record MyStreaksDto(int AttendanceWeeks, int WorkoutWeeks, int NutritionWeeks);
 
+/// <summary>One coaching nudge — always carries a plain-language Explanation ("always explain").</summary>
+public record MyRecommendationDto(string Type, string Title, string Explanation, Guid? ExerciseId);
+
 /// <summary>A member's recovery snapshot — an overall status + reason from recent training load, the
 /// raw signals behind it, and a per-muscle-group breakdown. All derived from logged workouts and rest
 /// days (no wearable data), so it is a pure read-model recomputed every request.</summary>

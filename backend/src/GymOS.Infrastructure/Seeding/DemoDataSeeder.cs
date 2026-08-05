@@ -78,6 +78,8 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         await SeedNotificationTemplatesAsync(tenant.Id, cancellationToken);
         await SeedExerciseLibraryAsync(tenant.Id, cancellationToken);
         await SeedFoodLibraryAsync(tenant.Id, cancellationToken);
+        // Must run after the exercise library — its skill trees reference exercises by name.
+        await SeedSkillTreesAsync(tenant.Id, cancellationToken);
         // Must run after both libraries above — it looks up exercises/food items by name.
         await SeedDemoMemberIntelligenceDataAsync(demoUsers, cancellationToken);
 

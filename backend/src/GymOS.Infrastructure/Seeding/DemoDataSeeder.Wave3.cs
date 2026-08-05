@@ -75,6 +75,61 @@ public partial class DemoDataSeeder
     }
 
     /// <summary>
+    /// Three exercise-progression catalogs (blueprint's SkillTree/SkillNode, Phase 7) built entirely
+    /// from the exercise library above — never new exercises, since a skill tree only orders existing
+    /// ones into a "next step" path. Each node's MinReps is the best single-set rep count that
+    /// "unlocks" it; the demo member's seeded history (SeedDemoMemberIntelligenceDataAsync) clears the
+    /// middle node of the Push and Leg trees, so the portal has real ExerciseSubstitution
+    /// recommendations to show (Overhead Press after Bench Press, Deadlift after Barbell Squat) without
+    /// this method needing to know about that data itself — it just needs the exercises to exist.
+    /// </summary>
+    private async Task SeedSkillTreesAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var trees = new (string TreeName, string? MuscleGroup, (string Exercise, int MinReps, string Explanation)[] Nodes)[]
+        {
+            ("Push Strength Progression", "Chest",
+            [
+                ("Push-Up", 15, "The foundation bodyweight press — master control of your own bodyweight before loading a bar."),
+                ("Bench Press", 6, "Once push-ups are easy, Bench Press adds external load to keep building horizontal pressing strength."),
+                ("Overhead Press", 6, "You've built solid horizontal pressing strength on Bench Press — Overhead Press extends that to vertical pressing and shoulder stability."),
+            ]),
+            ("Pull Strength Progression", "Back",
+            [
+                ("Lat Pulldown", 10, "A machine-assisted pulling movement — builds the lat strength a full pull-up demands."),
+                ("Bent-Over Row", 8, "Adds a free-weight hinge to your pulling strength, closing the gap toward a strict pull-up."),
+                ("Pull-Up", 5, "The full bodyweight test of everything Lat Pulldown and Bent-Over Row have been building toward."),
+            ]),
+            ("Leg Strength Progression", "Legs",
+            [
+                ("Leg Press", 10, "A machine-supported leg press builds the base quad/glute strength a free-weight squat demands."),
+                ("Barbell Squat", 6, "Once Leg Press feels light, Barbell Squat adds the stability and core demand of a free-weight lift."),
+                ("Deadlift", 5, "You've mastered the squat pattern — Deadlift builds the same leg drive with a stronger posterior-chain and hip-hinge emphasis."),
+            ]),
+        };
+
+        foreach (var (treeName, muscleGroup, nodes) in trees)
+        {
+            var tree = new SkillTree { TenantId = tenantId, Name = treeName, MuscleGroup = muscleGroup };
+            db.SkillTrees.Add(tree);
+
+            for (var i = 0; i < nodes.Length; i++)
+            {
+                var (exerciseName, minReps, explanation) = nodes[i];
+                var exercise = await db.Exercises.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(e => e.TenantId == tenantId && e.Name == exerciseName, cancellationToken);
+                if (exercise is null)
+                {
+                    continue; // exercise library changed and no longer has this name — skip rather than fail seeding.
+                }
+
+                tree.Nodes.Add(new SkillNode { ExerciseId = exercise.Id, OrderIndex = i, MinReps = minReps, UnlockExplanation = explanation });
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Gives the linked demo member login (see LinkDemoMemberAccountAsync) real workout and
     /// nutrition history to show — a plateaued lift (identical weight/reps two sessions running, so
     /// the portal's progressive-overload card has a real "add weight next time" to display) and a

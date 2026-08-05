@@ -162,4 +162,10 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<Guid>> LogRecovery(LogMyRecoveryCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
+
+    // Recommendations: plateau/focus/volume/recovery/skill-tree nudges, each always explained.
+    [HttpGet("recommendations")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyRecommendationDto>>> Recommendations(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyRecommendationsQuery(), cancellationToken));
 }

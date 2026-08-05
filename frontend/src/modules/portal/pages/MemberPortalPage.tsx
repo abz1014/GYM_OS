@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy, Award, Flame, HeartPulse, Moon } from 'lucide-react'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy, Award, Flame, HeartPulse, Moon, Target, BarChart3, Shuffle, ClipboardList, Lightbulb } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,10 +25,12 @@ import {
   useMyStreaks,
   useMyRecovery,
   useLogMyRecovery,
+  useMyRecommendations,
   type OverloadSuggestion,
   type GroupMastery,
   type AchievementTier,
   type RecoveryStatus,
+  type RecommendationType,
 } from '@/modules/portal/api/portalApi'
 
 // Badge tier -> ring/text colour for unlocked achievements.
@@ -46,6 +48,16 @@ const RECOVERY_STYLE: Record<RecoveryStatus, { ring: string; text: string; label
   Ready: { ring: 'border-sky-500/40 bg-sky-500/5', text: 'text-sky-600', label: 'Ready' },
   Fatigued: { ring: 'border-amber-500/40 bg-amber-500/5', text: 'text-amber-600', label: 'Fatigued' },
   OvertrainingRisk: { ring: 'border-red-500/40 bg-red-500/5', text: 'text-red-600', label: 'Overtraining risk' },
+}
+
+// Recommendation type -> icon + accent color, so the card reads at a glance without parsing text.
+const RECOMMENDATION_STYLE: Record<RecommendationType, { icon: typeof Target; text: string }> = {
+  PlateauAlert: { icon: TrendingUp, text: 'text-amber-600' },
+  WeeklyFocus: { icon: Target, text: 'text-sky-600' },
+  VolumeSuggestion: { icon: BarChart3, text: 'text-violet-600' },
+  ExerciseSubstitution: { icon: Shuffle, text: 'text-emerald-600' },
+  RecoveryAdvice: { icon: HeartPulse, text: 'text-red-600' },
+  TrainerPlanActive: { icon: ClipboardList, text: 'text-indigo-600' },
 }
 
 // PR metric names come back as the enum name; give them friendly labels and units.
@@ -153,6 +165,7 @@ export default function MemberPortalPage() {
   const streaks = useMyStreaks()
   const recovery = useMyRecovery()
   const logRecovery = useLogMyRecovery()
+  const recommendations = useMyRecommendations()
 
   if (profile.isError) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -359,6 +372,34 @@ export default function MemberPortalPage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {recommendations.data && recommendations.data.length > 0 && (
+        <Card>
+          <CardHeader>
+            <p className="flex items-center gap-2 font-medium">
+              <Lightbulb className="size-4 text-amber-500" />
+              Recommendations
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-3">
+              {recommendations.data.map((rec, index) => {
+                const style = RECOMMENDATION_STYLE[rec.type]
+                const Icon = style.icon
+                return (
+                  <li key={`${rec.type}-${rec.exerciseId ?? index}`} className="flex items-start gap-3">
+                    <Icon className={`mt-0.5 size-4 shrink-0 ${style.text}`} />
+                    <div>
+                      <p className="text-sm font-medium">{rec.title}</p>
+                      <p className="text-sm text-muted-foreground">{rec.explanation}</p>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
           </CardContent>
         </Card>
       )}

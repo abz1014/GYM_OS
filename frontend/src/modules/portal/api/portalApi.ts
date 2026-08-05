@@ -384,3 +384,26 @@ export function useLogMyRecovery() {
     },
   })
 }
+
+export type RecommendationType =
+  | 'PlateauAlert'
+  | 'WeeklyFocus'
+  | 'VolumeSuggestion'
+  | 'ExerciseSubstitution'
+  | 'RecoveryAdvice'
+  | 'TrainerPlanActive'
+
+export interface MyRecommendation {
+  type: RecommendationType
+  title: string
+  explanation: string
+  exerciseId: string | null
+}
+
+export function useMyRecommendations() {
+  return useQuery({
+    queryKey: ['portal', 'recommendations'],
+    queryFn: async () => (await apiClient.get<MyRecommendation[]>('/api/me/recommendations')).data,
+    retry: false,
+  })
+}

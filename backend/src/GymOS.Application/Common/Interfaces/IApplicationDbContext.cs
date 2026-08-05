@@ -185,5 +185,9 @@ public interface IApplicationDbContext
 
     DbSet<RecoveryLog> RecoveryLogs { get; }
 
+    DbSet<SkillTree> SkillTrees { get; }
+
+    DbSet<SkillNode> SkillNodes { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
