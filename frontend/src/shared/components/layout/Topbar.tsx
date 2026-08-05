@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { LogOut, User as UserIcon } from 'lucide-react'
+import { Dumbbell, LogOut, User as UserIcon } from 'lucide-react'
 
 import { useLogout } from '@/modules/auth/api/authApi'
 import { useAuthStore } from '@/stores/authStore'
@@ -14,8 +14,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { BranchSwitcher } from '@/shared/components/layout/BranchSwitcher'
 import { MobileNav } from '@/shared/components/layout/MobileNav'
+import { useIsMemberOnly } from '@/shared/nav/memberNav'
 
 export function Topbar() {
+  const isMember = useIsMemberOnly()
   const user = useAuthStore((s) => s.user)
   const refreshToken = useAuthStore((s) => s.refreshToken)
   const clearSession = useAuthStore((s) => s.clearSession)
@@ -35,8 +37,19 @@ export function Topbar() {
   return (
     <header className="flex h-14 items-center justify-between gap-4 border-b bg-background px-4">
       <div className="flex items-center gap-2">
-        <MobileNav />
-        <BranchSwitcher />
+        {/* Members navigate via the bottom tab bar and belong to a single branch, so neither the
+            staff drawer nor the branch switcher applies to them. */}
+        {isMember ? (
+          <span className="flex items-center gap-2 font-semibold">
+            <Dumbbell className="size-5 text-primary" />
+            Titan Fitness
+          </span>
+        ) : (
+          <>
+            <MobileNav />
+            <BranchSwitcher />
+          </>
+        )}
       </div>
 
       <DropdownMenu>

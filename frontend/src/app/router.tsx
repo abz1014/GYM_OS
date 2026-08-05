@@ -17,6 +17,7 @@ const LogActivityPage = lazy(() => import('@/modules/portal/pages/LogActivityPag
 const MyTrainingPage = lazy(() => import('@/modules/portal/pages/MyTrainingPage'))
 const MyNutritionPage = lazy(() => import('@/modules/portal/pages/MyNutritionPage'))
 const MyChallengesPage = lazy(() => import('@/modules/portal/pages/MyChallengesPage'))
+const MorePage = lazy(() => import('@/modules/portal/pages/MorePage'))
 const MembersListPage = lazy(() => import('@/modules/members/pages/MembersListPage'))
 const MemberDetailPage = lazy(() => import('@/modules/members/pages/MemberDetailPage'))
 const MembershipsPage = lazy(() => import('@/modules/memberships/pages/MembershipsPage'))
@@ -64,6 +65,10 @@ export const router = createBrowserRouter([
           { path: 'my-training', element: withSuspense(<MyTrainingPage />) },
           { path: 'my-nutrition', element: withSuspense(<MyNutritionPage />) },
           { path: 'my-challenges', element: withSuspense(<MyChallengesPage />) },
+          { path: 'more', element: withSuspense(<MorePage />) },
+          // Membership/account detail. /portal keeps rendering this until Phase B replaces it
+          // with the new Today home screen.
+          { path: 'account', element: withSuspense(<MemberPortalPage />) },
           { path: 'members', element: withSuspense(<MembersListPage />) },
           { path: 'members/:id', element: withSuspense(<MemberDetailPage />) },
           { path: 'memberships', element: withSuspense(<MembershipsPage />) },
