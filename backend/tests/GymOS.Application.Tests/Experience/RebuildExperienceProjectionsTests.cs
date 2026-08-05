@@ -1,4 +1,5 @@
 using GymOS.Application.Modules.Experience.Commands;
+using GymOS.Application.Modules.Workouts.Commands;
 using GymOS.Application.Tests.TestSupport;
 using GymOS.Domain.Experience;
 using GymOS.Domain.Identity;
@@ -131,6 +132,108 @@ public class RebuildExperienceProjectionsTests : ApplicationTestBase
         mastery.Sessions.ShouldBe(2);
         mastery.TotalSets.ShouldBe(6);
         mastery.BestWeightKg.ShouldBe(65m);
+    }
+
+    [Fact]
+    public async Task Rebuild_reproduces_exactly_what_the_incremental_path_already_produced()
+    {
+        // The design doc's own testing strategy (§11) calls for this specific equivalence check:
+        // drive the REAL incremental pipeline (LogWorkoutCommand -> WorkoutLoggedEvent -> XP +
+        // mastery + achievement handlers), snapshot every projection, then rebuild and assert
+        // nothing moved. Every other test here seeds sources directly; only this one proves the two
+        // write-paths actually agree.
+        var ctx = await SeedAsync();
+        SetAuthenticatedAs(ctx.TenantId, ctx.UserId);
+
+        await SendAsync(new LogWorkoutCommand(ctx.MemberId, null, [new WorkoutLogEntryInput(ctx.ExerciseId, 3, 8, 60m)]));
+        DateTimeProvider.UtcNow = DateTimeProvider.UtcNow.AddDays(1);
+        await SendAsync(new LogWorkoutCommand(ctx.MemberId, null, [new WorkoutLogEntryInput(ctx.ExerciseId, 3, 10, 65m)]));
+
+        (long TotalXp, int Level) progressionBefore;
+        (int Sessions, int TotalSets, long TotalReps, decimal TotalVolume, decimal BestWeightKg, decimal BestOneRm) masteryBefore;
+        List<string> achievementsBefore;
+        int personalRecordsBefore;
+
+        using (var scope = CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+            var p = await db.MemberProgressions.AsNoTracking().FirstAsync(x => x.MemberId == ctx.MemberId);
+            progressionBefore = (p.TotalXp, p.Level);
+            var m = await db.ExerciseMasteries.AsNoTracking().FirstAsync(x => x.MemberId == ctx.MemberId && x.ExerciseId == ctx.ExerciseId);
+            masteryBefore = (m.Sessions, m.TotalSets, m.TotalReps, m.TotalVolume, m.BestWeightKg, m.BestEstimatedOneRepMax);
+            achievementsBefore = await db.MemberAchievements.AsNoTracking()
+                .Where(a => a.MemberId == ctx.MemberId).Select(a => a.Code).OrderBy(c => c).ToListAsync();
+            personalRecordsBefore = await db.PersonalRecords.AsNoTracking().CountAsync(r => r.MemberId == ctx.MemberId);
+        }
+
+        // Sanity: the incremental path must actually have produced something, or this proves nothing.
+        progressionBefore.TotalXp.ShouldBeGreaterThan(0);
+        masteryBefore.Sessions.ShouldBe(2);
+        achievementsBefore.ShouldNotBeEmpty();
+        personalRecordsBefore.ShouldBeGreaterThan(0);
+
+        var result = await SendAsync(new RebuildExperienceProjectionsCommand());
+
+        // The rebuild recomputed the same rows the incremental path had already written...
+        result.ProgressionsRebuilt.ShouldBe(1);
+        result.MasteryRowsRebuilt.ShouldBe(1);
+        // ...and found nothing new to unlock, because the incremental path had already unlocked it.
+        result.AchievementsBackfilled.ShouldBe(0);
+
+        using var verifyScope = CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        var progressionAfter = await verifyDb.MemberProgressions.AsNoTracking().FirstAsync(x => x.MemberId == ctx.MemberId);
+        (progressionAfter.TotalXp, progressionAfter.Level).ShouldBe(progressionBefore);
+
+        var masteryAfter = await verifyDb.ExerciseMasteries.AsNoTracking()
+            .FirstAsync(x => x.MemberId == ctx.MemberId && x.ExerciseId == ctx.ExerciseId);
+        (masteryAfter.Sessions, masteryAfter.TotalSets, masteryAfter.TotalReps, masteryAfter.TotalVolume,
+            masteryAfter.BestWeightKg, masteryAfter.BestEstimatedOneRepMax).ShouldBe(masteryBefore);
+
+        var achievementsAfter = await verifyDb.MemberAchievements.AsNoTracking()
+            .Where(a => a.MemberId == ctx.MemberId).Select(a => a.Code).OrderBy(c => c).ToListAsync();
+        achievementsAfter.ShouldBe(achievementsBefore);
+
+        // The rebuild must not have appended to the append-only ledgers it doesn't own.
+        (await verifyDb.PersonalRecords.CountAsync(r => r.MemberId == ctx.MemberId)).ShouldBe(personalRecordsBefore);
+    }
+
+    [Fact]
+    public async Task Rebuild_never_touches_another_tenants_members()
+    {
+        // WorkoutLog/WorkoutLogEntry are NOT ITenantScoped (they're scoped through their member), so
+        // a query over WorkoutLogEntries carries no global tenant filter — the rebuild has to bound
+        // the member set itself rather than trusting the DbSet to be pre-filtered.
+        var tenantA = await SeedAsync();
+        var tenantB = await SeedAsync();
+
+        using (var scope = CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+            db.WorkoutLogs.Add(new WorkoutLog
+            {
+                MemberId = tenantB.MemberId, LoggedAt = DateTimeProvider.UtcNow,
+                Entries = [new WorkoutLogEntry { ExerciseId = tenantB.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 50m }]
+            });
+            await db.SaveChangesAsync();
+        }
+
+        SetAuthenticatedAs(tenantA.TenantId, tenantA.UserId);
+        var result = await SendAsync(new RebuildExperienceProjectionsCommand());
+
+        // Tenant A has no workout history of its own, so the rebuild must find nothing to do.
+        result.MasteryRowsRebuilt.ShouldBe(0);
+
+        using var verifyScope = CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var leaked = await verifyDb.ExerciseMasteries.IgnoreQueryFilters()
+            .Where(m => m.MemberId == tenantB.MemberId)
+            .ToListAsync();
+
+        // Tenant B's member must not have acquired a mastery row at all, and above all not one
+        // stamped with tenant A's TenantId.
+        leaked.ShouldBeEmpty();
     }
 
     [Fact]

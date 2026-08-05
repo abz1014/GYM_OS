@@ -9,8 +9,13 @@
 
 ## Overall verdict: **All 8 acceptance criteria pass. MEE is feature-complete.**
 
-Backend: **288/288** tests green (`backend/run-tests.sh`). Frontend: production build clean, zero
-TypeScript errors. Ten slices, ten commits, all pushed to `main`.
+Backend: **290/290** tests green (`backend/run-tests.sh`). Frontend: production build clean, zero
+TypeScript errors. Ten slices, all pushed to `main`.
+
+> **Validation pass (post-Slice-10).** This report was first written immediately after Slice 10 and
+> then re-audited adversarially. That re-audit found a **real cross-tenant defect in the rebuild
+> command itself** (§2.1) and a **missing test the design doc explicitly required** (§2.2). Both are
+> now fixed and covered; the sections below reflect the corrected state, not the original claims.
 
 ---
 
@@ -74,10 +79,25 @@ branch-scoped challenge belonged to the caller's own branch — fixed and regres
 (`Joining_a_challenge_scoped_to_a_different_branch_is_rejected_as_not_found`, commit `1e0d2a3`),
 matching the same rule `BookMyClassCommand` already enforced for class sessions.
 
+The validation pass additionally verified the new Slice 10 endpoint's boundary **live**, not just by
+reading the attribute: `POST /api/experience/rebuild-projections` returns **403 for the Member role**,
+**403 for the Trainer role** (who holds `trainers.view` and gets 200 on `/api/coaching/plateaus`, but
+not `experience.manage`), and **401 unauthenticated**.
+
 **8. Every projection is rebuildable from source; no existing table/endpoint changed shape; full
 test suite green.**
-Yes — see §2 below for the rebuild command itself. No migration was needed for Slices 9 or 10 (both
-are pure read-models / an admin command over existing tables); the full suite is 288/288.
+Yes — see §2. No migration was needed for Slices 9 or 10 (both are pure read-models / an admin
+command over existing tables); `dotnet ef migrations has-pending-model-changes` reports none; the
+full suite is 290/290.
+
+The design doc's §11 asks specifically that "rebuilding projections from source reproduces the same
+`MemberProgression`/mastery as the incremental path." The original Slice 10 tests did **not** prove
+this — they seeded sources directly and checked the rebuild's arithmetic, which is a weaker claim.
+`Rebuild_reproduces_exactly_what_the_incremental_path_already_produced` now closes that gap: it
+drives the real pipeline (`LogWorkoutCommand` → `WorkoutLoggedEvent` → XP/mastery/achievement
+handlers), snapshots every projection field, runs the rebuild, and asserts nothing moved — TotalXp,
+Level, all six mastery accumulators, the achievement set, and the `PersonalRecord` count (proving the
+rebuild doesn't append to a ledger it doesn't own).
 
 ---
 
@@ -108,7 +128,42 @@ of their query handlers' own doc comments already says so explicitly).
 tenant (222 achievements backfilled on the first run, 0 on the second — see below), and the UI
 itself surfacing that exact result in a toast.
 
-**A real bug this command caught while building it**: the first implementation ran the achievement
+### 2.1 Cross-tenant defect found in the validation pass (fixed)
+
+The first implementation enumerated the (member, exercise) pairs to rebuild like this:
+
+```csharp
+var trainedPairs = await db.WorkoutLogEntries.AsNoTracking()
+    .Select(e => new { e.WorkoutLog!.MemberId, e.ExerciseId }).Distinct().ToListAsync(ct);
+```
+
+`WorkoutLog` is `AggregateRoot` and `WorkoutLogEntry` is `BaseEntity` — **neither implements
+`ITenantScoped`**, and `GymOsDbContext` applies its global tenant filter *only* to `ITenantScoped`
+types. So that query had no tenant boundary: it swept in every other tenant's pairs, and then passed
+the **caller's** `tenantId` alongside a **foreign** `memberId` into `RecomputeMasteryAsync`, which
+would create an `ExerciseMastery` row stamped with the wrong tenant — cross-tenant data corruption.
+
+This was proven with a failing test before being fixed
+(`Rebuild_never_touches_another_tenants_members`: two tenants, workout history only in tenant B,
+authenticate as tenant A, assert tenant B's member acquires no mastery row). Fixed by bounding the
+query with `.Where(e => memberIds.Contains(e.WorkoutLog!.MemberId))`, where `memberIds` already comes
+from the tenant-filtered `db.Members`.
+
+**Blast radius: none in practice.** The defect can only manifest with 2+ tenants; the demo database
+has exactly 1 (`SELECT count(*) FROM "Tenants"` → 1), so the live runs performed during Slice 10 were
+not affected — verified rather than assumed.
+
+**Systematic follow-up**: every other query in the codebase touching a non-tenant-scoped table
+(`WorkoutLogs`, `WorkoutLogEntries`, `ChallengeParticipants`) was audited. All are bounded either by
+an explicit `memberId`/`memberIds` filter or by an inner join to a tenant-scoped table —
+`GetWorkoutActivityReportQuery` is the interesting case, safe because it inner-joins `db.Exercises`
+(which *is* `ITenantScoped`), a mechanism its own code comment already documents. The rebuild command
+was the sole outlier, precisely because it was the only such query that touched no tenant-scoped
+table at all.
+
+### 2.2 A save-ordering bug caught while building it (fixed)
+
+The first implementation ran the achievement
 backfill pass in the same unsaved unit of work as the progression rebuild.
 `AchievementService.BuildStatsAsync` reads `MemberProgression.Level` back via a plain EF query
 (shared with the live event-handler path), which doesn't see a tracked-but-unsaved change — so
@@ -159,6 +214,13 @@ information. **No AI is implemented** — every rule cited above is a determinis
 ## 4. What's left
 
 Nothing in the MEE design doc's slice plan (S1–S10) remains. Everything shipped, tested, and
-live-verified: 288/288 backend tests, ten commits on `main`
-(`d3d4f11`…`88486a6`…and this slice's own commit), zero pending EF model changes, zero TODO/FIXME
-markers introduced by this work.
+live-verified: **290/290** backend tests, zero pending EF model changes, zero TODO/FIXME markers
+introduced by this work.
+
+**Honest note on process**: the two defects in §2.1 and §2.2 were both in code this project wrote,
+and neither was caught by "it builds and the happy path works." §2.2 was caught by writing tests
+that seeded sources the way real drift would; §2.1 was caught only by going back and asking "which
+of these DbSets actually carries a tenant filter?" rather than assuming the global filter covered
+everything. The lesson worth carrying forward: on this codebase, `ITenantScoped` is the *only* thing
+that buys automatic tenant isolation, so any query over `WorkoutLog`, `WorkoutLogEntry`, or
+`ChallengeParticipant` must bound itself explicitly.

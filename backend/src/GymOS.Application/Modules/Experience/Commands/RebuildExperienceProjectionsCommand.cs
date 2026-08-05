@@ -78,9 +78,14 @@ public class RebuildExperienceProjectionsCommandHandler(
             progressionsRebuilt++;
         }
 
-        // ExerciseMastery: recompute every (member, exercise) pair that's ever been logged, via the
-        // exact same reduction the incremental per-workout path uses.
+        // ExerciseMastery: recompute every (member, exercise) pair this tenant has ever logged, via
+        // the exact same reduction the incremental per-workout path uses. The memberIds bound is
+        // load-bearing, not an optimisation: WorkoutLog/WorkoutLogEntry are scoped through their
+        // member rather than carrying a TenantId, so they have NO global tenant query filter — an
+        // unbounded query here would sweep in every other tenant's pairs and stamp mastery rows for
+        // their members with THIS tenant's id.
         var trainedPairs = await db.WorkoutLogEntries.AsNoTracking()
+            .Where(e => memberIds.Contains(e.WorkoutLog!.MemberId))
             .Select(e => new { e.WorkoutLog!.MemberId, e.ExerciseId })
             .Distinct()
             .ToListAsync(cancellationToken);
