@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, ChevronRight, Dumbbell, Flame, Lightbulb, Pencil } from 'lucide-react'
+import { CalendarDays, ChevronRight, CloudOff, Dumbbell, Flame, Lightbulb, Pencil, RotateCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,6 +40,34 @@ export default function TodayPage() {
   const remaining = data?.remainingSessions ?? 0
   const goalMet = data?.goalMet ?? false
   const streakWeeks = data?.workoutStreakWeeks ?? 0
+
+  /**
+   * When the request fails outright there is nothing honest to draw. Falling through to the normal
+   * layout would render a closed-nothing ring and a zero streak — which reads as "you have trained
+   * nothing this week and your streak is gone" rather than "we couldn't check". For a screen whose
+   * whole motivational weight rests on a streak, inventing a zero is the worst thing it could say,
+   * so the page says it doesn't know and offers to retry instead.
+   */
+  if (today.isError && !data) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-5">
+        <h1 className="text-2xl font-semibold tracking-tight">{greeting()}</h1>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <CloudOff className="size-10 text-muted-foreground" />
+            <p className="font-medium">We couldn't load your week</p>
+            <p className="max-w-xs text-sm text-muted-foreground">
+              Your training is safe — we just can't reach the gym right now.
+            </p>
+            <Button variant="outline" className="mt-2" onClick={() => today.refetch()} disabled={today.isFetching}>
+              <RotateCw className={today.isFetching ? 'size-4 animate-spin' : 'size-4'} />
+              {today.isFetching ? 'Trying…' : 'Try again'}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -89,8 +117,9 @@ export default function TodayPage() {
             {data && (
               <Button
                 variant="ghost"
-                size="sm"
-                className="mt-2 h-8 px-2 text-xs text-muted-foreground"
+                // Visually secondary, but still a real touch target: everything else a member taps
+                // in this shell clears 44px, and this sits right under a 160px ring on a phone.
+                className="mt-1 h-11 px-3 text-xs text-muted-foreground"
                 onClick={() => setEditingGoal(true)}
               >
                 <Pencil className="size-3.5" />
