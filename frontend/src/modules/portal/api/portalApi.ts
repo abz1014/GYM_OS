@@ -407,3 +407,21 @@ export function useMyRecommendations() {
     retry: false,
   })
 }
+
+export type TimelineEntryType = 'Measurement' | 'Photo' | 'GoalAchieved' | 'PersonalRecord' | 'Achievement'
+
+export interface MyTimelineEntry {
+  type: TimelineEntryType
+  occurredAt: string
+  title: string
+  description: string | null
+  photoUrl: string | null
+}
+
+export function useMyTimeline() {
+  return useQuery({
+    queryKey: ['portal', 'timeline'],
+    queryFn: async () => (await apiClient.get<MyTimelineEntry[]>('/api/me/timeline')).data,
+    retry: false,
+  })
+}

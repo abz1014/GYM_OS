@@ -168,4 +168,11 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<MyRecommendationDto>>> Recommendations(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyRecommendationsQuery(), cancellationToken));
+
+    // Transformation timeline: measurements, photos, achieved goals, PRs, and achievements merged
+    // into one chronological feed.
+    [HttpGet("timeline")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyTimelineEntryDto>>> Timeline(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyTimelineQuery(), cancellationToken));
 }

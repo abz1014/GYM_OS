@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarCheck, Check, Flame, Loader2, Plus, Scale, Target, TrendingDown, TrendingUp } from 'lucide-react'
+import { CalendarCheck, Camera, Check, CheckCircle2, Flame, History, Loader2, Plus, Ruler, Scale, Target, Trophy, Award, TrendingDown, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -20,12 +20,23 @@ import {
   useAchieveMyGoal,
   useCreateMyGoal,
   useMyProgress,
+  useMyTimeline,
   type MyGoal,
   type MyWeightPoint,
+  type TimelineEntryType,
 } from '@/modules/portal/api/portalApi'
 
 const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 const fullDateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+
+// Timeline entry type -> icon + accent color.
+const TIMELINE_STYLE: Record<TimelineEntryType, { icon: typeof Ruler; text: string }> = {
+  Measurement: { icon: Ruler, text: 'text-sky-600' },
+  Photo: { icon: Camera, text: 'text-violet-600' },
+  GoalAchieved: { icon: CheckCircle2, text: 'text-emerald-600' },
+  PersonalRecord: { icon: Trophy, text: 'text-amber-600' },
+  Achievement: { icon: Award, text: 'text-indigo-600' },
+}
 
 /**
  * Hand-rolled SVG line chart, matching the codebase's no-chart-dependency approach (see
@@ -160,6 +171,7 @@ function AddGoalDialog() {
 
 export default function MyProgressPage() {
   const { data: progress, isLoading, isError } = useMyProgress()
+  const { data: timeline } = useMyTimeline()
 
   const weightChange =
     progress && progress.weightTrend.length >= 2
@@ -306,6 +318,43 @@ export default function MyProgressPage() {
                     </figure>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {timeline && timeline.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <History className="size-4" />
+                  Transformation timeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3">
+                  {timeline.map((entry, index) => {
+                    const style = TIMELINE_STYLE[entry.type]
+                    const Icon = style.icon
+                    return (
+                      <li key={`${entry.type}-${entry.occurredAt}-${index}`} className="flex items-start gap-3">
+                        <Icon className={`mt-0.5 size-4 shrink-0 ${style.text}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{entry.title}</p>
+                          {entry.description && <p className="text-sm text-muted-foreground">{entry.description}</p>}
+                          {entry.photoUrl && (
+                            <img
+                              src={entry.photoUrl}
+                              alt={entry.title}
+                              className="mt-1 h-24 w-16 rounded-md object-cover"
+                              loading="lazy"
+                            />
+                          )}
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">{fullDateFmt.format(new Date(entry.occurredAt))}</p>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
               </CardContent>
             </Card>
           )}
