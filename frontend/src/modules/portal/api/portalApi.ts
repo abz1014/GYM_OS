@@ -425,3 +425,141 @@ export function useMyTimeline() {
     retry: false,
   })
 }
+
+// ---------------------------------------------------------------------------
+// Member self-logging. Until these existed a member could see every projection
+// the experience engine produced but had no way to produce one — only staff
+// could log on their behalf.
+// ---------------------------------------------------------------------------
+
+export interface LoggableExercise {
+  id: string
+  name: string
+  muscleGroup: string | null
+  equipment: string | null
+}
+
+export interface LoggableFood {
+  id: string
+  name: string
+  caloriesPerServing: number
+  proteinG: number
+  servingSizeDescription: string
+}
+
+export interface MyLoggingOptions {
+  exercises: LoggableExercise[]
+  foods: LoggableFood[]
+  activeDietPlanName: string | null
+}
+
+export function useMyLoggingOptions() {
+  return useQuery({
+    queryKey: ['portal', 'logging-options'],
+    queryFn: async () => (await apiClient.get<MyLoggingOptions>('/api/me/logging-options')).data,
+    retry: false,
+  })
+}
+
+export interface MyMeasurement {
+  id: string
+  measuredOn: string
+  weightKg: number | null
+  bodyFatPercentage: number | null
+  chestCm: number | null
+  waistCm: number | null
+  hipCm: number | null
+  armCm: number | null
+  thighCm: number | null
+  notes: string | null
+}
+
+export function useMyMeasurements() {
+  return useQuery({
+    queryKey: ['portal', 'measurements'],
+    queryFn: async () => (await apiClient.get<MyMeasurement[]>('/api/me/measurements')).data,
+    retry: false,
+  })
+}
+
+export interface MyDailyVolume {
+  date: string
+  volumeKg: number
+  totalReps: number
+}
+
+export function useMyTrainingVolume(daysBack = 30) {
+  return useQuery({
+    queryKey: ['portal', 'training-volume', daysBack],
+    queryFn: async () =>
+      (await apiClient.get<MyDailyVolume[]>('/api/me/training-volume', { params: { daysBack } })).data,
+    retry: false,
+  })
+}
+
+export interface WorkoutEntryInput {
+  exerciseId: string
+  setsCompleted: number
+  repsCompleted: number
+  weightKg: number | null
+}
+
+/**
+ * Logging any activity moves almost every member-facing read (XP, records, mastery, streaks,
+ * recovery, recommendations, timeline, challenges), so each mutation invalidates the whole portal
+ * namespace rather than trying to enumerate which cards happened to change.
+ */
+function invalidateAfterLogging(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['portal'] })
+}
+
+export function useLogMyWorkout() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (entries: WorkoutEntryInput[]) =>
+      (await apiClient.post<string>('/api/me/workouts', { entries })).data,
+    onSuccess: () => invalidateAfterLogging(queryClient),
+  })
+}
+
+export function useLogMyWater() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (amountMl: number) => (await apiClient.post<string>('/api/me/nutrition/water', { amountMl })).data,
+    onSuccess: () => invalidateAfterLogging(queryClient),
+  })
+}
+
+export interface LogMealInput {
+  foodItemId: string
+  mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack'
+  quantity: number
+}
+
+export function useLogMyMeal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: LogMealInput) => (await apiClient.post<string>('/api/me/nutrition/meals', input)).data,
+    onSuccess: () => invalidateAfterLogging(queryClient),
+  })
+}
+
+export interface LogMeasurementInput {
+  weightKg: number | null
+  bodyFatPercentage: number | null
+  chestCm: number | null
+  waistCm: number | null
+  hipCm: number | null
+  armCm: number | null
+  thighCm: number | null
+  notes: string | null
+}
+
+export function useLogMyMeasurement() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: LogMeasurementInput) =>
+      (await apiClient.post<string>('/api/me/measurements', input)).data,
+    onSuccess: () => invalidateAfterLogging(queryClient),
+  })
+}

@@ -50,6 +50,46 @@ public class PortalController(ISender mediator) : ControllerBase
     public async Task<ActionResult<List<WorkoutLogDto>>> Workouts(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyWorkoutLogsQuery(), cancellationToken));
 
+    // Member self-logging. Before these existed the member could see every projection the Member
+    // Experience Engine produces but had no way to produce one — only staff could log on their
+    // behalf. Each delegates to the same command the staff surface uses, so the XP / personal-record
+    // / mastery / streak / challenge cascade is identical no matter who logged it.
+    [HttpGet("logging-options")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyLoggingOptionsDto>> LoggingOptions(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyLoggingOptionsQuery(), cancellationToken));
+
+    [HttpPost("workouts")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<Guid>> LogWorkout(LogMyWorkoutCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpPost("nutrition/meals")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<Guid>> LogMeal(LogMyMealCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpPost("nutrition/water")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<Guid>> LogWater(LogMyWaterCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpGet("measurements")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyMeasurementDto>>> Measurements(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyMeasurementsQuery(), cancellationToken));
+
+    [HttpPost("measurements")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<Guid>> LogMeasurement(LogMyMeasurementCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpGet("training-volume")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyDailyVolumeDto>>> TrainingVolume(
+        [FromQuery] int daysBack = 30, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetMyTrainingVolumeQuery(daysBack), cancellationToken));
+
     [HttpGet("workout-assignments")]
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<WorkoutAssignmentListItemDto>>> WorkoutAssignments(CancellationToken cancellationToken)

@@ -16,13 +16,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { TrendChart, type TrendPoint } from '@/shared/components/TrendChart'
 import {
   useAchieveMyGoal,
   useCreateMyGoal,
+  useMyMeasurements,
   useMyProgress,
   useMyTimeline,
+  useMyTrainingVolume,
   type MyGoal,
-  type MyWeightPoint,
   type TimelineEntryType,
 } from '@/modules/portal/api/portalApi'
 
@@ -43,33 +45,6 @@ const TIMELINE_STYLE: Record<TimelineEntryType, { icon: typeof Ruler; text: stri
  * SimpleBarChart). Y axis spans the data's own min/max with padding so a 3 kg change over 3
  * months reads as a visible slope instead of a flat line on a 0-based axis.
  */
-function WeightTrendChart({ points }: { points: MyWeightPoint[] }) {
-  const W = 300
-  const H = 90
-  const PAD = 8
-
-  const weights = points.map((p) => p.weightKg)
-  const min = Math.min(...weights)
-  const max = Math.max(...weights)
-  const span = Math.max(max - min, 0.1)
-
-  const x = (i: number) => (points.length === 1 ? W / 2 : PAD + (i * (W - 2 * PAD)) / (points.length - 1))
-  const y = (w: number) => PAD + ((max - w) * (H - 2 * PAD)) / span
-
-  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(p.weightKg).toFixed(1)}`).join(' ')
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-24 w-full" preserveAspectRatio="none" role="img" aria-label="Weight trend">
-      <path d={path} fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      {points.map((p, i) => (
-        <circle key={i} cx={x(i)} cy={y(p.weightKg)} r="3" fill="var(--primary)">
-          <title>{`${dateFmt.format(new Date(`${p.measuredOn}T00:00:00Z`))}: ${p.weightKg} kg`}</title>
-        </circle>
-      ))}
-    </svg>
-  )
-}
-
 function GoalRow({ goal }: { goal: MyGoal }) {
   const achieve = useAchieveMyGoal()
 
@@ -169,14 +144,117 @@ function AddGoalDialog() {
   )
 }
 
+
+/**
+ * The two series a member actually judges progress by. Both were previously invisible: body weight
+ * existed only as a "first vs latest" delta with no shape, and training volume had no endpoint at
+ * all — so neither trend nor plateau was ever legible.
+ */
+function ProgressCharts() {
+  const { data: measurements } = useMyMeasurements()
+  const { data: volume } = useMyTrainingVolume(30)
+
+  const weightPoints: TrendPoint[] = (measurements ?? [])
+    .filter((m) => m.weightKg !== null)
+    .map((m) => ({ label: dateFmt.format(new Date(`${m.measuredOn}T00:00:00Z`)), value: Number(m.weightKg) }))
+
+  const bodyFatPoints: TrendPoint[] = (measurements ?? [])
+    .filter((m) => m.bodyFatPercentage !== null)
+    .map((m) => ({ label: dateFmt.format(new Date(`${m.measuredOn}T00:00:00Z`)), value: Number(m.bodyFatPercentage) }))
+
+  const volumePoints: TrendPoint[] = (volume ?? []).map((v) => ({
+    label: dateFmt.format(new Date(`${v.date}T00:00:00Z`)),
+    value: Number(v.volumeKg),
+  }))
+
+  const weightDelta =
+    weightPoints.length >= 2 ? weightPoints[weightPoints.length - 1].value - weightPoints[0].value : null
+
+  const totalVolume = volumePoints.reduce((sum, p) => sum + p.value, 0)
+  const trainingDays = volumePoints.filter((p) => p.value > 0).length
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Scale className="size-4 text-sky-600" />
+            Body weight
+          </CardTitle>
+          {weightDelta !== null && (
+            <CardAction>
+              <Badge variant="secondary" className="gap-1">
+                {weightDelta <= 0 ? <TrendingDown className="size-3" /> : <TrendingUp className="size-3" />}
+                {weightDelta > 0 ? '+' : ''}
+                {weightDelta.toFixed(1)} kg
+              </Badge>
+            </CardAction>
+          )}
+        </CardHeader>
+        <CardContent>
+          <TrendChart
+            data={weightPoints}
+            colorClassName="text-sky-600"
+            valueFormatter={(v) => `${v.toFixed(1)} kg`}
+            emptyMessage="Log a measurement to start your weight trend."
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="size-4 text-primary" />
+            Training volume · last 30 days
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <TrendChart
+            data={volumePoints}
+            colorClassName="text-primary"
+            zeroBaseline
+            valueFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}t` : `${Math.round(v)}kg`)}
+            emptyMessage="Log a workout to start your volume trend."
+          />
+          {volumePoints.length > 0 && (
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <span>
+                Total lifted:{' '}
+                <span className="font-medium text-foreground tabular-nums">{Math.round(totalVolume).toLocaleString()} kg</span>
+              </span>
+              <span>
+                Training days: <span className="font-medium text-foreground tabular-nums">{trainingDays}/30</span>
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {bodyFatPoints.length > 0 && (
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingDown className="size-4 text-violet-600" />
+              Body fat
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TrendChart
+              data={bodyFatPoints}
+              colorClassName="text-violet-600"
+              valueFormatter={(v) => `${v.toFixed(1)}%`}
+            />
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
+
 export default function MyProgressPage() {
   const { data: progress, isLoading, isError } = useMyProgress()
   const { data: timeline } = useMyTimeline()
 
-  const weightChange =
-    progress && progress.weightTrend.length >= 2
-      ? progress.weightTrend[progress.weightTrend.length - 1].weightKg - progress.weightTrend[0].weightKg
-      : null
 
   const openGoals = progress?.goals.filter((g) => !g.isAchieved) ?? []
   const achievedGoals = progress?.goals.filter((g) => g.isAchieved) ?? []
@@ -185,8 +263,10 @@ export default function MyProgressPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">My Progress</h1>
-        <p className="text-sm text-muted-foreground">Your streak, visits, and goals — keep it going.</p>
+        <p className="text-sm text-muted-foreground">Your trends, streaks, records and milestones.</p>
       </div>
+
+      <ProgressCharts />
 
       {isError && (
         <p className="text-sm text-muted-foreground">
@@ -232,42 +312,6 @@ export default function MyProgressPage() {
             </Card>
           </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Scale className="size-4" />
-                Weight trend
-              </CardTitle>
-              {weightChange !== null && (
-                <CardAction>
-                  <Badge variant="secondary" className="gap-1">
-                    {weightChange <= 0 ? <TrendingDown className="size-3" /> : <TrendingUp className="size-3" />}
-                    {weightChange > 0 ? '+' : ''}
-                    {weightChange.toFixed(1)} kg
-                  </Badge>
-                </CardAction>
-              )}
-            </CardHeader>
-            <CardContent>
-              {progress.weightTrend.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  No measurements yet — ask your trainer to log one at your next visit.
-                </p>
-              ) : (
-                <>
-                  <WeightTrendChart points={progress.weightTrend} />
-                  <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-                    <span>{dateFmt.format(new Date(`${progress.weightTrend[0].measuredOn}T00:00:00Z`))}</span>
-                    <span>
-                      {dateFmt.format(
-                        new Date(`${progress.weightTrend[progress.weightTrend.length - 1].measuredOn}T00:00:00Z`),
-                      )}
-                    </span>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
 
           <Card>
             <CardHeader className="pb-2">

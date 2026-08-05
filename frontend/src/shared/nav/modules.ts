@@ -1,26 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import {
-  LayoutDashboard,
-  Users,
-  CreditCard,
-  Target,
-  Dumbbell,
-  Activity,
-  Apple,
-  QrCode,
-  Receipt,
-  Wrench,
-  Hammer,
-  Package,
-  BarChart3,
-  Bell,
-  Settings,
-  UploadCloud,
-  UserCircle,
-  CalendarDays,
-  Flame,
-  Flag,
-} from 'lucide-react'
+import { Activity, Apple, BarChart3, Bell, CalendarDays, CreditCard, Dumbbell, Flag, Flame, Hammer, LayoutDashboard, NotebookPen, Package, QrCode, Receipt, Settings, Target, UploadCloud, UserCircle, Users, Wrench } from 'lucide-react'
 
 export interface NavModule {
   key: string
@@ -43,6 +22,7 @@ export const NAV_MODULES: NavModule[] = [
   // role (see DemoDataSeeder), so staff never see dead "link your account" links. "My Classes" is
   // labelled distinctly from the staff "Classes" module below to keep the member-facing page
   // self-evident even though no single user now holds both permissions at once.
+  { key: 'log-activity', label: 'Log Activity', path: '/log-activity', icon: NotebookPen, permission: 'portal.view', wave: 1 },
   { key: 'my-classes', label: 'My Classes', path: '/my-classes', icon: CalendarDays, permission: 'portal.view', wave: 1 },
   { key: 'my-progress', label: 'My Progress', path: '/my-progress', icon: Flame, permission: 'portal.view', wave: 1 },
   { key: 'members', label: 'Members', path: '/members', icon: Users, permission: 'members.view', wave: 1 },
