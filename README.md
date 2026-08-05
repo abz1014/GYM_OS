@@ -93,6 +93,20 @@ dispatch) is available at `/hangfire`.
 `owner@titanfitness.demo`, `manager@…`, `receptionist@…`, `trainer@…`,
 `nutritionist@…`, `accountant@…`, `maintenance@…`, `member@…`.
 
+### 6. Run the backend test suite
+
+```bash
+cd backend
+./run-tests.sh
+```
+
+Don't run `dotnet test | tail -N` by hand — see "Known environment notes" below
+for why that pattern can silently hide a failed build. `run-tests.sh` stops
+any API server left running on port 5000 (a common self-inflicted build-lock),
+builds first and aborts loudly on any error, then runs the suite and verifies
+every test project under `tests/` actually reported a result before declaring
+success.
+
 ## Frontend setup
 
 ```bash
@@ -180,3 +194,15 @@ blocker per `PHASE12_ARCHITECTURE_FREEZE_REVIEW.md`).
   v7 carried a long list of security advisories (mostly SSR/RSC-mode specific,
   which this pure client-side SPA doesn't use). v6 avoids that surface
   entirely. Revisit if upgrading to v7 later.
+- **Don't run `dotnet test | tail -N` by hand — use `backend/run-tests.sh`.**
+  `dotnet test` at the solution level still runs and prints a normal
+  "Passed!" summary for whichever test projects DID build, even if another
+  project fails to build entirely (most often: `GymOS.Api.IntegrationTests`
+  fails via its `GymOS.API` dependency because a `dotnet GymOS.API.dll`
+  server left running from manual verification has the output DLLs locked).
+  Piping that output through `tail` makes a partial run look complete — and
+  in Bash, it also discards `dotnet test`'s real exit code (`$?` after a pipe
+  reflects `tail`, not `dotnet`). `run-tests.sh` stops any process listening
+  on port 5000 before building, fails loudly on any build error, and verifies
+  every test project under `tests/` actually reported a result before calling
+  the run green.
