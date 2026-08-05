@@ -14,6 +14,11 @@ namespace GymOS.Application.Modules.Experience.Services;
 public interface IWorkoutProgressionService
 {
     Task ApplyWorkoutAsync(Guid memberId, Guid workoutLogId, CancellationToken cancellationToken);
+
+    /// <summary>Recomputes one (member, exercise) mastery row from that exercise's full logged
+    /// history — the exact reduction ApplyWorkoutAsync uses per touched exercise, exposed so a full
+    /// projection rebuild can reuse it instead of re-deriving the same rule.</summary>
+    Task RecomputeMasteryAsync(Guid tenantId, Guid memberId, Guid exerciseId, DateTimeOffset fallbackLastTrained, CancellationToken cancellationToken);
 }
 
 public class WorkoutProgressionService(IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
@@ -87,7 +92,7 @@ public class WorkoutProgressionService(IApplicationDbContext db, ICurrentUserSer
         }
     }
 
-    private async Task RecomputeMasteryAsync(
+    public async Task RecomputeMasteryAsync(
         Guid tenantId, Guid memberId, Guid exerciseId, DateTimeOffset fallbackLastTrained, CancellationToken cancellationToken)
     {
         // Recompute from the member's entire history for this exercise, so the projection equals a

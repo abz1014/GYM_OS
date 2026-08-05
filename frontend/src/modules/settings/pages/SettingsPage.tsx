@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { Loader2, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -12,6 +15,7 @@ import { EditBranchDialog } from '@/modules/settings/components/EditBranchDialog
 import { GymProfileForm } from '@/modules/settings/components/GymProfileForm'
 import { PermissionMatrixTable } from '@/modules/settings/components/PermissionMatrixTable'
 import { UpsertSystemPreferenceDialog } from '@/modules/settings/components/UpsertSystemPreferenceDialog'
+import { useRebuildExperienceProjections } from '@/modules/coaching/api/coachingApi'
 
 function BranchesTab() {
   const { data: branches, isLoading } = useAdminBranchesList(true)
@@ -152,6 +156,47 @@ function AuditLogTab() {
   )
 }
 
+function DataMaintenanceTab() {
+  const rebuild = useRebuildExperienceProjections()
+
+  return (
+    <div className="space-y-3">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Rebuild member experience projections</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Recomputes member level/XP totals and exercise mastery from their source history — the XP
+            ledger and workout logs. Safe to run any time (never touches XP transactions, personal
+            records, or existing achievements); useful after a scoring-rule change or to correct any
+            drift. Also backfills any achievement a corrected total newly qualifies for.
+          </p>
+          <Button
+            variant="outline"
+            disabled={rebuild.isPending}
+            onClick={() =>
+              rebuild.mutate(undefined, {
+                onSuccess: (result) =>
+                  toast.success(
+                    `Rebuilt ${result.progressionsRebuilt} progression${result.progressionsRebuilt === 1 ? '' : 's'} and ` +
+                      `${result.masteryRowsRebuilt} mastery row${result.masteryRowsRebuilt === 1 ? '' : 's'} across ` +
+                      `${result.membersConsidered} members` +
+                      (result.achievementsBackfilled > 0 ? ` — backfilled ${result.achievementsBackfilled} achievement(s).` : '.'),
+                  ),
+                onError: () => toast.error('Could not rebuild projections.'),
+              })
+            }
+          >
+            {rebuild.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            Rebuild projections
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   return (
     <div className="space-y-4">
@@ -167,6 +212,7 @@ export default function SettingsPage() {
           <TabsTrigger value="permissions">Permission Matrix</TabsTrigger>
           <TabsTrigger value="preferences">System Preferences</TabsTrigger>
           <TabsTrigger value="audit-log">Audit Log</TabsTrigger>
+          <TabsTrigger value="data-maintenance">Data Maintenance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -187,6 +233,10 @@ export default function SettingsPage() {
 
         <TabsContent value="audit-log">
           <AuditLogTab />
+        </TabsContent>
+
+        <TabsContent value="data-maintenance">
+          <DataMaintenanceTab />
         </TabsContent>
       </Tabs>
     </div>

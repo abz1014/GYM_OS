@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
 
@@ -49,5 +49,21 @@ export function useCoachingRisks() {
   return useQuery({
     queryKey: ['coaching', 'risks'],
     queryFn: async () => (await apiClient.get<RiskRow[]>('/api/coaching/risks')).data,
+  })
+}
+
+export interface RebuildProjectionsResult {
+  membersConsidered: number
+  progressionsRebuilt: number
+  masteryRowsRebuilt: number
+  achievementsBackfilled: number
+}
+
+// The Slice 10 hardening safety net: recomputes MemberProgression/ExerciseMastery from their
+// append-only sources and backfills any achievement a corrected value newly satisfies. Safe to run
+// any time — idempotent, never touches XpTransaction/PersonalRecord/existing achievement rows.
+export function useRebuildExperienceProjections() {
+  return useMutation({
+    mutationFn: async () => (await apiClient.post<RebuildProjectionsResult>('/api/experience/rebuild-projections')).data,
   })
 }
