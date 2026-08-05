@@ -66,9 +66,10 @@ export const router = createBrowserRouter([
           { path: 'my-nutrition', element: withSuspense(<MyNutritionPage />) },
           { path: 'my-challenges', element: withSuspense(<MyChallengesPage />) },
           { path: 'more', element: withSuspense(<MorePage />) },
-          // Membership/account detail. /portal keeps rendering this until Phase B replaces it
-          // with the new Today home screen.
-          { path: 'account', element: withSuspense(<MemberPortalPage />) },
+          // Membership detail lives on its own path: /account was already taken by the auth
+          // "My Account" screen (password/MFA), and a second 'account' entry here would simply be
+          // shadowed by it. /portal also still renders this until Phase B replaces it with Today.
+          { path: 'membership', element: withSuspense(<MemberPortalPage />) },
           { path: 'members', element: withSuspense(<MembersListPage />) },
           { path: 'members/:id', element: withSuspense(<MemberDetailPage />) },
           { path: 'memberships', element: withSuspense(<MembershipsPage />) },
