@@ -18,6 +18,7 @@ const MyTrainingPage = lazy(() => import('@/modules/portal/pages/MyTrainingPage'
 const MyNutritionPage = lazy(() => import('@/modules/portal/pages/MyNutritionPage'))
 const MyChallengesPage = lazy(() => import('@/modules/portal/pages/MyChallengesPage'))
 const MorePage = lazy(() => import('@/modules/portal/pages/MorePage'))
+const TodayPage = lazy(() => import('@/modules/portal/pages/TodayPage'))
 const MembersListPage = lazy(() => import('@/modules/members/pages/MembersListPage'))
 const MemberDetailPage = lazy(() => import('@/modules/members/pages/MemberDetailPage'))
 const MembershipsPage = lazy(() => import('@/modules/memberships/pages/MembershipsPage'))
@@ -58,7 +59,8 @@ export const router = createBrowserRouter([
           { index: true, element: <HomeRedirect /> },
           { path: 'account', element: withSuspense(<AccountPage />) },
           { path: 'dashboard', element: withSuspense(<DashboardPage />) },
-          { path: 'portal', element: withSuspense(<MemberPortalPage />) },
+          // The member's home. MemberPortalPage (membership detail) now lives at /membership.
+          { path: 'portal', element: withSuspense(<TodayPage />) },
           { path: 'my-classes', element: withSuspense(<MyClassesPage />) },
           { path: 'my-progress', element: withSuspense(<MyProgressPage />) },
           { path: 'log-activity', element: withSuspense(<LogActivityPage />) },
