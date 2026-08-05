@@ -30,6 +30,10 @@ public abstract class ApplicationTestBase : IDisposable
 
     protected FakeDateTimeProvider DateTimeProvider { get; }
 
+    /// <summary>Captures the live-dashboard signals handlers raise, so commands that announce branch
+    /// activity (CheckInCommand) are exercisable here instead of only through the API tests.</summary>
+    protected FakeDashboardNotifier DashboardNotifier { get; }
+
     protected ApplicationTestBase()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
@@ -37,6 +41,7 @@ public abstract class ApplicationTestBase : IDisposable
 
         CurrentUser = new FakeCurrentUserService();
         DateTimeProvider = new FakeDateTimeProvider();
+        DashboardNotifier = new FakeDashboardNotifier();
 
         var services = new ServiceCollection();
 
@@ -45,6 +50,7 @@ public abstract class ApplicationTestBase : IDisposable
         services.AddSingleton<ICurrentUserService>(CurrentUser);
         services.AddSingleton<ITenantProvider>(CurrentUser);
         services.AddSingleton<IDateTimeProvider>(DateTimeProvider);
+        services.AddSingleton<IDashboardNotifier>(DashboardNotifier);
 
         services.AddDbContext<GymOsDbContext>(o => o.UseSqlite(_connection));
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<GymOsDbContext>());
