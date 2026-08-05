@@ -1,0 +1,331 @@
+import { useMemo, useState } from 'react'
+import { Check, Dumbbell, Loader2, Minus, Plus, RotateCcw, Search, X } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  useLogMyWorkout,
+  useMyLoggingOptions,
+  useMyWorkoutLogs,
+  useMyWorkoutSuggestions,
+  type WorkoutEntryInput,
+} from '@/modules/portal/api/portalApi'
+
+/**
+ * Logging built for someone standing at a rack holding a phone, not sitting at a spreadsheet.
+ *
+ * The design rule here is "tap, don't type": the previous version asked for a dropdown plus three
+ * typed numbers per exercise, which nobody finishes mid-session. Instead the member's own history
+ * supplies the defaults — their usual lifts are the buttons, and each one arrives pre-filled with
+ * exactly what they did last time — so the common case ("same as last time") is one tap, and
+ * changing the weight is a thumb-sized +/- rather than a keyboard.
+ */
+
+const WEIGHT_STEP = 2.5 // the smallest real plate pair on most racks
+
+interface PendingEntry {
+  key: number
+  exerciseId: string
+  exerciseName: string
+  sets: number
+  reps: number
+  weight: number | null
+}
+
+let entryKey = 0
+
+function Stepper({
+  label,
+  value,
+  onChange,
+  step = 1,
+  min = 0,
+  suffix = '',
+}: {
+  label: string
+  value: number
+  onChange: (next: number) => void
+  step?: number
+  min?: number
+  suffix?: string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="size-11 shrink-0 rounded-full"
+          aria-label={`Decrease ${label}`}
+          onClick={() => onChange(Math.max(min, Number((value - step).toFixed(2))))}
+        >
+          <Minus className="size-5" />
+        </Button>
+        <span className="min-w-[5.5rem] text-center text-xl font-semibold tabular-nums">
+          {value}
+          {suffix && <span className="ml-0.5 text-sm font-normal text-muted-foreground">{suffix}</span>}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="size-11 shrink-0 rounded-full"
+          aria-label={`Increase ${label}`}
+          onClick={() => onChange(Number((value + step).toFixed(2)))}
+        >
+          <Plus className="size-5" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export function QuickLogWorkout() {
+  const suggestions = useMyWorkoutSuggestions()
+  const options = useMyLoggingOptions()
+  const workouts = useMyWorkoutLogs()
+  const logWorkout = useLogMyWorkout()
+
+  const [pending, setPending] = useState<PendingEntry[]>([])
+  const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
+  const [draft, setDraft] = useState({ sets: 3, reps: 10, weight: 0 })
+  const [showAll, setShowAll] = useState(false)
+  const [search, setSearch] = useState('')
+
+  // The member's own lifts, most recent first — these become the primary buttons.
+  const usualLifts = useMemo(() => (suggestions.data ?? []).slice(0, 6), [suggestions.data])
+
+  const lastSession = workouts.data?.[0]
+
+  const otherExercises = useMemo(() => {
+    const usualIds = new Set(usualLifts.map((s) => s.exerciseId))
+    const all = options.data?.exercises ?? []
+    const term = search.trim().toLowerCase()
+    return all
+      .filter((e) => !usualIds.has(e.id))
+      .filter((e) => (term ? e.name.toLowerCase().includes(term) : true))
+  }, [options.data?.exercises, usualLifts, search])
+
+  const openFor = (exerciseId: string, exerciseName: string, weight: number | null, reps: number | null) => {
+    if (openExerciseId === exerciseId) {
+      setOpenExerciseId(null)
+      return
+    }
+    setOpenExerciseId(exerciseId)
+    // Default to what they actually did last time; reps come back as a session total, so divide
+    // down to a per-set figure rather than showing an implausible "40 reps".
+    const sets = 3
+    setDraft({
+      sets,
+      reps: reps ? Math.max(1, Math.round(reps / sets)) : 10,
+      weight: weight ?? 0,
+    })
+    setSearch('')
+    setShowAll(false)
+    void exerciseName
+  }
+
+  const addPending = (exerciseId: string, exerciseName: string) => {
+    setPending((p) => [
+      ...p,
+      { key: entryKey++, exerciseId, exerciseName, sets: draft.sets, reps: draft.reps, weight: draft.weight || null },
+    ])
+    setOpenExerciseId(null)
+  }
+
+  const repeatLastSession = () => {
+    if (!lastSession?.entries?.length) return
+    setPending(
+      lastSession.entries.map((e) => ({
+        key: entryKey++,
+        exerciseId: e.exerciseId,
+        exerciseName: e.exerciseName,
+        sets: e.setsCompleted,
+        reps: e.repsCompleted,
+        weight: e.weightKg,
+      })),
+    )
+    toast.success('Loaded your last session — tweak anything, then finish.')
+  }
+
+  const finish = () => {
+    const entries: WorkoutEntryInput[] = pending.map((p) => ({
+      exerciseId: p.exerciseId,
+      setsCompleted: p.sets,
+      repsCompleted: p.reps,
+      weightKg: p.weight,
+    }))
+    logWorkout.mutate(entries, {
+      onSuccess: () => {
+        toast.success(`Nice work! ${entries.length} exercise${entries.length === 1 ? '' : 's'} logged · +50 XP`)
+        setPending([])
+      },
+      onError: () => toast.error("Couldn't save that workout."),
+    })
+  }
+
+  if (suggestions.isLoading || options.isLoading) return <Skeleton className="h-72 w-full" />
+
+  return (
+    <div className="space-y-4">
+      {/* One tap to repeat the whole of last time — the fastest path for anyone on a fixed program. */}
+      {lastSession?.entries?.length ? (
+        <button
+          type="button"
+          onClick={repeatLastSession}
+          className="flex w-full items-center gap-3 rounded-xl border-2 border-dashed p-4 text-left transition-colors hover:border-primary hover:bg-accent"
+        >
+          <RotateCcw className="size-5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <p className="font-medium">Same as last time</p>
+            <p className="truncate text-sm text-muted-foreground">
+              {lastSession.entries
+                .map((e) => `${e.exerciseName} ${e.setsCompleted}×${e.repsCompleted}`)
+                .join(' · ')}
+            </p>
+          </div>
+        </button>
+      ) : null}
+
+      <div>
+        <p className="mb-2 text-sm font-medium">What did you do today?</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {usualLifts.map((s) => (
+            <div key={s.exerciseId} className="contents">
+              <button
+                type="button"
+                onClick={() => openFor(s.exerciseId, s.exerciseName, s.lastWeightKg, s.lastTotalReps)}
+                className={`flex min-h-16 flex-col justify-center rounded-xl border-2 p-3 text-left transition-colors ${
+                  openExerciseId === s.exerciseId ? 'border-primary bg-accent' : 'hover:border-primary/50 hover:bg-accent'
+                }`}
+              >
+                <span className="font-medium leading-tight">{s.exerciseName}</span>
+                <span className="text-xs text-muted-foreground">
+                  {s.lastWeightKg ? `last ${s.lastWeightKg} kg` : 'bodyweight'}
+                </span>
+              </button>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowAll((v) => !v)
+              setOpenExerciseId(null)
+            }}
+            className="flex min-h-16 flex-col items-center justify-center rounded-xl border-2 border-dashed p-3 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent"
+          >
+            <Plus className="size-5" />
+            <span className="text-xs">Something else</span>
+          </button>
+        </div>
+      </div>
+
+      {/* The stepper panel: pre-filled, thumb-sized, no keyboard. */}
+      {openExerciseId && (
+        <Card className="border-primary">
+          <CardContent className="space-y-4 p-4">
+            <p className="font-medium">
+              {usualLifts.find((s) => s.exerciseId === openExerciseId)?.exerciseName ??
+                options.data?.exercises.find((e) => e.id === openExerciseId)?.name}
+            </p>
+            <Stepper label="Weight" value={draft.weight} step={WEIGHT_STEP} suffix="kg" onChange={(weight) => setDraft((d) => ({ ...d, weight }))} />
+            <Stepper label="Sets" value={draft.sets} min={1} onChange={(sets) => setDraft((d) => ({ ...d, sets }))} />
+            <Stepper label="Reps" value={draft.reps} min={1} onChange={(reps) => setDraft((d) => ({ ...d, reps }))} />
+            <Button
+              className="h-12 w-full text-base"
+              onClick={() =>
+                addPending(
+                  openExerciseId,
+                  usualLifts.find((s) => s.exerciseId === openExerciseId)?.exerciseName ??
+                    options.data?.exercises.find((e) => e.id === openExerciseId)?.name ??
+                    'Exercise',
+                )
+              }
+            >
+              <Check className="size-5" />
+              Add to workout
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {showAll && (
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <div className="relative">
+              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                autoFocus
+                placeholder="Search exercises…"
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+              {otherExercises.map((e) => (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => openFor(e.id, e.name, null, null)}
+                  className="min-h-14 rounded-xl border-2 p-2 text-left text-sm transition-colors hover:border-primary/50 hover:bg-accent"
+                >
+                  <span className="font-medium leading-tight">{e.name}</span>
+                  {e.muscleGroup && <span className="block text-xs text-muted-foreground">{e.muscleGroup}</span>}
+                </button>
+              ))}
+              {otherExercises.length === 0 && (
+                <p className="col-span-full py-4 text-center text-sm text-muted-foreground">No matches.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {pending.length > 0 && (
+        <Card>
+          <CardContent className="space-y-2 p-4">
+            <p className="text-sm font-medium">Today's workout</p>
+            {pending.map((p) => (
+              <div key={p.key} className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2">
+                <span className="min-w-0 truncate text-sm">
+                  <span className="font-medium">{p.exerciseName}</span>{' '}
+                  <span className="text-muted-foreground">
+                    {p.sets}×{p.reps}
+                    {p.weight ? ` @ ${p.weight}kg` : ''}
+                  </span>
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0"
+                  aria-label={`Remove ${p.exerciseName}`}
+                  onClick={() => setPending((all) => all.filter((x) => x.key !== p.key))}
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <Button
+        className="h-14 w-full text-base"
+        disabled={pending.length === 0 || logWorkout.isPending}
+        onClick={finish}
+      >
+        {logWorkout.isPending ? <Loader2 className="size-5 animate-spin" /> : <Dumbbell className="size-5" />}
+        {pending.length === 0
+          ? 'Pick an exercise to start'
+          : `Finish workout · ${pending.length} exercise${pending.length === 1 ? '' : 's'}`}
+      </Button>
+    </div>
+  )
+}

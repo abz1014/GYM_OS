@@ -14,6 +14,9 @@ const MemberPortalPage = lazy(() => import('@/modules/portal/pages/MemberPortalP
 const MyClassesPage = lazy(() => import('@/modules/portal/pages/MyClassesPage'))
 const MyProgressPage = lazy(() => import('@/modules/portal/pages/MyProgressPage'))
 const LogActivityPage = lazy(() => import('@/modules/portal/pages/LogActivityPage'))
+const MyTrainingPage = lazy(() => import('@/modules/portal/pages/MyTrainingPage'))
+const MyNutritionPage = lazy(() => import('@/modules/portal/pages/MyNutritionPage'))
+const MyChallengesPage = lazy(() => import('@/modules/portal/pages/MyChallengesPage'))
 const MembersListPage = lazy(() => import('@/modules/members/pages/MembersListPage'))
 const MemberDetailPage = lazy(() => import('@/modules/members/pages/MemberDetailPage'))
 const MembershipsPage = lazy(() => import('@/modules/memberships/pages/MembershipsPage'))
@@ -58,6 +61,9 @@ export const router = createBrowserRouter([
           { path: 'my-classes', element: withSuspense(<MyClassesPage />) },
           { path: 'my-progress', element: withSuspense(<MyProgressPage />) },
           { path: 'log-activity', element: withSuspense(<LogActivityPage />) },
+          { path: 'my-training', element: withSuspense(<MyTrainingPage />) },
+          { path: 'my-nutrition', element: withSuspense(<MyNutritionPage />) },
+          { path: 'my-challenges', element: withSuspense(<MyChallengesPage />) },
           { path: 'members', element: withSuspense(<MembersListPage />) },
           { path: 'members/:id', element: withSuspense(<MemberDetailPage />) },
           { path: 'memberships', element: withSuspense(<MembershipsPage />) },

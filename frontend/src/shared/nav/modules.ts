@@ -24,7 +24,10 @@ export const NAV_MODULES: NavModule[] = [
   // self-evident even though no single user now holds both permissions at once.
   { key: 'log-activity', label: 'Log Activity', path: '/log-activity', icon: NotebookPen, permission: 'portal.view', wave: 1 },
   { key: 'my-classes', label: 'My Classes', path: '/my-classes', icon: CalendarDays, permission: 'portal.view', wave: 1 },
+  { key: 'my-training', label: 'My Training', path: '/my-training', icon: Dumbbell, permission: 'portal.view', wave: 1 },
+  { key: 'my-nutrition', label: 'My Nutrition', path: '/my-nutrition', icon: Apple, permission: 'portal.view', wave: 1 },
   { key: 'my-progress', label: 'My Progress', path: '/my-progress', icon: Flame, permission: 'portal.view', wave: 1 },
+  { key: 'my-challenges', label: 'Challenges', path: '/my-challenges', icon: Flag, permission: 'portal.view', wave: 1 },
   { key: 'members', label: 'Members', path: '/members', icon: Users, permission: 'members.view', wave: 1 },
   { key: 'memberships', label: 'Memberships', path: '/memberships', icon: CreditCard, permission: 'memberships.view', wave: 1 },
   { key: 'attendance', label: 'Attendance', path: '/attendance', icon: QrCode, permission: 'attendance.view', wave: 1 },

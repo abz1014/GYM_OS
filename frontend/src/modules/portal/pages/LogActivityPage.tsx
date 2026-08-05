@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Dumbbell, GlassWater, Loader2, Plus, Ruler, Trash2, UtensilsCrossed } from 'lucide-react'
+import { GlassWater, Loader2, Ruler, UtensilsCrossed } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -10,151 +10,18 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { QuickLogWorkout } from '@/modules/portal/components/QuickLogWorkout'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   useLogMyMeal,
   useLogMyMeasurement,
   useLogMyWater,
-  useLogMyWorkout,
   useMyLoggingOptions,
   useMyNutritionSummary,
   useMyWorkoutLogs,
-  type WorkoutEntryInput,
 } from '@/modules/portal/api/portalApi'
 
 const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
-
-interface DraftSet {
-  key: number
-  exerciseId: string
-  sets: string
-  reps: string
-  weight: string
-}
-
-let draftKey = 0
-const newDraft = (): DraftSet => ({ key: draftKey++, exerciseId: '', sets: '3', reps: '10', weight: '' })
-
-function LogWorkoutTab() {
-  const { data: options, isLoading } = useMyLoggingOptions()
-  const logWorkout = useLogMyWorkout()
-  const [drafts, setDrafts] = useState<DraftSet[]>([newDraft()])
-
-  const update = (key: number, patch: Partial<DraftSet>) =>
-    setDrafts((d) => d.map((x) => (x.key === key ? { ...x, ...patch } : x)))
-
-  const valid = drafts.filter((d) => d.exerciseId && Number(d.sets) > 0 && Number(d.reps) > 0)
-  const canSubmit = valid.length > 0 && !logWorkout.isPending
-
-  const estimatedVolume = valid.reduce(
-    (sum, d) => sum + Number(d.sets) * Number(d.reps) * (Number(d.weight) || 0),
-    0,
-  )
-
-  const submit = () => {
-    const entries: WorkoutEntryInput[] = valid.map((d) => ({
-      exerciseId: d.exerciseId,
-      setsCompleted: Number(d.sets),
-      repsCompleted: Number(d.reps),
-      weightKg: d.weight === '' ? null : Number(d.weight),
-    }))
-
-    logWorkout.mutate(entries, {
-      onSuccess: () => {
-        toast.success(`Workout logged — ${entries.length} exercise${entries.length === 1 ? '' : 's'}. Nice work!`)
-        setDrafts([newDraft()])
-      },
-      onError: () => toast.error("Couldn't log that workout."),
-    })
-  }
-
-  if (isLoading) return <Skeleton className="h-64 w-full" />
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-2">
-          <Dumbbell className="size-4 text-primary" />
-          <CardTitle className="text-base">Log today's session</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {drafts.map((d) => (
-            <div key={d.key} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto] sm:items-end">
-              <div className="space-y-1.5">
-                <Label>Exercise</Label>
-                <Select value={d.exerciseId} onValueChange={(v) => update(d.key, { exerciseId: v })}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Pick an exercise" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {options?.exercises.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name}
-                        {e.muscleGroup ? ` · ${e.muscleGroup}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Sets</Label>
-                <Input type="number" min={1} max={50} value={d.sets} onChange={(e) => update(d.key, { sets: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Reps</Label>
-                <Input type="number" min={1} max={500} value={d.reps} onChange={(e) => update(d.key, { reps: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Weight (kg)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={1000}
-                  step="0.5"
-                  placeholder="bodyweight"
-                  value={d.weight}
-                  onChange={(e) => update(d.key, { weight: e.target.value })}
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Remove exercise"
-                disabled={drafts.length === 1}
-                onClick={() => setDrafts((all) => all.filter((x) => x.key !== d.key))}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button variant="outline" size="sm" onClick={() => setDrafts((d) => [...d, newDraft()])}>
-              <Plus className="size-4" />
-              Add exercise
-            </Button>
-            {estimatedVolume > 0 && (
-              <span className="text-sm text-muted-foreground">
-                Session volume: <span className="font-medium tabular-nums">{estimatedVolume.toLocaleString()} kg</span>
-              </span>
-            )}
-          </div>
-
-          <Button disabled={!canSubmit} onClick={submit} className="w-full sm:w-auto">
-            {logWorkout.isPending && <Loader2 className="size-4 animate-spin" />}
-            Log workout
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Logging earns XP, updates your personal records and mastery, extends your streak, and counts
-            toward any challenge you've joined.
-          </p>
-        </CardContent>
-      </Card>
-
-      <RecentWorkouts />
-    </div>
-  )
-}
 
 function RecentWorkouts() {
   const { data: logs } = useMyWorkoutLogs()
@@ -427,7 +294,12 @@ export default function LogActivityPage() {
           <TabsTrigger value="measurements">Measurements</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="workout"><LogWorkoutTab /></TabsContent>
+        <TabsContent value="workout">
+          <div className="space-y-4">
+            <QuickLogWorkout />
+            <RecentWorkouts />
+          </div>
+        </TabsContent>
         <TabsContent value="nutrition"><LogNutritionTab /></TabsContent>
         <TabsContent value="measurements"><LogMeasurementsTab /></TabsContent>
       </Tabs>
