@@ -22,9 +22,17 @@ public class JoinChallengeCommandHandler(
     public async Task<Unit> Handle(JoinChallengeCommand request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
+        var branchId = await db.Members.AsNoTracking().Where(m => m.Id == memberId).Select(m => m.BranchId).FirstAsync(cancellationToken);
 
-        var challengeExists = await db.CommunityChallenges.AnyAsync(c => c.Id == request.ChallengeId, cancellationToken);
-        if (!challengeExists)
+        var challenge = await db.CommunityChallenges.AsNoTracking()
+            .Where(c => c.Id == request.ChallengeId)
+            .Select(c => new { c.BranchId })
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException(nameof(CommunityChallenge), request.ChallengeId);
+
+        // A member can only join a tenant-wide challenge or one scoped to their own branch — hide a
+        // foreign branch's challenge as not-found, matching BookMyClassCommand's cross-branch rule.
+        if (challenge.BranchId is not null && challenge.BranchId != branchId)
         {
             throw new NotFoundException(nameof(CommunityChallenge), request.ChallengeId);
         }

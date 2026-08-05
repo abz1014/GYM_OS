@@ -50,6 +50,39 @@ public class CommunityChallengeTests : ApplicationTestBase
     }
 
     [Fact]
+    public async Task Joining_a_challenge_scoped_to_a_different_branch_is_rejected_as_not_found()
+    {
+        // Mirrors BookMyClassCommand's cross-branch rule: a challenge restricted to another branch
+        // must not be joinable just because the caller happens to know its id.
+        var ctx = await SeedAsync();
+        SetAuthenticatedAs(ctx.TenantId, ctx.UserId);
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var otherBranch = new Branch { TenantId = ctx.TenantId, Name = "Other", AddressLine = "2 Other St", City = "City", Country = "US" };
+        db.Branches.Add(otherBranch);
+        await db.SaveChangesAsync();
+
+        var challenge = new CommunityChallenge
+        {
+            TenantId = ctx.TenantId,
+            BranchId = otherBranch.Id,
+            Name = "Other Branch Challenge",
+            StartDate = DateOnly.FromDateTime(DateTimeProvider.UtcNow.UtcDateTime).AddDays(-7),
+            EndDate = DateOnly.FromDateTime(DateTimeProvider.UtcNow.UtcDateTime).AddDays(7),
+            TargetWorkoutCount = 5
+        };
+        db.CommunityChallenges.Add(challenge);
+        await db.SaveChangesAsync();
+
+        await Should.ThrowAsync<GymOS.Application.Common.Exceptions.NotFoundException>(
+            () => SendAsync(new JoinChallengeCommand(challenge.Id)));
+
+        (await db.ChallengeParticipants.AnyAsync(p => p.ChallengeId == challenge.Id && p.MemberId == ctx.MemberId))
+            .ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Joining_twice_is_idempotent()
     {
         var ctx = await SeedAsync();
