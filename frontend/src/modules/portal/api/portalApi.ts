@@ -344,3 +344,43 @@ export function useMyStreaks() {
     retry: false,
   })
 }
+
+export type RecoveryStatus = 'Fresh' | 'Ready' | 'Fatigued' | 'OvertrainingRisk'
+export type RecoveryKind = 'RestDay' | 'ActiveRecovery' | 'Mobility' | 'Stretching'
+
+export interface MuscleRecovery {
+  muscleGroup: string
+  status: RecoveryStatus
+  reason: string
+  timesLast7Days: number
+  daysSinceLastTrained: number | null
+}
+
+export interface MyRecovery {
+  status: RecoveryStatus
+  reason: string
+  sessionsLast7Days: number
+  restDaysLast7Days: number
+  daysSinceLastWorkout: number | null
+  muscleGroups: MuscleRecovery[]
+}
+
+export function useMyRecovery() {
+  return useQuery({
+    queryKey: ['portal', 'recovery'],
+    queryFn: async () => (await apiClient.get<MyRecovery>('/api/me/recovery')).data,
+    retry: false,
+  })
+}
+
+export function useLogMyRecovery() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { kind: RecoveryKind; notes: string | null }) =>
+      (await apiClient.post<string>('/api/me/recovery/log', payload)).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portal', 'recovery'] })
+      queryClient.invalidateQueries({ queryKey: ['portal', 'experience'] })
+    },
+  })
+}

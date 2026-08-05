@@ -141,6 +141,7 @@ public class GymOsDbContext(
     public DbSet<PersonalRecord> PersonalRecords => Set<PersonalRecord>();
     public DbSet<ExerciseMastery> ExerciseMasteries => Set<ExerciseMastery>();
     public DbSet<MemberAchievement> MemberAchievements => Set<MemberAchievement>();
+    public DbSet<RecoveryLog> RecoveryLogs => Set<RecoveryLog>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

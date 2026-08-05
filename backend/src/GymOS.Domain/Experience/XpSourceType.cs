@@ -11,6 +11,7 @@ public enum XpSourceType
     Attendance,
     MemberGoal,
     MealEntry,
+    RecoveryLog,
     Challenge,
     Manual
 }

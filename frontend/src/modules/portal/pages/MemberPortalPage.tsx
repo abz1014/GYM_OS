@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy, Award, Flame } from 'lucide-react'
+import { CalendarDays, CalendarCheck, Dumbbell, Apple, QrCode, Droplets, Gift, TrendingUp, TrendingDown, Minus, Sparkles, Zap, Trophy, Award, Flame, HeartPulse, Moon } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -23,9 +23,12 @@ import {
   useMyMastery,
   useMyAchievements,
   useMyStreaks,
+  useMyRecovery,
+  useLogMyRecovery,
   type OverloadSuggestion,
   type GroupMastery,
   type AchievementTier,
+  type RecoveryStatus,
 } from '@/modules/portal/api/portalApi'
 
 // Badge tier -> ring/text colour for unlocked achievements.
@@ -34,6 +37,15 @@ const TIER_COLOR: Record<AchievementTier, string> = {
   Silver: 'border-slate-400/50 text-slate-500',
   Gold: 'border-amber-500/50 text-amber-600',
   Platinum: 'border-cyan-500/50 text-cyan-600',
+}
+
+// Recovery status -> banner accent + friendly label. Fresh/Ready are "go" states; Fatigued and
+// OvertrainingRisk escalate to warmer colours as advice to ease off.
+const RECOVERY_STYLE: Record<RecoveryStatus, { ring: string; text: string; label: string }> = {
+  Fresh: { ring: 'border-emerald-500/40 bg-emerald-500/5', text: 'text-emerald-600', label: 'Fresh' },
+  Ready: { ring: 'border-sky-500/40 bg-sky-500/5', text: 'text-sky-600', label: 'Ready' },
+  Fatigued: { ring: 'border-amber-500/40 bg-amber-500/5', text: 'text-amber-600', label: 'Fatigued' },
+  OvertrainingRisk: { ring: 'border-red-500/40 bg-red-500/5', text: 'text-red-600', label: 'Overtraining risk' },
 }
 
 // PR metric names come back as the enum name; give them friendly labels and units.
@@ -139,6 +151,8 @@ export default function MemberPortalPage() {
   const mastery = useMyMastery()
   const achievements = useMyAchievements()
   const streaks = useMyStreaks()
+  const recovery = useMyRecovery()
+  const logRecovery = useLogMyRecovery()
 
   if (profile.isError) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -291,6 +305,60 @@ export default function MemberPortalPage() {
                 />
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {recovery.data && (
+        <Card className={RECOVERY_STYLE[recovery.data.status].ring}>
+          <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
+            <div className="space-y-1">
+              <p className="flex items-center gap-2 font-medium">
+                <HeartPulse className={`size-4 ${RECOVERY_STYLE[recovery.data.status].text}`} />
+                Recovery
+                <span className={`text-sm font-semibold ${RECOVERY_STYLE[recovery.data.status].text}`}>
+                  · {RECOVERY_STYLE[recovery.data.status].label}
+                </span>
+              </p>
+              <p className="text-sm text-muted-foreground">{recovery.data.reason}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              disabled={logRecovery.isPending}
+              onClick={() => logRecovery.mutate({ kind: 'RestDay', notes: null })}
+            >
+              <Moon className="mr-1 size-4" />
+              {logRecovery.isPending ? 'Logging…' : 'Log recovery day'}
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-4 text-sm">
+              <span><span className="font-semibold">{recovery.data.sessionsLast7Days}</span> <span className="text-muted-foreground">sessions / 7d</span></span>
+              <span><span className="font-semibold">{recovery.data.restDaysLast7Days}</span> <span className="text-muted-foreground">rest days / 7d</span></span>
+              {recovery.data.daysSinceLastWorkout !== null && (
+                <span>
+                  <span className="font-semibold">{recovery.data.daysSinceLastWorkout}</span>{' '}
+                  <span className="text-muted-foreground">
+                    {recovery.data.daysSinceLastWorkout === 1 ? 'day' : 'days'} since last workout
+                  </span>
+                </span>
+              )}
+            </div>
+            {recovery.data.muscleGroups.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {recovery.data.muscleGroups.map((m) => (
+                  <span
+                    key={m.muscleGroup}
+                    className={`rounded-full border px-2.5 py-1 text-xs ${RECOVERY_STYLE[m.status].ring} ${RECOVERY_STYLE[m.status].text}`}
+                    title={m.reason}
+                  >
+                    {m.muscleGroup} · {RECOVERY_STYLE[m.status].label}
+                  </span>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

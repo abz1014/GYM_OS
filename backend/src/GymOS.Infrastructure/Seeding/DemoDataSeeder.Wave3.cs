@@ -173,6 +173,13 @@ public partial class DemoDataSeeder
             }
         }
 
+        // A couple of logged recovery days so the portal's recovery card shows rest in the training mix
+        // (the member can still log today's from the UI to earn recovery XP live). Seeded directly, so —
+        // like the workout logs above — no RaiseLogged()/event fires and no XP is granted at seed time.
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        db.RecoveryLogs.Add(new RecoveryLog { MemberId = member.Id, LoggedOn = today.AddDays(-3), Kind = RecoveryKind.RestDay, Notes = "Full rest day" });
+        db.RecoveryLogs.Add(new RecoveryLog { MemberId = member.Id, LoggedOn = today.AddDays(-5), Kind = RecoveryKind.ActiveRecovery, Notes = "Light mobility + walk" });
+
         // Member Experience Engine (mastery + personal records): mirror the two lifts seeded above so
         // the demo member's mastery and PR cards are populated. Seeded directly (values match what the
         // event-driven WorkoutProgressionService would compute) because seeding runs outside the event

@@ -183,5 +183,7 @@ public interface IApplicationDbContext
 
     DbSet<MemberAchievement> MemberAchievements { get; }
 
+    DbSet<RecoveryLog> RecoveryLogs { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

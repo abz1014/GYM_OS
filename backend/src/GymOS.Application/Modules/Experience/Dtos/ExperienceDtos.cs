@@ -50,3 +50,21 @@ public record MyAchievementDto(
 /// <summary>A member's habit streaks — consecutive weeks with at least one attendance, workout, and
 /// logged meal respectively (all via the same weekly StreakCalculator).</summary>
 public record MyStreaksDto(int AttendanceWeeks, int WorkoutWeeks, int NutritionWeeks);
+
+/// <summary>A member's recovery snapshot — an overall status + reason from recent training load, the
+/// raw signals behind it, and a per-muscle-group breakdown. All derived from logged workouts and rest
+/// days (no wearable data), so it is a pure read-model recomputed every request.</summary>
+public record MyRecoveryDto(
+    string Status,
+    string Reason,
+    int SessionsLast7Days,
+    int RestDaysLast7Days,
+    int? DaysSinceLastWorkout,
+    IReadOnlyList<MuscleRecoveryDto> MuscleGroups);
+
+public record MuscleRecoveryDto(
+    string MuscleGroup,
+    string Status,
+    string Reason,
+    int TimesLast7Days,
+    int? DaysSinceLastTrained);

@@ -1,5 +1,6 @@
 using GymOS.API.Authorization;
 using GymOS.Application.Modules.Attendance.Dtos;
+using GymOS.Application.Modules.Experience.Commands;
 using GymOS.Application.Modules.Experience.Dtos;
 using GymOS.Application.Modules.Experience.Queries;
 using GymOS.Application.Modules.Members.Dtos;
@@ -149,4 +150,16 @@ public class PortalController(ISender mediator) : ControllerBase
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<MyStreaksDto>> Streaks(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyStreaksQuery(), cancellationToken));
+
+    // Recovery: the member's training-load recovery status (overall + per muscle group) and logging a
+    // rest / recovery day, which earns recovery XP once per day. Self-scoped like the rest of /api/me.
+    [HttpGet("recovery")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyRecoveryDto>> Recovery(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyRecoveryQuery(), cancellationToken));
+
+    [HttpPost("recovery/log")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<Guid>> LogRecovery(LogMyRecoveryCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
 }

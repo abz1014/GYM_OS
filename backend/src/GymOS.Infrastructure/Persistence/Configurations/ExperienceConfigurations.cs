@@ -50,3 +50,13 @@ public class MemberAchievementConfiguration : IEntityTypeConfiguration<MemberAch
         builder.HasIndex(a => new { a.MemberId, a.Code }).IsUnique();
     }
 }
+
+public class RecoveryLogConfiguration : IEntityTypeConfiguration<RecoveryLog>
+{
+    public void Configure(EntityTypeBuilder<RecoveryLog> builder)
+    {
+        builder.Property(r => r.Notes).HasMaxLength(500);
+        // Backs the per-member recovery reads and the recent-rest-days signal the RecoveryPolicy uses.
+        builder.HasIndex(r => new { r.MemberId, r.LoggedOn });
+    }
+}
