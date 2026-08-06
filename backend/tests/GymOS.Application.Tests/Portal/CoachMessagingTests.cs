@@ -1,4 +1,5 @@
 using GymOS.Application.Common.Exceptions;
+using GymOS.Application.Modules.Coaching.Commands;
 using GymOS.Application.Modules.Portal.Commands;
 using GymOS.Application.Modules.Portal.Queries;
 using GymOS.Application.Modules.Workouts.Commands;
@@ -166,6 +167,136 @@ public class CoachMessagingTests : ApplicationTestBase
         mine.ReadAt.ShouldBeNull();
     }
 
+    // ---- the trainer's half -------------------------------------------------------------
+
+    [Fact]
+    public async Task A_trainer_reads_and_answers_their_own_client()
+    {
+        var ctx = await SeedAsync();
+        await AssignTrainerAsync(ctx);
+        AsMember(ctx);
+        await SendAsync(new MessageMyCoachCommand("Is 60kg still right?"));
+
+        AsTrainer(ctx);
+        var thread = await SendAsync(new GetMyClientConversationQuery(ctx.MemberId));
+        thread.UnreadCount.ShouldBe(1);
+        thread.CanSend.ShouldBeTrue();
+
+        await SendAsync(new MessageMyClientCommand(ctx.MemberId, "Hold it two more weeks."));
+
+        AsMember(ctx);
+        var coach = await SendAsync(new GetMyCoachQuery());
+        coach.Messages.Count.ShouldBe(2);
+        coach.Messages.Last().Author.ShouldBe("Trainer");
+        coach.UnreadCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_trainer_cannot_reach_a_member_who_is_not_their_client()
+    {
+        var mine = await SeedAsync();
+        var stranger = await SeedAsync();
+        await AssignTrainerAsync(mine);
+
+        AsTrainer(mine);
+
+        await Should.ThrowAsync<ForbiddenAccessException>(
+            () => SendAsync(new GetMyClientConversationQuery(stranger.MemberId)));
+        await Should.ThrowAsync<ForbiddenAccessException>(
+            () => SendAsync(new MessageMyClientCommand(stranger.MemberId, "Hello")));
+    }
+
+    [Fact]
+    public async Task A_trainer_cannot_attach_a_workout_that_is_not_the_clients()
+    {
+        var mine = await SeedAsync();
+        var other = await SeedAsync();
+        await AssignTrainerAsync(mine);
+
+        AsMember(other);
+        var theirSession = await SendAsync(new LogMyWorkoutCommand([new WorkoutLogEntryInput(other.ExerciseId, 3, 8, 60m)]));
+
+        AsTrainer(mine);
+        await Should.ThrowAsync<NotFoundException>(
+            () => SendAsync(new MessageMyClientCommand(mine.MemberId, "About this", theirSession.WorkoutLogId)));
+    }
+
+    [Fact]
+    public async Task A_member_account_cannot_use_the_trainer_endpoints()
+    {
+        var ctx = await SeedAsync();
+        await AssignTrainerAsync(ctx);
+        AsMember(ctx);
+
+        // Permission gating happens at the API; this is the second line — the handler itself refuses
+        // an account with no Trainer row rather than trusting the route to have been guarded.
+        await Should.ThrowAsync<ForbiddenAccessException>(
+            () => SendAsync(new GetMyClientConversationQuery(ctx.MemberId)));
+    }
+
+    [Fact]
+    public async Task A_trainer_clearing_their_badge_leaves_the_members_alone()
+    {
+        var ctx = await SeedAsync();
+        await AssignTrainerAsync(ctx);
+        AsMember(ctx);
+        await SendAsync(new MessageMyCoachCommand("Morning"));
+
+        AsTrainer(ctx);
+        await SendAsync(new MessageMyClientCommand(ctx.MemberId, "Morning back"));
+        await SendAsync(new ReadMyClientMessagesCommand(ctx.MemberId));
+
+        AsMember(ctx);
+        // The trainer's reply is still unread by the member.
+        (await SendAsync(new GetMyCoachQuery())).UnreadCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_long_conversation_returns_only_its_most_recent_window()
+    {
+        var ctx = await SeedAsync();
+        await AssignTrainerAsync(ctx);
+        AsMember(ctx);
+        for (var i = 1; i <= 12; i++)
+        {
+            DateTimeProvider.UtcNow = Thursday.AddMinutes(i);
+            await SendAsync(new MessageMyCoachCommand($"Message {i}"));
+        }
+
+        var coach = await SendAsync(new GetMyCoachQuery(Take: 5));
+
+        coach.Messages.Count.ShouldBe(5);
+        coach.HasOlder.ShouldBeTrue();
+        coach.Messages.First().Body.ShouldBe("Message 8");   // the window is the newest, in order
+        coach.Messages.Last().Body.ShouldBe("Message 12");
+    }
+
+    [Fact]
+    public async Task An_unread_message_outside_the_window_still_counts()
+    {
+        // A badge that silently drops what scrolled out of sight is worse than no badge.
+        var ctx = await SeedAsync();
+        await AssignTrainerAsync(ctx);
+        for (var i = 1; i <= 6; i++)
+        {
+            DateTimeProvider.UtcNow = Thursday.AddMinutes(i);
+            await TrainerWritesAsync(ctx, $"Note {i}");
+        }
+
+        AsMember(ctx);
+        var coach = await SendAsync(new GetMyCoachQuery(Take: 2));
+
+        coach.Messages.Count.ShouldBe(2);
+        coach.UnreadCount.ShouldBe(6);
+    }
+
+    private void AsTrainer(SeedContext ctx)
+    {
+        CurrentUser.TenantId = ctx.TenantId;
+        CurrentUser.UserId = ctx.TrainerUserId;
+        CurrentUser.IsAuthenticated = true;
+    }
+
     private void AsMember(SeedContext ctx)
     {
         CurrentUser.TenantId = ctx.TenantId;
@@ -203,12 +334,12 @@ public class CoachMessagingTests : ApplicationTestBase
         db.CoachMessages.Add(new CoachMessage
         {
             TenantId = ctx.TenantId, TrainerId = ctx.TrainerId, MemberId = ctx.MemberId,
-            Author = CoachMessageAuthor.Trainer, Body = body, SentAt = Thursday
+            Author = CoachMessageAuthor.Trainer, Body = body, SentAt = DateTimeProvider.UtcNow
         });
         await db.SaveChangesAsync();
     }
 
-    private record SeedContext(Guid TenantId, Guid BranchId, Guid MemberId, Guid MemberUserId, Guid TrainerId, Guid ExerciseId);
+    private record SeedContext(Guid TenantId, Guid BranchId, Guid MemberId, Guid MemberUserId, Guid TrainerId, Guid TrainerUserId, Guid ExerciseId);
 
     private async Task<SeedContext> SeedAsync()
     {
@@ -252,6 +383,6 @@ public class CoachMessagingTests : ApplicationTestBase
         db.Exercises.Add(exercise);
 
         await db.SaveChangesAsync();
-        return new SeedContext(tenant.Id, branch.Id, member.Id, memberUser.Id, trainer.Id, exercise.Id);
+        return new SeedContext(tenant.Id, branch.Id, member.Id, memberUser.Id, trainer.Id, trainerUser.Id, exercise.Id);
     }
 }

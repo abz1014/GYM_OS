@@ -32,3 +32,16 @@ public record RiskRowDto(
     string MemberCode,
     string RiskType,
     string Reason);
+
+/// <summary>One client's conversation as their trainer sees it. Mirrors MyCoachDto on the member side.</summary>
+public record CoachConversationDto(
+    Guid MemberId,
+    string MemberName,
+    bool CanSend,
+    int UnreadCount,
+    bool HasOlder,
+    IReadOnlyList<CoachMessageDto> Messages);
+
+/// <param name="Author">"Member" or "Trainer".</param>
+public record CoachMessageDto(
+    Guid Id, string Author, string Body, DateTimeOffset SentAt, bool Read, Guid? WorkoutLogId);

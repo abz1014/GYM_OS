@@ -16,12 +16,21 @@ namespace GymOS.Application.Modules.Portal.Queries;
 /// something away. <see cref="MyCoachDto.CanSend"/> is what closes — you can read it, you cannot add
 /// to it. Self-scoped via MyMemberResolver; no member id is accepted from the caller.
 /// </summary>
-public record GetMyCoachQuery : IQuery<MyCoachDto>;
+/// <param name="Take">How many of the most recent messages to return. Bounded because a
+/// conversation grows without limit and a phone should not download a year of it to show the last
+/// exchange — 5,000 messages was a 1.1 MB response.</param>
+public record GetMyCoachQuery(int Take = GetMyCoachQueryHandler.DefaultWindow) : IQuery<MyCoachDto>;
 
 public class GetMyCoachQueryHandler(
     IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
     : IRequestHandler<GetMyCoachQuery, MyCoachDto>
 {
+    /// <summary>Enough to cover any recent exchange without shipping the archive.</summary>
+    public const int DefaultWindow = 50;
+
+    public const int MaxWindow = 200;
+
+
     public async Task<MyCoachDto> Handle(GetMyCoachQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
@@ -45,21 +54,30 @@ public class GetMyCoachQueryHandler(
 
         if (assignment is null)
         {
-            return new MyCoachDto(null, null, false, 0, []);
+            return new MyCoachDto(null, null, false, 0, false, []);
         }
 
-        var messages = (await db.CoachMessages.AsNoTracking()
+        // Reduced in memory for the reason every DateTimeOffset ordering in this codebase is: SQLite,
+        // the test provider, cannot order one in SQL. The window is applied after sorting, so what
+        // comes back is genuinely the most recent exchange rather than an arbitrary slice.
+        var all = (await db.CoachMessages.AsNoTracking()
                 .Where(m => m.MemberId == memberId && m.TrainerId == assignment.TrainerId)
                 .Select(m => new { m.Id, m.Author, m.Body, m.SentAt, m.ReadAt, m.WorkoutLogId })
                 .ToListAsync(cancellationToken))
             .OrderBy(m => m.SentAt)
             .ToList();
 
+        var take = Math.Clamp(request.Take, 1, MaxWindow);
+        var messages = all.Skip(Math.Max(0, all.Count - take)).ToList();
+
         return new MyCoachDto(
             assignment.TrainerId,
             assignment.TrainerName,
             CoachMessagePolicy.CanSend(assignment.StartDate, assignment.EndDate, assignment.IsActive, today),
-            CoachMessagePolicy.UnreadFor(CoachMessageAuthor.Member, messages.Select(m => (m.Author, m.ReadAt))),
+            // Counted across everything, not just the window — an unread message that scrolled out of
+            // sight is still unread, and a badge that quietly drops it is worse than no badge.
+            CoachMessagePolicy.UnreadFor(CoachMessageAuthor.Member, all.Select(m => (m.Author, m.ReadAt))),
+            all.Count > messages.Count,
             messages
                 .Select(m => new MyCoachMessageDto(
                     m.Id, m.Author.ToString(), m.Body, m.SentAt, m.ReadAt is not null, m.WorkoutLogId))

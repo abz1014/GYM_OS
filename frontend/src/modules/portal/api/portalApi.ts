@@ -808,6 +808,8 @@ export interface MyCoach {
   /** False once a pairing ends: the history stays readable, but there is nobody to add to it. */
   canSend: boolean
   unreadCount: number
+  /** More exists above the window — the conversation is capped so a long one is not downloaded whole. */
+  hasOlder: boolean
   messages: MyCoachMessage[]
 }
 

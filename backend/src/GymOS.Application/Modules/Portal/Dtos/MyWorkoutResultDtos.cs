@@ -57,11 +57,14 @@ public record MySessionProposalDto(string Source, bool CanConfirm, IReadOnlyList
 /// </summary>
 /// <param name="CanSend">False once a pairing ends — the history stays readable, but there is
 /// nobody on the other end to add to it.</param>
+/// <param name="HasOlder">More exists above the window. A year of coaching is thousands of messages
+/// and nobody opens a conversation to read the first one; sending them all cost a megabyte a view.</param>
 public record MyCoachDto(
     Guid? TrainerId,
     string? TrainerName,
     bool CanSend,
     int UnreadCount,
+    bool HasOlder,
     IReadOnlyList<MyCoachMessageDto> Messages);
 
 /// <param name="Author">"Member" or "Trainer".</param>
