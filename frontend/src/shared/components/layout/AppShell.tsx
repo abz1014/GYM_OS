@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 
 import { MemberTabBar } from '@/shared/components/layout/MemberTabBar'
@@ -16,10 +17,24 @@ import { useIsMemberOnly } from '@/shared/nav/memberNav'
 export function AppShell() {
   const isMember = useIsMemberOnly()
 
+  /**
+   * The member accent lives on <body>, not on the shell div.
+   *
+   * It has to: Radix portals dialogs — and Sonner its toasts — straight to document.body, which is
+   * OUTSIDE any element this component renders. Scoping the theme to the shell left a member tapping
+   * an orange button and getting a dialog with a black staff-coloured Save button. Putting the class
+   * on body makes portalled content inherit the same variables as the page behind it.
+   *
+   * Removed on unmount and whenever a non-member is signed in, so the staff console is never tinted.
+   */
+  useEffect(() => {
+    if (!isMember) return
+    document.body.classList.add('member-theme')
+    return () => document.body.classList.remove('member-theme')
+  }, [isMember])
+
   return (
-    // member-theme re-points the accent variables for everything in the member shell (see index.css).
-    // Applied at the root of the shell so the tab bar and any portalled overlay inherit it too.
-    <div className={`flex h-svh w-full overflow-hidden${isMember ? ' member-theme' : ''}`}>
+    <div className="flex h-svh w-full overflow-hidden">
       {!isMember && <Sidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
