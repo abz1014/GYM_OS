@@ -30,13 +30,35 @@ public class GetMyNextSessionQueryHandler(
         var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
 
         // 1. An active trainer plan, if there is one. Templates carry sets and reps but never load.
-        var planExercises = await db.WorkoutAssignments.AsNoTracking()
+        // Exactly one plan is taken — the most recently started. A member moved onto a new block before
+        // the old one lapses has two active assignments, and flattening both produces a session no
+        // trainer ever wrote, with anything common to them logged twice on a single confirm.
+        var activePlans = await db.WorkoutAssignments.AsNoTracking()
             .Where(a => a.MemberId == memberId && a.StartDate <= today && (a.EndDate == null || a.EndDate >= today))
-            .OrderByDescending(a => a.StartDate)
-            .SelectMany(a => a.WorkoutTemplate!.TemplateExercises
-                .OrderBy(e => e.OrderIndex)
-                .Select(e => new PlannedExercise(e.ExerciseId, e.Exercise!.Name, e.SetsCount, e.RepsCount)))
+            .Select(a => new { a.Id, a.StartDate, a.WorkoutTemplateId })
             .ToListAsync(cancellationToken);
+
+        var currentPlan = activePlans
+            .OrderByDescending(a => a.StartDate).ThenByDescending(a => a.Id)
+            .FirstOrDefault();
+
+        // Kept as its own query rather than a SelectMany off the assignment: projecting the assignment's
+        // own columns alongside its template rows needs SQL APPLY, which SQLite has no answer for. The
+        // trainer's OrderIndex is then applied in memory — EF drops an OrderBy nested inside a
+        // SelectMany projection, which handed the session back in arbitrary order, accessory work
+        // before the squat.
+        var planExercises = new List<PlannedExercise>();
+        if (currentPlan is not null)
+        {
+            planExercises = (await (from e in db.WorkoutTemplateExercises.AsNoTracking()
+                                    join x in db.Exercises.AsNoTracking() on e.ExerciseId equals x.Id
+                                    where e.WorkoutTemplateId == currentPlan.WorkoutTemplateId
+                                    select new { e.OrderIndex, e.ExerciseId, ExerciseName = x.Name, e.SetsCount, e.RepsCount })
+                    .ToListAsync(cancellationToken))
+                .OrderBy(e => e.OrderIndex)
+                .Select(e => new PlannedExercise(e.ExerciseId, e.ExerciseName, e.SetsCount, e.RepsCount))
+                .ToList();
+        }
 
         // 2. Everything the member has ever logged, reduced in memory — DateTimeOffset can't be
         //    ordered or bucketed in SQL on SQLite, the same constraint every query here works around.

@@ -4,20 +4,12 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
+  SESSION_SOURCE_LABEL,
   useLogMyWorkout,
   useMyNextSession,
   type MyWorkoutResult,
   type ProposedEntry,
-  type SessionProposalSource,
 } from '@/modules/portal/api/portalApi'
-
-/** What the proposal is based on, said plainly. A member should never be shown numbers with no provenance. */
-const SOURCE_LABEL: Record<SessionProposalSource, string> = {
-  TrainerPlan: "Today's plan",
-  RepeatLast: 'Same as last time',
-  Starter: 'Start with the basics',
-  None: '',
-}
 
 function summarise(entries: ProposedEntry[]): string {
   const first = entries[0]
@@ -83,7 +75,7 @@ export function ConfirmSessionButton({ onLogged }: { onLogged: (result: MyWorkou
       >
         <span className="flex items-center gap-2 font-semibold">
           {logWorkout.isPending ? <Loader2 className="size-5 animate-spin" /> : <Check className="size-5" />}
-          {proposal.isLoading ? 'Checking your plan…' : SOURCE_LABEL[proposal.data!.source]}
+          {proposal.isLoading ? 'Checking your plan…' : SESSION_SOURCE_LABEL[proposal.data!.source]}
         </span>
         {!proposal.isLoading && (
           <span className="text-xs font-normal opacity-90">{summarise(entries)}</span>

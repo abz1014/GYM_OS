@@ -627,6 +627,18 @@ export interface MyWorkoutResult {
 
 export type SessionProposalSource = 'None' | 'TrainerPlan' | 'RepeatLast' | 'Starter'
 
+/**
+ * What the proposal is based on, said plainly. Kept beside the type so every surface that offers the
+ * session names it the same way — a member who is told "today's plan" on one screen and "same as
+ * last time" on another has been shown two different sessions by the same app.
+ */
+export const SESSION_SOURCE_LABEL: Record<SessionProposalSource, string> = {
+  TrainerPlan: "Today's plan",
+  RepeatLast: 'Same as last time',
+  Starter: 'Start with the basics',
+  None: '',
+}
+
 export interface ProposedEntry {
   exerciseId: string
   exerciseName: string

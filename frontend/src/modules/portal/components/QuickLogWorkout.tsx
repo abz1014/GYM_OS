@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import {
+  SESSION_SOURCE_LABEL,
   useLogMyWorkout,
   useMyLoggingOptions,
-  useMyWorkoutLogs,
+  useMyNextSession,
   useMyWorkoutSuggestions,
   type MyWorkoutResult,
   type WorkoutEntryInput,
@@ -90,7 +91,7 @@ function Stepper({
 export function QuickLogWorkout() {
   const suggestions = useMyWorkoutSuggestions()
   const options = useMyLoggingOptions()
-  const workouts = useMyWorkoutLogs()
+  const proposal = useMyNextSession()
   const logWorkout = useLogMyWorkout()
 
   const [pending, setPending] = useState<PendingEntry[]>([])
@@ -104,7 +105,11 @@ export function QuickLogWorkout() {
   // The member's own lifts, most recent first — these become the primary buttons.
   const usualLifts = useMemo(() => (suggestions.data ?? []).slice(0, 6), [suggestions.data])
 
-  const lastSession = workouts.data?.[0]
+  // The same session the home screen offers, from the same server-side policy — this screen loads it
+  // into the editor instead of committing it. Reading the raw most-recent log here instead made the
+  // two screens disagree: it ignored an active trainer plan, and a log with no entries (a check-in
+  // with nothing recorded against it) hid this shortcut entirely while home still offered a session.
+  const proposed = proposal.data?.canConfirm ? proposal.data.entries : []
 
   const otherExercises = useMemo(() => {
     const usualIds = new Set(usualLifts.map((s) => s.exerciseId))
@@ -142,19 +147,19 @@ export function QuickLogWorkout() {
     setOpenExerciseId(null)
   }
 
-  const repeatLastSession = () => {
-    if (!lastSession?.entries?.length) return
+  const loadProposedSession = () => {
+    if (!proposed.length) return
     setPending(
-      lastSession.entries.map((e) => ({
+      proposed.map((e) => ({
         key: entryKey++,
         exerciseId: e.exerciseId,
         exerciseName: e.exerciseName,
-        sets: e.setsCompleted,
-        reps: e.repsCompleted,
+        sets: e.sets,
+        reps: e.reps,
         weight: e.weightKg,
       })),
     )
-    toast.success('Loaded your last session — tweak anything, then finish.')
+    toast.success('Loaded — tweak anything, then finish.')
   }
 
   const finish = () => {
@@ -180,20 +185,18 @@ export function QuickLogWorkout() {
 
   return (
     <div className="space-y-4">
-      {/* One tap to repeat the whole of last time — the fastest path for anyone on a fixed program. */}
-      {lastSession?.entries?.length ? (
+      {/* One tap to load the whole session — the fastest path for anyone on a fixed program. */}
+      {proposed.length ? (
         <button
           type="button"
-          onClick={repeatLastSession}
+          onClick={loadProposedSession}
           className="flex w-full items-center gap-3 rounded-xl border-2 border-dashed p-4 text-left transition-colors hover:border-primary hover:bg-accent"
         >
           <RotateCcw className="size-5 shrink-0 text-primary" />
           <div className="min-w-0">
-            <p className="font-medium">Same as last time</p>
+            <p className="font-medium">{SESSION_SOURCE_LABEL[proposal.data!.source]}</p>
             <p className="truncate text-sm text-muted-foreground">
-              {lastSession.entries
-                .map((e) => `${e.exerciseName} ${e.setsCompleted}×${e.repsCompleted}`)
-                .join(' · ')}
+              {proposed.map((e) => `${e.exerciseName} ${e.sets}×${e.reps}`).join(' · ')}
             </p>
           </div>
         </button>

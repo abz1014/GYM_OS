@@ -105,6 +105,38 @@ public class ZeroLoggingTests : ApplicationTestBase
     }
 
     [Fact]
+    public async Task A_plan_is_offered_in_the_order_the_trainer_wrote_it()
+    {
+        var ctx = await SeedAsync();
+        AsMember(ctx);
+        // Deadlift is written first but added second, so passing requires reading OrderIndex rather
+        // than whatever order the rows happen to come back in. Order is the prescription: a squat
+        // belongs before the accessory work, not after it.
+        await AssignPlanAsync(ctx, "Leg Day", startedDaysAgo: 1, (ctx.BenchId, 3, 8, 1), (ctx.DeadliftId, 5, 5, 0));
+
+        var proposal = await SendAsync(new GetMyNextSessionQuery());
+
+        proposal.Source.ShouldBe("TrainerPlan");
+        proposal.Entries.Select(e => e.ExerciseName).ShouldBe(["Deadlift", "Bench Press"]);
+    }
+
+    [Fact]
+    public async Task Only_the_newest_active_plan_is_offered_never_a_merge_of_several()
+    {
+        var ctx = await SeedAsync();
+        AsMember(ctx);
+        // A member moved onto a new block before the old one lapses has two active assignments.
+        await AssignPlanAsync(ctx, "Old block", startedDaysAgo: 30, (ctx.BenchId, 3, 8, 0));
+        await AssignPlanAsync(ctx, "New block", startedDaysAgo: 1, (ctx.DeadliftId, 5, 5, 0));
+
+        var proposal = await SendAsync(new GetMyNextSessionQuery());
+
+        // Flattening both would hand the member a session no trainer ever prescribed — and any
+        // exercise appearing in both plans would be logged twice on a single confirm.
+        proposal.Entries.ShouldHaveSingleItem().ExerciseName.ShouldBe("Deadlift");
+    }
+
+    [Fact]
     public async Task Confirming_a_proposal_goes_through_the_same_path_as_typing_it()
     {
         var ctx = await SeedAsync();
@@ -261,6 +293,32 @@ public class ZeroLoggingTests : ApplicationTestBase
             WorkoutTemplateId = template.Id,
             StartDate = today.AddDays(-30),
             EndDate = endedDaysAgo is int ended ? today.AddDays(-ended) : null
+        });
+
+        await db.SaveChangesAsync();
+    }
+
+    private async Task AssignPlanAsync(
+        SeedContext ctx, string name, int startedDaysAgo, params (Guid ExerciseId, int Sets, int Reps, int OrderIndex)[] exercises)
+    {
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        var template = new WorkoutTemplate { TenantId = ctx.TenantId, Name = name };
+        foreach (var (exerciseId, sets, reps, order) in exercises)
+        {
+            template.TemplateExercises.Add(new WorkoutTemplateExercise
+            {
+                ExerciseId = exerciseId, SetsCount = sets, RepsCount = reps, OrderIndex = order
+            });
+        }
+
+        db.WorkoutTemplates.Add(template);
+        db.WorkoutAssignments.Add(new WorkoutAssignment
+        {
+            MemberId = ctx.MemberId,
+            WorkoutTemplateId = template.Id,
+            StartDate = DateOnly.FromDateTime(Thursday.UtcDateTime).AddDays(-startedDaysAgo)
         });
 
         await db.SaveChangesAsync();
