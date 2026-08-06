@@ -859,6 +859,9 @@ export interface MyPassportEntry {
   /** Null for a movement carrying no load — "0kg" on a plank would read as a failure. */
   bestWeightKg: number | null
   lastTrained: string | null
+  daysSinceLastTrained: number | null
+  /** Tried once and then left alone long enough to have dropped out of their training. */
+  goneQuiet: boolean
 }
 
 export interface MyPassportStamp {
@@ -876,6 +879,8 @@ export interface MyPassport {
   percentCovered: number
   complete: boolean
   stamps: MyPassportStamp[]
+  /** The few they have drifted furthest from — bounded, so it stays a prompt not a backlog. */
+  goneQuiet: MyPassportEntry[]
 }
 
 export function useMyPassport() {

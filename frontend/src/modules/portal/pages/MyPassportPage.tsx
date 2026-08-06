@@ -1,8 +1,17 @@
-import { CheckCircle2, Circle, MapPin } from 'lucide-react'
+import { CheckCircle2, Circle, Hourglass, MapPin } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMyPassport, type MyPassportEntry } from '@/modules/portal/api/portalApi'
+
+/** Plain words for how long ago, because "41 days" is arithmetic and "6 weeks ago" is a memory. */
+function lastTouched(days: number): string {
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 14) return `${days} days ago`
+  if (days < 60) return `${Math.round(days / 7)} weeks ago`
+  return `${Math.round(days / 30)} months ago`
+}
 
 function Row({ entry }: { entry: MyPassportEntry }) {
   return (
@@ -22,6 +31,8 @@ function Row({ entry }: { entry: MyPassportEntry }) {
                 `${entry.sessions} session${entry.sessions === 1 ? '' : 's'}`,
                 // A movement with no load has no best weight; saying "0kg" would read as a failure.
                 entry.bestWeightKg === null ? null : `best ${entry.bestWeightKg}kg`,
+                // Stated as a fact, not a reprimand — it is their own record either way.
+                entry.daysSinceLastTrained === null ? null : lastTouched(entry.daysSinceLastTrained),
               ]
                 .filter(Boolean)
                 .join(' · ')
@@ -79,6 +90,34 @@ export default function MyPassportPage() {
                 <div className="h-full rounded-full bg-primary" style={{ width: `${data.percentCovered}%` }} />
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/*
+        What v1 could not say. Once a member has tried everything, coverage is finished and the
+        passport has nothing left — but they can still have quietly dropped something. Bounded to a
+        few, worst first, so it stays a prompt rather than a backlog nobody reads.
+      */}
+      {data.goneQuiet.length > 0 && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Hourglass className="size-4 shrink-0 text-muted-foreground" />
+              <h2 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                Gone quiet
+              </h2>
+            </div>
+            <ul className="space-y-1">
+              {data.goneQuiet.map((e) => (
+                <li key={e.exerciseId} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="truncate font-medium">{e.exerciseName}</span>
+                  <span className="shrink-0 text-muted-foreground">
+                    {lastTouched(e.daysSinceLastTrained ?? 0)}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       )}

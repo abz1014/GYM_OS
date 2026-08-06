@@ -14,9 +14,13 @@ public readonly record struct PassportEntry(
     string? MuscleGroup,
     int Sessions,
     decimal? BestWeightKg,
-    DateOnly? LastTrained)
+    DateOnly? LastTrained,
+    int? DaysSinceLastTrained)
 {
     public bool Tried => Sessions > 0;
+
+    /// <summary>Tried once, then left alone long enough that it has dropped out of their training.</summary>
+    public bool GoneQuiet => DaysSinceLastTrained >= GymPassportPolicy.QuietAfterDays;
 }
 
 /// <summary>One kind of equipment, and how much of it the member has covered.</summary>
@@ -26,7 +30,12 @@ public readonly record struct PassportStamp(string Equipment, int Tried, int Ava
 }
 
 /// <summary>The member's map of their own gym.</summary>
-public readonly record struct GymPassport(int Tried, int Available, int PercentCovered, IReadOnlyList<PassportStamp> Stamps)
+/// <param name="GoneQuiet">The few movements the member has drifted furthest from. Bounded rather
+/// than exhaustive: in a gym with a hundred movements, listing everything untouched for a month
+/// would flag ninety of them and mean nothing.</param>
+public readonly record struct GymPassport(
+    int Tried, int Available, int PercentCovered,
+    IReadOnlyList<PassportStamp> Stamps, IReadOnlyList<PassportEntry> GoneQuiet)
 {
     public bool Complete => Available > 0 && Tried == Available;
 }
@@ -51,11 +60,24 @@ public static class GymPassportPolicy
     public const string Unlabelled = "Other";
 
     /// <summary>
+    /// How long a movement has to go untouched before it counts as dropped rather than merely not
+    /// due. Someone training three times a week across a normal catalogue comes back to any given
+    /// movement every couple of weeks, so a month is comfortably past "it just was not this week"
+    /// without nagging anyone following a programme that rotates.
+    /// </summary>
+    public const int QuietAfterDays = 30;
+
+    /// <summary>How many of the neglected are worth naming. The rest is a list nobody reads.</summary>
+    public const int MaxQuietHighlighted = 3;
+
+    /// <summary>
     /// Builds the passport.
     /// </summary>
     /// <param name="catalogue">Every exercise the gym offers. The denominator is the gym's own, so
     /// coverage means something specific to that site rather than to some notional complete gym.</param>
-    public static GymPassport Build(IEnumerable<PassportCatalogueEntry> catalogue)
+    /// <param name="today">The gym's today, so "days since" means the same as every other day on
+    /// screen — see GymDay.</param>
+    public static GymPassport Build(IEnumerable<PassportCatalogueEntry> catalogue, DateOnly today)
     {
         var entries = catalogue.ToList();
 
@@ -71,7 +93,7 @@ public static class GymPassportPolicy
                     .OrderByDescending(e => e.Sessions > 0)
                     .ThenByDescending(e => e.Sessions)
                     .ThenBy(e => e.ExerciseName, StringComparer.OrdinalIgnoreCase)
-                    .Select(Entry)
+                    .Select(e => Entry(e, today))
                     .ToList()))
             .OrderByDescending(s => s.Tried)
             .ThenBy(s => s.Equipment, StringComparer.OrdinalIgnoreCase)
@@ -80,21 +102,32 @@ public static class GymPassportPolicy
         var tried = entries.Count(e => e.Sessions > 0);
         var available = entries.Count;
 
-        return new GymPassport(tried, available, PercentCovered(tried, available), stamps);
+        // Named worst-first and capped, so this stays a short prompt rather than a backlog.
+        var goneQuiet = stamps
+            .SelectMany(s => s.Entries)
+            .Where(e => e.GoneQuiet)
+            .OrderByDescending(e => e.DaysSinceLastTrained)
+            .ThenBy(e => e.ExerciseName, StringComparer.OrdinalIgnoreCase)
+            .Take(MaxQuietHighlighted)
+            .ToList();
+
+        return new GymPassport(tried, available, PercentCovered(tried, available), stamps, goneQuiet);
     }
 
     /// <summary>Rounded away from zero so a member who has tried something is never shown 0%.</summary>
     public static int PercentCovered(int tried, int available)
         => available <= 0 ? 0 : (int)Math.Round(tried * 100.0 / available, MidpointRounding.AwayFromZero);
 
-    private static PassportEntry Entry(PassportCatalogueEntry e) => new(
+    private static PassportEntry Entry(PassportCatalogueEntry e, DateOnly today) => new(
         e.ExerciseId,
         e.ExerciseName,
         e.MuscleGroup,
         e.Sessions,
         // Zero is what the store holds for a movement carrying no load; it is not a best.
         e.BestWeightKg > 0 ? e.BestWeightKg : null,
-        e.LastTrained);
+        e.LastTrained,
+        // Clamped at zero: a record dated in the future is bad data, not training yet to happen.
+        e.LastTrained is DateOnly d ? Math.Max(0, today.DayNumber - d.DayNumber) : null);
 }
 
 /// <summary>One exercise the gym offers, joined to whatever the member has done on it.</summary>

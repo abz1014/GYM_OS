@@ -77,8 +77,11 @@ public record MyCoachMessageDto(
 /// </summary>
 /// <param name="Available">Size of this gym's catalogue. Coverage is measured against the site the
 /// member actually trains at, not a notional complete gym.</param>
+/// <param name="GoneQuiet">The few movements they have drifted furthest from — bounded, because a
+/// large catalogue would otherwise flag most of itself and mean nothing.</param>
 public record MyPassportDto(
-    int Tried, int Available, int PercentCovered, bool Complete, IReadOnlyList<MyPassportStampDto> Stamps);
+    int Tried, int Available, int PercentCovered, bool Complete,
+    IReadOnlyList<MyPassportStampDto> Stamps, IReadOnlyList<MyPassportEntryDto> GoneQuiet);
 
 /// <summary>One kind of equipment and how much of it the member has covered.</summary>
 public record MyPassportStampDto(
@@ -88,4 +91,4 @@ public record MyPassportStampDto(
 /// "0kg" would read as a failure rather than the absence of a number.</param>
 public record MyPassportEntryDto(
     Guid ExerciseId, string ExerciseName, string? MuscleGroup, bool Tried, int Sessions,
-    decimal? BestWeightKg, DateOnly? LastTrained);
+    decimal? BestWeightKg, DateOnly? LastTrained, int? DaysSinceLastTrained, bool GoneQuiet);

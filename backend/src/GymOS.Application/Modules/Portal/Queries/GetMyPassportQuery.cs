@@ -18,13 +18,15 @@ namespace GymOS.Application.Modules.Portal.Queries;
 /// </summary>
 public record GetMyPassportQuery : IQuery<MyPassportDto>;
 
-public class GetMyPassportQueryHandler(IApplicationDbContext db, ICurrentUserService currentUser)
+public class GetMyPassportQueryHandler(
+    IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
     : IRequestHandler<GetMyPassportQuery, MyPassportDto>
 {
     public async Task<MyPassportDto> Handle(GetMyPassportQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
         var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
 
         // The gym's whole catalogue, tenant-scoped by the global filter.
         var catalogue = await db.Exercises.AsNoTracking()
@@ -49,7 +51,7 @@ public class GetMyPassportQueryHandler(IApplicationDbContext db, ICurrentUserSer
                 done?.BestWeightKg ?? 0m,
                 // Dated on the gym's clock, so "last trained" agrees with every other day on screen.
                 done is null ? null : GymDay.Of(done.LastTrainedAt, zone));
-        }));
+        }), today);
 
         return new MyPassportDto(
             passport.Tried,
@@ -63,9 +65,13 @@ public class GetMyPassportQueryHandler(IApplicationDbContext db, ICurrentUserSer
                     s.Available,
                     s.Complete,
                     s.Entries
-                        .Select(e => new MyPassportEntryDto(
-                            e.ExerciseId, e.ExerciseName, e.MuscleGroup, e.Tried, e.Sessions, e.BestWeightKg, e.LastTrained))
+                        .Select(Entry)
                         .ToList()))
-                .ToList());
+                .ToList(),
+            passport.GoneQuiet.Select(Entry).ToList());
     }
+
+    private static MyPassportEntryDto Entry(PassportEntry e) => new(
+        e.ExerciseId, e.ExerciseName, e.MuscleGroup, e.Tried, e.Sessions, e.BestWeightKg,
+        e.LastTrained, e.DaysSinceLastTrained, e.GoneQuiet);
 }
