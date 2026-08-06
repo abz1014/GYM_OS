@@ -149,6 +149,23 @@ public partial class DemoDataSeeder
 
         var now = DateTimeOffset.UtcNow;
 
+        // Each curated session gets a matching check-in ~40 minutes earlier. A workout with no visit
+        // on record is exactly the inconsistency the capture-rate sanity metric exists to flag, and
+        // the one member every demo drills into shouldn't be the one tripping it.
+        void AddVisitFor(DateTimeOffset loggedAt)
+        {
+            var checkIn = loggedAt.AddMinutes(-40);
+            db.AttendanceRecords.Add(new Domain.Attendance.AttendanceRecord
+            {
+                TenantId = member.TenantId,
+                BranchId = member.BranchId,
+                MemberId = member.Id,
+                CheckInAt = checkIn,
+                CheckOutAt = loggedAt.AddMinutes(15),
+                Method = Domain.Attendance.AttendanceMethod.QrSimulated
+            });
+        }
+
         var benchPress = await db.Exercises.IgnoreQueryFilters()
             .FirstOrDefaultAsync(e => e.TenantId == member.TenantId && e.Name == "Bench Press", cancellationToken);
         if (benchPress is not null)
@@ -156,11 +173,15 @@ public partial class DemoDataSeeder
             // Same weight, same reps two sessions running -> ProgressiveOverloadPolicy reads this as
             // a plateau and the portal suggests adding weight next time.
             var older = new WorkoutLog { MemberId = member.Id, LoggedAt = now.AddDays(-7) };
+            AddVisitFor(older.LoggedAt);
             older.Entries.Add(new WorkoutLogEntry { ExerciseId = benchPress.Id, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+            older.RaiseLogged();
             db.WorkoutLogs.Add(older);
 
             var newer = new WorkoutLog { MemberId = member.Id, LoggedAt = now.AddDays(-1) };
+            AddVisitFor(newer.LoggedAt);
             newer.Entries.Add(new WorkoutLogEntry { ExerciseId = benchPress.Id, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+            newer.RaiseLogged();
             db.WorkoutLogs.Add(newer);
         }
 
@@ -170,11 +191,15 @@ public partial class DemoDataSeeder
         {
             // Heavier than last time -> reads as already progressing, no nudge needed.
             var older = new WorkoutLog { MemberId = member.Id, LoggedAt = now.AddDays(-10) };
+            AddVisitFor(older.LoggedAt);
             older.Entries.Add(new WorkoutLogEntry { ExerciseId = squat.Id, SetsCompleted = 4, RepsCompleted = 6, WeightKg = 80m });
+            older.RaiseLogged();
             db.WorkoutLogs.Add(older);
 
             var newer = new WorkoutLog { MemberId = member.Id, LoggedAt = now.AddDays(-2) };
+            AddVisitFor(newer.LoggedAt);
             newer.Entries.Add(new WorkoutLogEntry { ExerciseId = squat.Id, SetsCompleted = 4, RepsCompleted = 6, WeightKg = 85m });
+            newer.RaiseLogged();
             db.WorkoutLogs.Add(newer);
         }
 
@@ -235,121 +260,16 @@ public partial class DemoDataSeeder
         db.RecoveryLogs.Add(new RecoveryLog { MemberId = member.Id, LoggedOn = today.AddDays(-3), Kind = RecoveryKind.RestDay, Notes = "Full rest day" });
         db.RecoveryLogs.Add(new RecoveryLog { MemberId = member.Id, LoggedOn = today.AddDays(-5), Kind = RecoveryKind.ActiveRecovery, Notes = "Light mobility + walk" });
 
-        // Member Experience Engine (mastery + personal records): mirror the two lifts seeded above so
-        // the demo member's mastery and PR cards are populated. Seeded directly (values match what the
-        // event-driven WorkoutProgressionService would compute) because seeding runs outside the event
-        // path — the WorkoutLogs above don't call RaiseLogged().
-        void SeedExerciseProgression(
-            Guid exerciseId, int sessions, int totalSets, long totalReps, decimal totalVolume,
-            decimal bestWeight, int bestReps, decimal bestSessionVolume, DateTimeOffset lastTrained, DateTimeOffset prAchievedAt)
-        {
-            db.ExerciseMasteries.Add(new ExerciseMastery
-            {
-                TenantId = member.TenantId,
-                MemberId = member.Id,
-                ExerciseId = exerciseId,
-                Sessions = sessions,
-                TotalSets = totalSets,
-                TotalReps = totalReps,
-                TotalVolume = totalVolume,
-                BestWeightKg = bestWeight,
-                BestEstimatedOneRepMax = OneRepMax.Epley(bestWeight, bestReps),
-                LastTrainedAt = lastTrained,
-                UpdatedAt = now
-            });
-
-            var records = new (PersonalRecordType Type, decimal Value)[]
-            {
-                (PersonalRecordType.MaxWeight, bestWeight),
-                (PersonalRecordType.EstimatedOneRepMax, OneRepMax.Epley(bestWeight, bestReps)),
-                (PersonalRecordType.SessionVolume, bestSessionVolume)
-            };
-
-            foreach (var (type, value) in records)
-            {
-                db.PersonalRecords.Add(new PersonalRecord
-                {
-                    TenantId = member.TenantId,
-                    MemberId = member.Id,
-                    ExerciseId = exerciseId,
-                    Type = type,
-                    Value = value,
-                    AchievedAt = prAchievedAt
-                });
-            }
-        }
-
-        if (benchPress is not null)
-        {
-            // 2 sessions of 3x8 @ 60kg: volume 2880, best-session volume 1440, best 60kg.
-            SeedExerciseProgression(benchPress.Id, 2, 6, 48, 2880m, 60m, 8, 1440m, now.AddDays(-1), now.AddDays(-7));
-        }
-
-        if (squat is not null)
-        {
-            // 4x6 @ 80kg then @ 85kg: volume 3960, best-session volume 2040, best 85kg (set most recently).
-            SeedExerciseProgression(squat.Id, 2, 8, 48, 3960m, 85m, 6, 2040m, now.AddDays(-2), now.AddDays(-2));
-        }
-
-        // Member Experience Engine: give the linked demo member a populated Level/XP card out of the
-        // box. Awards are written directly here because the seeder runs outside an HTTP context, so
-        // the event-driven XP path that fires on live check-ins/workouts never runs during seeding —
-        // the WorkoutLogs added above deliberately don't call RaiseLogged(). Four workouts (50 XP
-        // each) + ten visits (20 XP each) = 400 XP, which lands the member at level 3.
-        var xpSeeds = new List<(XpReason Reason, XpSourceType Source, int DaysAgo)>();
-        for (var d = 1; d <= 4; d++)
-        {
-            xpSeeds.Add((XpReason.WorkoutCompleted, XpSourceType.WorkoutLog, d * 2));
-        }
-
-        for (var d = 1; d <= 10; d++)
-        {
-            xpSeeds.Add((XpReason.GymVisit, XpSourceType.Attendance, d));
-        }
-
-        long totalXp = 0;
-        foreach (var (reason, source, daysAgo) in xpSeeds)
-        {
-            var amount = XpPolicy.AwardFor(reason);
-            totalXp += amount;
-            db.XpTransactions.Add(new XpTransaction
-            {
-                TenantId = member.TenantId,
-                MemberId = member.Id,
-                Amount = amount,
-                Reason = reason,
-                SourceType = source,
-                SourceId = Guid.NewGuid(),
-                OccurredAt = now.AddDays(-daysAgo)
-            });
-        }
-
-        var progression = new MemberProgression { TenantId = member.TenantId, MemberId = member.Id };
-        progression.SetTotalXp(totalXp);
-        progression.UpdatedAt = now;
-        db.MemberProgressions.Add(progression);
-
-        // Achievements the seeded activity clearly earns (first workout/visit, reached level 3, set a
-        // PR). Seeded directly since SetTotalXp above is silent — it doesn't raise the progression
-        // event that would otherwise trigger live achievement evaluation.
-        var earnedAchievements = new (string Code, int DaysAgo)[]
-        {
-            ("first-visit", 30),
-            ("first-workout", 10),
-            ("first-pr", 7),
-            ("level-3", 1)
-        };
-
-        foreach (var (code, daysAgo) in earnedAchievements)
-        {
-            db.MemberAchievements.Add(new MemberAchievement
-            {
-                TenantId = member.TenantId,
-                MemberId = member.Id,
-                Code = code,
-                UnlockedAt = now.AddDays(-daysAgo)
-            });
-        }
+        // The Experience Engine now owns everything that used to be hand-written here — mastery,
+        // personal records, XP, level and achievements. Those blocks existed because seeding ran
+        // outside the event path, so nothing computed them; that premise is gone. SeedMemberActivityAsync
+        // gives this member (and everyone else) real logged history, and the WorkoutLogs above now call
+        // RaiseLogged(), so the same handlers that run for a live workout produce all of it.
+        //
+        // Removing them is not just de-duplication. Hand-written projections silently drift from the
+        // rules the moment either side changes, and they were already colliding with the computed rows
+        // on the one-row-per-member-per-exercise index. What the demo shows is now what the engine
+        // actually calculated.
 
         await db.SaveChangesAsync(cancellationToken);
     }

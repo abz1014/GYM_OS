@@ -109,8 +109,15 @@ public class WorkoutProgressionService(IApplicationDbContext db, ICurrentUserSer
             return;
         }
 
-        var mastery = await db.ExerciseMasteries.FirstOrDefaultAsync(
-            m => m.MemberId == memberId && m.ExerciseId == exerciseId, cancellationToken);
+        // .Local before the database, matching MemberXpService/AchievementService. Two workouts for
+        // the same member and exercise can land in one SaveChanges pass — a bulk import, a projection
+        // rebuild, or seeding — and each raises its own WorkoutLoggedEvent before anything is
+        // persisted. A DB-only lookup misses the row the first handler added but hasn't saved, adds a
+        // second, and violates the one-row-per-member-per-exercise unique index.
+        var mastery = db.ExerciseMasteries.Local.FirstOrDefault(
+                m => m.MemberId == memberId && m.ExerciseId == exerciseId)
+            ?? await db.ExerciseMasteries.FirstOrDefaultAsync(
+                m => m.MemberId == memberId && m.ExerciseId == exerciseId, cancellationToken);
         if (mastery is null)
         {
             mastery = new ExerciseMastery { TenantId = tenantId, MemberId = memberId, ExerciseId = exerciseId };

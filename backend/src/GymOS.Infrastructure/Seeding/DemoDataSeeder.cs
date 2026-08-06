@@ -80,6 +80,12 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         await SeedFoodLibraryAsync(tenant.Id, cancellationToken);
         // Must run after the exercise library — its skill trees reference exercises by name.
         await SeedSkillTreesAsync(tenant.Id, cancellationToken);
+        // Must run after the exercise library — every session it generates picks real exercises, and
+        // it is what gives the member-facing engine (streaks, mastery, records, leaderboards) any
+        // data at all beyond the single demo account.
+        var curatedMember = await db.Members.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.UserId == demoUsers[RoleNames.Member].Id, cancellationToken);
+        await SeedMemberActivityAsync(tenant.Id, members, curatedMember?.Id, cancellationToken);
         // Must run after both libraries above — it looks up exercises/food items by name.
         await SeedDemoMemberIntelligenceDataAsync(demoUsers, cancellationToken);
         // Must run after the intelligence data above — its "already in progress" participant counts
