@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarClock, CalendarDays, ChevronRight, CloudOff, Flame, Lightbulb, Pencil, RotateCw } from 'lucide-react'
+import { BatteryLow, CalendarClock, CalendarDays, ChevronRight, CloudOff, Flame, Lightbulb, Pencil, RotateCcw, RotateCw, TrendingUp } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,9 +9,19 @@ import { ActivityRing } from '@/shared/components/ActivityRing'
 import { ConfirmSessionButton } from '@/modules/portal/components/ConfirmSessionButton'
 import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import { WeeklyGoalDialog } from '@/modules/portal/components/WeeklyGoalDialog'
-import { useMyToday, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
+import { useMyToday, type MyInsight, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
 
 const classTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
+
+/** Recovery is the one that says "not today", so it reads differently from the rest. */
+function InsightIcon({ kind }: { kind: MyInsight['kind'] }) {
+  const className = kind === 'RecoveryAlert' ? 'mt-0.5 size-5 shrink-0 text-amber-500' : 'mt-0.5 size-5 shrink-0 text-primary'
+  if (kind === 'RecoveryAlert') return <BatteryLow className={className} />
+  if (kind === 'ReadyForPr') return <TrendingUp className={className} />
+  if (kind === 'Comeback') return <RotateCcw className={className} />
+  if (kind === 'Momentum') return <TrendingUp className={className} />
+  return <Lightbulb className={className} />
+}
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -193,19 +203,22 @@ export default function TodayPage() {
         </Card>
       )}
 
-      {data?.topRecommendation && (
-        <Link
-          to="/my-training"
-          className="flex items-start gap-3 rounded-xl border p-4 transition-colors hover:bg-accent"
-        >
-          <Lightbulb className="mt-0.5 size-5 shrink-0 text-amber-500" />
-          <span className="min-w-0 flex-1">
-            <span className="block font-medium">{data.topRecommendation.title}</span>
-            <span className="block text-sm text-muted-foreground">{data.topRecommendation.explanation}</span>
-          </span>
-          <ChevronRight className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-        </Link>
-      )}
+      {/*
+        What the engine noticed, ranked by what can be acted on today — recovery first because it is
+        the only one that changes what NOT to do. At most two: a third makes this a report, and
+        nobody reads a report before training. Nothing shows when nothing is certain.
+      */}
+      {data?.insights.map((insight) => (
+        <Card key={insight.kind}>
+          <CardContent className="flex items-start gap-3 py-4">
+            <InsightIcon kind={insight.kind} />
+            <div className="min-w-0">
+              <p className="font-medium">{insight.title}</p>
+              <p className="text-sm text-muted-foreground">{insight.detail}</p>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
 
       <WeeklyGoalDialog open={editingGoal} onOpenChange={setEditingGoal} currentGoal={goal} />
       {celebration && <WorkoutCelebration result={celebration} onDismiss={() => setCelebration(null)} />}

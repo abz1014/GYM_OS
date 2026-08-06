@@ -423,7 +423,8 @@ export interface MyToday {
   goalMet: boolean
   workoutStreakWeeks: number
   nextClassToday: MyClassBooking | null
-  topRecommendation: MyRecommendation | null
+  /** At most two, ranked by what the member can act on today. See TrainingInsightPolicy. */
+  insights: MyInsight[]
   visit: MyVisit
   /** The nearest thing the member has ahead of them, or null when there honestly isn't one. */
   coming: MyAnticipation | null
@@ -436,6 +437,12 @@ export interface MyAnticipation {
 }
 
 /** Today's gym visit as the turnstile already knows it. See VisitPolicy. */
+export interface MyInsight {
+  kind: 'RecoveryAlert' | 'ReadyForPr' | 'Comeback' | 'Plateau' | 'GoneQuiet' | 'Momentum'
+  title: string
+  detail: string
+}
+
 export interface MyVisit {
   state: 'None' | 'InGym' | 'Visited'
   checkedInAt: string | null

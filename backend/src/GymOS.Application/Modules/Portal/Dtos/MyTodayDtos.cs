@@ -13,8 +13,9 @@ namespace GymOS.Application.Modules.Portal.Dtos;
 /// </summary>
 /// <param name="NextClassToday">The member's next class starting later today, if any — already
 /// filtered server-side, so the client renders it or doesn't rather than deciding what "today" means.</param>
-/// <param name="TopRecommendation">The single highest-priority coaching nudge, or null when the
-/// engine has nothing worth saying. The home screen shows at most one on purpose.</param>
+/// <param name="Insights">At most two, ranked by what the member can act on today — see
+/// TrainingInsightPolicy. Replaces the single unranked nudge this screen used to show, which was
+/// whichever recommendation happened to be first rather than the most useful.</param>
 /// <param name="Coming">The single nearest thing the member has to look forward to, or null when
 /// there genuinely isn't one. Everything else on this screen looks backwards. See AnticipationPolicy.</param>
 /// <param name="Visit">Today's visit as the turnstile already knows it. Lets the screen speak from
@@ -28,7 +29,7 @@ public record MyTodayDto(
     bool GoalMet,
     int WorkoutStreakWeeks,
     MyClassBookingDto? NextClassToday,
-    MyRecommendationDto? TopRecommendation,
+    IReadOnlyList<MyInsightDto> Insights,
     MyVisitDto Visit,
     MyAnticipationDto? Coming);
 
@@ -43,3 +44,7 @@ public record MyVisitDto(string State, DateTimeOffset? CheckedInAt, bool Session
 
 /// <summary>What the member has coming. <paramref name="Kind"/> is BookedClass, Challenge or Level.</summary>
 public record MyAnticipationDto(string Kind, string Title, string Detail);
+
+/// <summary>One thing the engine noticed. <paramref name="Kind"/> is RecoveryAlert, ReadyForPr,
+/// Comeback, Plateau, GoneQuiet or Momentum.</summary>
+public record MyInsightDto(string Kind, string Title, string Detail);

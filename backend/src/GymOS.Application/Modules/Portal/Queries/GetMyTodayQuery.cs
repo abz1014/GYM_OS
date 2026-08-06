@@ -4,6 +4,7 @@ using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Challenges.Queries;
 using GymOS.Application.Modules.Experience.Queries;
 using GymOS.Domain.Experience;
+using GymOS.Domain.Workouts;
 using GymOS.Application.Modules.Portal.Dtos;
 using GymOS.Domain.Classes;
 using GymOS.Domain.Members;
@@ -84,9 +85,39 @@ public class GetMyTodayQueryHandler(
             .OrderBy(b => b.StartsAt)
             .FirstOrDefault();
 
-        // Recommendations ARE reused — the ranking is real logic and translates fine. Same ISender
-        // composition GetMyRecommendationsQuery itself uses for its own inputs.
-        var recommendations = await sender.Send(new GetMyRecommendationsQuery(), cancellationToken);
+        // The insight engine composes what the other policies already computed rather than
+        // recomputing any of it — recovery classifies muscle groups, the overload policy knows who
+        // has earned a heavier attempt, mastery knows the weakest area, the passport knows what has
+        // been dropped. Each fed a different screen and none was ranked against the others.
+        var recovery = await sender.Send(new GetMyRecoveryQuery(), cancellationToken);
+        var suggestions = await sender.Send(new GetMyWorkoutSuggestionsQuery(), cancellationToken);
+        var mastery = await sender.Send(new GetMyMasteryQuery(), cancellationToken);
+        var passport = await sender.Send(new GetMyPassportQuery(), cancellationToken);
+
+        var fatigued = recovery.MuscleGroups
+            .FirstOrDefault(g => g.Status == nameof(RecoveryStatus.Fatigued));
+        var ready = suggestions
+            .FirstOrDefault(s => s.Suggestion == OverloadSuggestion.ReadyToIncreaseWeight);
+        var plateau = suggestions
+            .FirstOrDefault(s => s.Suggestion == OverloadSuggestion.ConsiderDeload);
+        var weakest = mastery.MuscleGroups
+            .OrderBy(g => g.MasteryPercent).ThenBy(g => g.Name)
+            .FirstOrDefault();
+
+        var insights = TrainingInsightPolicy.Rank(new TrainingInsightSignals(
+            fatigued?.MuscleGroup,
+            fatigued?.Reason,
+            ready?.ExerciseName,
+            ready?.SuggestedNextWeightKg,
+            plateau?.ExerciseName,
+            passport.GoneQuiet
+                .Select(q => new QuietMovement(q.ExerciseName, q.MuscleGroup, q.DaysSinceLastTrained ?? 0))
+                .ToList(),
+            weakest?.Name,
+            // Momentum is left unset here: it needs a gain measured across the member's record
+            // history, which this screen does not load. Reporting it from a single current best
+            // would be a made-up number, and an absent signal produces no insight by design.
+            null, 0, 0));
 
         // The member's own check-ins, reduced in memory for the same reason the workout dates above
         // are: a DateTimeOffset cannot be bucketed to a date or range-filtered in SQL on SQLite, so
@@ -136,7 +167,7 @@ public class GetMyTodayQueryHandler(
             WeeklyGoalPolicy.IsGoalMet(sessionsThisWeek, goal),
             StreakCalculator.CurrentWeeklyStreak(workoutDates, today),
             nextClassToday,
-            recommendations.FirstOrDefault(),
+            insights.Select(i => new MyInsightDto(i.Kind.ToString(), i.Title, i.Detail)).ToList(),
             new MyVisitDto(visit.State.ToString(), visit.CheckedInAt, visit.SessionRecorded, visit.NeedsRecording),
             coming is null ? null : new MyAnticipationDto(coming.Value.Kind.ToString(), coming.Value.Title, coming.Value.Detail));
     }
