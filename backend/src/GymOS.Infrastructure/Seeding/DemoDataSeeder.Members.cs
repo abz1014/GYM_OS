@@ -190,6 +190,23 @@ public partial class DemoDataSeeder
 
         candidate.UserId = demoUsers[RoleNames.Member].Id;
 
+        // The second member login gets the next eligible member on the same branch. Deliberately not
+        // hand-curated the way the one above is: it should look like an ordinary member of this gym,
+        // because the point of it is the trainer's programme rather than a showcase portal.
+        var coached = await eligible
+            .Where(m => m.Id != candidate.Id && m.BranchId == candidate.BranchId)
+            .OrderBy(m => m.MemberCode)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (coached is not null)
+        {
+            coached.UserId = demoUsers[CoachedMemberKey].Id;
+        }
+        else
+        {
+            logger.LogWarning("No second eligible member found for the coached demo login.");
+        }
+
         // Give the linked demo member a populated My Progress page: recent check-ins spanning three
         // consecutive weeks (a live streak), a multi-point weight trend, and one open + one achieved
         // goal. Random seeding can't guarantee any of these land on this specific member.

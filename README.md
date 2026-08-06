@@ -91,7 +91,14 @@ dispatch) is available at `/hangfire`.
 
 **Demo logins** (all use password `Demo@12345`):
 `owner@titanfitness.demo`, `manager@…`, `receptionist@…`, `trainer@…`,
-`nutritionist@…`, `accountant@…`, `maintenance@…`, `member@…`.
+`nutritionist@…`, `accountant@…`, `maintenance@…`, `member@…`, `member2@…`.
+
+There are two member logins because the home screen proposes the next session
+differently depending on whether a trainer has written the member a programme,
+and only around a fifth of members have one. `member@` is self-directed — the
+app offers their last session back. `member2@` is coached — the app offers the
+trainer's plan, pre-filled with the loads that member last used. Signing in as
+each shows both halves of the design.
 
 ### 6. Run the backend test suite
 

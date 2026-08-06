@@ -31,6 +31,11 @@ namespace GymOS.Infrastructure.Seeding;
 public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordHasher, ILogger<DemoDataSeeder> logger)
 {
     private const string DemoPassword = "Demo@12345";
+
+    /// <summary>Dictionary key for the second Member-role login (member2@) — a coached member on a
+    /// trainer's written programme, so both of Step 1's logging tiers are visible at once. Not a role
+    /// name; it maps to <see cref="RoleNames.Member"/> like the first one does.</summary>
+    private const string CoachedMemberKey = "CoachedMember";
     private readonly Faker _faker = new();
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
@@ -80,6 +85,10 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         await SeedFoodLibraryAsync(tenant.Id, cancellationToken);
         // Must run after the exercise library — its skill trees reference exercises by name.
         await SeedSkillTreesAsync(tenant.Id, cancellationToken);
+        // Must run after the exercise library (programmes are built from it), after trainer pairings
+        // (only coached members get a plan) and after the demo-member links (both member logins are
+        // pinned to a known logging tier at the end of it).
+        await SeedWorkoutPlansAsync(tenant.Id, trainers, cancellationToken);
         // Must run after the exercise library — every session it generates picks real exercises, and
         // it is what gives the member-facing engine (streaks, mastery, records, leaderboards) any
         // data at all beyond the single demo account.
@@ -275,10 +284,29 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
             users[roleName] = user;
         }
 
+        // A second member, because the home screen can only ever show one member's situation and there
+        // are two worth showing. Step 1 proposes a session from a trainer's plan when there is one and
+        // from the member's own last session otherwise, and the second case is the majority — only
+        // 12.5-29% of gym members work with a trainer at all. With a single login the demo has to pick
+        // one of the two to be, and whichever it picks, the other half of the design goes unseen.
+        // member@ stays self-directed; member2@ is coached and on a written programme.
+        var coachedMember = new User
+        {
+            TenantId = tenantId,
+            Email = "member2@titanfitness.demo",
+            PasswordHash = passwordHash,
+            FirstName = "Coached",
+            LastName = "Member",
+            IsActive = true
+        };
+        db.Users.Add(coachedMember);
+        users[CoachedMemberKey] = coachedMember;
+
         await db.SaveChangesAsync(cancellationToken);
 
-        foreach (var (roleName, user) in users)
+        foreach (var (key, user) in users)
         {
+            var roleName = key == CoachedMemberKey ? RoleNames.Member : key;
             db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = roles[roleName].Id });
 
             var accessibleBranches = roleName is RoleNames.Owner or RoleNames.Manager ? branches : [branches[0]];

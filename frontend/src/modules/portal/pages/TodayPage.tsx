@@ -64,13 +64,18 @@ export default function TodayPage() {
    *
    * It says the member was here, never what they did. That still takes one tap, and inventing the
    * contents of a session from a door swipe would be exactly the dishonesty the proposal avoids.
+   *
+   * Which is why this says "you were at the gym" and not "you trained". A door swipe is evidence of
+   * neither the training nor the session, and claiming the training put the line at odds with the two
+   * things directly beneath it — a ring reading "0 of 3 this week" and a streak warning to train this
+   * week. Three statements, one screen, and the member is left deciding which one to believe.
    */
   const visit = data?.visit
   const visitLine = !visit?.needsRecording
     ? null
     : visit.state === 'InGym'
       ? "You're at the gym. One tap when you're done."
-      : 'You trained today — want to keep it?'
+      : 'You were at the gym today — want to record it?'
 
   /**
    * When the request fails outright there is nothing honest to draw. Falling through to the normal

@@ -2,6 +2,7 @@ using GymOS.Domain.Attendance;
 using GymOS.Domain.Experience;
 using GymOS.Domain.Identity;
 using GymOS.Domain.Nutrition;
+using GymOS.Domain.Trainers;
 using GymOS.Domain.Workouts;
 using GymOS.Shared;
 using Microsoft.EntityFrameworkCore;
@@ -330,6 +331,240 @@ public partial class DemoDataSeeder
             JoinedAt = DateTimeOffset.UtcNow.AddDays(-12),
             IsCompleted = false
         });
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The trainer-written side of training: a library of programmes, and the members who are on one.
+    ///
+    /// Nothing here is new capability — templates, template exercises and assignments have been built,
+    /// tested and reachable from the staff UI since Wave 3, and the member portal's top logging tier
+    /// ("confirm your trainer's plan") reads them. None of it had ever held a row, so the whole chain
+    /// was invisible: the Assigned Workouts card was permanently empty, the plan tier never fired, and
+    /// the two ordering defects found validating Step 1 could not be seen working.
+    ///
+    /// Programmes are built only from the existing exercise library, the same discipline the skill
+    /// trees follow — a plan invents no movement the gym does not own.
+    ///
+    /// Only members who actually have a trainer get one. That is the honest rule and it matches the
+    /// research behind Step 1's tiering: 12.5–29% of gym members work with a trainer, which is exactly
+    /// why "repeat last session" is the majority path and the plan tier is the enhancement. Seeding
+    /// plans onto everyone would invert the product's own thesis in the demo.
+    /// </summary>
+    private async Task SeedWorkoutPlansAsync(Guid tenantId, List<Trainer> trainers, CancellationToken cancellationToken)
+    {
+        var programmes = new (string Name, string Description, (string Exercise, int Sets, int Reps)[] Exercises)[]
+        {
+            ("Beginner Full Body", "Three sessions a week, whole body each time — the starting point for a new member.",
+            [
+                ("Barbell Squat", 3, 8), ("Bench Press", 3, 8), ("Bent-Over Row", 3, 10), ("Plank", 3, 30),
+            ]),
+            ("Push Day", "Chest, shoulders and triceps. Part of a push/pull/legs split.",
+            [
+                ("Bench Press", 4, 6), ("Overhead Press", 3, 8), ("Tricep Pushdown", 3, 12), ("Push-Up", 3, 15),
+            ]),
+            ("Pull Day", "Back and biceps. Part of a push/pull/legs split.",
+            [
+                ("Deadlift", 4, 5), ("Pull-Up", 3, 8), ("Lat Pulldown", 3, 10), ("Dumbbell Curl", 3, 12),
+            ]),
+            ("Leg Day", "Quads, hamstrings and glutes. Part of a push/pull/legs split.",
+            [
+                ("Barbell Squat", 4, 6), ("Leg Press", 3, 10), ("Leg Curl", 3, 12),
+            ]),
+            ("Upper Body Strength", "Low reps, heavier loads — for a member past their first year.",
+            [
+                ("Bench Press", 5, 5), ("Bent-Over Row", 5, 5), ("Overhead Press", 3, 6), ("Pull-Up", 3, 6),
+            ]),
+            ("Conditioning & Core", "Cardio and midsection, for the days between lifting sessions.",
+            [
+                ("Rowing Machine", 3, 20), ("Treadmill Run", 3, 10), ("Plank", 3, 30),
+            ]),
+        };
+
+        var exercisesByName = (await db.Exercises.IgnoreQueryFilters()
+                .Where(e => e.TenantId == tenantId)
+                .Select(e => new { e.Id, e.Name })
+                .ToListAsync(cancellationToken))
+            .ToDictionary(e => e.Name, e => e.Id);
+
+        // Written by whoever runs the floor. The head trainer is as good an author as any, and it
+        // makes CreatedByUserId a real person rather than a null the UI has to explain.
+        var authorUserId = trainers.FirstOrDefault()?.UserId;
+
+        var templates = new List<WorkoutTemplate>();
+        foreach (var (name, description, exercises) in programmes)
+        {
+            var template = new WorkoutTemplate
+            {
+                TenantId = tenantId,
+                Name = name,
+                Description = description,
+                CreatedByUserId = authorUserId
+            };
+
+            for (var i = 0; i < exercises.Length; i++)
+            {
+                var (exerciseName, sets, reps) = exercises[i];
+                if (!exercisesByName.TryGetValue(exerciseName, out var exerciseId))
+                {
+                    continue; // the exercise library changed — skip the movement rather than fail seeding.
+                }
+
+                template.TemplateExercises.Add(new WorkoutTemplateExercise
+                {
+                    ExerciseId = exerciseId, SetsCount = sets, RepsCount = reps, OrderIndex = i
+                });
+            }
+
+            db.WorkoutTemplates.Add(template);
+            templates.Add(template);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        // Who is coached, and by whom — plans follow the existing pairings so a member's programme is
+        // written by the trainer who actually works with them.
+        var pairings = await db.TrainerAssignments.IgnoreQueryFilters()
+            .Where(a => a.IsActive)
+            .Select(a => new { a.MemberId, a.TrainerId })
+            .ToListAsync(cancellationToken);
+
+        var trainerUserById = trainers.ToDictionary(t => t.Id, t => t.UserId);
+        var rng = new Random(9014);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        foreach (var pairing in pairings.GroupBy(p => p.MemberId).Select(g => g.First()))
+        {
+            // Not every coached member is on a written programme — plenty are coached session by
+            // session. Two in five, which is the number that matters: this gym seeds more members with
+            // a trainer than the research band above describes, so gating on the pairing alone would
+            // put a third of the whole gym on a plan. Two in five of the coached lands the gym-wide
+            // share near 20%, inside the band, and keeps "repeat last session" plainly the majority.
+            if (rng.Next(5) >= 2)
+            {
+                continue;
+            }
+
+            var assignedBy = trainerUserById.GetValueOrDefault(pairing.TrainerId);
+
+            // A block that has already run its course, so the card shows history rather than only the
+            // current programme — and so the "most recently started wins" rule has something to sort.
+            if (rng.Next(2) == 0)
+            {
+                var previousStart = today.AddDays(-rng.Next(150, 260));
+                db.WorkoutAssignments.Add(new WorkoutAssignment
+                {
+                    MemberId = pairing.MemberId,
+                    WorkoutTemplateId = templates[rng.Next(templates.Count)].Id,
+                    AssignedByUserId = assignedBy,
+                    StartDate = previousStart,
+                    EndDate = previousStart.AddDays(84)
+                });
+            }
+
+            db.WorkoutAssignments.Add(new WorkoutAssignment
+            {
+                MemberId = pairing.MemberId,
+                WorkoutTemplateId = templates[rng.Next(templates.Count)].Id,
+                AssignedByUserId = assignedBy,
+                StartDate = today.AddDays(-rng.Next(5, 60)),
+                EndDate = null
+            });
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await PinDemoLoginsToTheirTiersAsync(templates, trainers, today, cancellationToken);
+    }
+
+    /// <summary>
+    /// Both demo member logins land on a known logging tier, rather than on whatever the assignment
+    /// RNG happened to give the member each was linked to.
+    ///
+    /// member@ must have no ACTIVE plan, so its home screen proposes the member's own last session —
+    /// the path most members get. It keeps a finished block so the Assigned Workouts card still shows
+    /// real history. member2@ must have one, so its home screen proposes the trainer's programme.
+    /// Between them the two tiers can be shown side by side in a single sitting.
+    /// </summary>
+    private async Task PinDemoLoginsToTheirTiersAsync(
+        List<WorkoutTemplate> templates, List<Trainer> trainers, DateOnly today, CancellationToken cancellationToken)
+    {
+        if (templates.Count == 0)
+        {
+            return;
+        }
+
+        var selfDirected = await db.Members.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.UserId != null && m.User!.Email == "member@titanfitness.demo", cancellationToken);
+        var coached = await db.Members.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.UserId != null && m.User!.Email == "member2@titanfitness.demo", cancellationToken);
+
+        var headTrainer = trainers.FirstOrDefault();
+
+        if (selfDirected is not null)
+        {
+            var stillRunning = await db.WorkoutAssignments.IgnoreQueryFilters()
+                .Where(a => a.MemberId == selfDirected.Id && (a.EndDate == null || a.EndDate >= today))
+                .ToListAsync(cancellationToken);
+
+            // Close them off rather than delete: a plan that ran and finished is a truer history than
+            // one that never existed, and it leaves the card something to show. Backdated to a full
+            // twelve-week block — the assignment RNG may have started it days ago, and a programme
+            // that apparently ran for under a week reads like a data error rather than a training
+            // block someone finished.
+            var closedOn = today.AddDays(-14);
+            foreach (var assignment in stillRunning)
+            {
+                assignment.EndDate = closedOn;
+                assignment.StartDate = closedOn.AddDays(-84);
+            }
+
+            if (stillRunning.Count == 0)
+            {
+                db.WorkoutAssignments.Add(new WorkoutAssignment
+                {
+                    MemberId = selfDirected.Id,
+                    WorkoutTemplateId = templates[0].Id,
+                    AssignedByUserId = headTrainer?.UserId,
+                    StartDate = today.AddDays(-98),
+                    EndDate = today.AddDays(-14)
+                });
+            }
+        }
+
+        if (coached is not null)
+        {
+            var hasActive = await db.WorkoutAssignments.IgnoreQueryFilters()
+                .AnyAsync(a => a.MemberId == coached.Id && a.StartDate <= today && (a.EndDate == null || a.EndDate >= today), cancellationToken);
+
+            if (!hasActive)
+            {
+                // "Upper Body Strength" by name rather than by index, so reordering the programme list
+                // above cannot silently change which plan the demo opens on.
+                var programme = templates.FirstOrDefault(t => t.Name == "Upper Body Strength") ?? templates[0];
+                db.WorkoutAssignments.Add(new WorkoutAssignment
+                {
+                    MemberId = coached.Id,
+                    WorkoutTemplateId = programme.Id,
+                    AssignedByUserId = headTrainer?.UserId,
+                    StartDate = today.AddDays(-21),
+                    EndDate = null
+                });
+            }
+
+            // A coached member needs a coach. The pairing RNG may not have given them one.
+            if (headTrainer is not null
+                && !await db.TrainerAssignments.IgnoreQueryFilters().AnyAsync(a => a.MemberId == coached.Id && a.IsActive, cancellationToken))
+            {
+                db.TrainerAssignments.Add(new TrainerAssignment
+                {
+                    TrainerId = headTrainer.Id,
+                    MemberId = coached.Id,
+                    StartDate = today.AddDays(-60),
+                    IsActive = true
+                });
+            }
+        }
 
         await db.SaveChangesAsync(cancellationToken);
     }
