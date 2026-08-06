@@ -787,3 +787,51 @@ export function useLogMyMeasurement() {
     onSuccess: () => invalidateAfterLogging(queryClient),
   })
 }
+
+// ---------------------------------------------------------------------------
+// The member and their trainer, talking. Which trainer is resolved server-side from the member's own
+// assignment — there is no id here for reaching anyone else's coach.
+
+export interface MyCoachMessage {
+  id: string
+  author: 'Member' | 'Trainer'
+  body: string
+  sentAt: string
+  read: boolean
+  /** The session this message is about, when it is about one. */
+  workoutLogId: string | null
+}
+
+export interface MyCoach {
+  trainerId: string | null
+  trainerName: string | null
+  /** False once a pairing ends: the history stays readable, but there is nobody to add to it. */
+  canSend: boolean
+  unreadCount: number
+  messages: MyCoachMessage[]
+}
+
+export function useMyCoach() {
+  return useQuery({
+    queryKey: ['portal', 'coach'],
+    queryFn: async () => (await apiClient.get<MyCoach>('/api/me/coach')).data,
+    retry: false,
+  })
+}
+
+export function useMessageMyCoach() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { body: string; workoutLogId?: string | null }) =>
+      (await apiClient.post<string>('/api/me/coach/messages', payload)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'coach'] }),
+  })
+}
+
+export function useReadMyCoachMessages() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => apiClient.post('/api/me/coach/messages/read'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'coach'] }),
+  })
+}

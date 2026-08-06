@@ -1,3 +1,4 @@
+using GymOS.Domain.Members;
 using GymOS.Domain.Trainers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -32,5 +33,22 @@ public class TrainerRatingConfiguration : IEntityTypeConfiguration<TrainerRating
     {
         builder.HasOne(r => r.Member).WithMany().HasForeignKey(r => r.MemberId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(r => r.Session).WithMany().HasForeignKey(r => r.SessionId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+public class CoachMessageConfiguration : IEntityTypeConfiguration<CoachMessage>
+{
+    public void Configure(EntityTypeBuilder<CoachMessage> builder)
+    {
+        builder.Property(m => m.Body).HasMaxLength(CoachMessagePolicy.MaxBodyLength).IsRequired();
+        builder.Property(m => m.Author).HasConversion<string>().HasMaxLength(20);
+
+        // Reading a conversation is the common query, and it is always "this pairing, oldest first".
+        builder.HasIndex(m => new { m.TrainerId, m.MemberId, m.SentAt });
+
+        // A pairing may end and its history must survive it — the correspondence is the member's
+        // record of what they were told, not an attachment to a currently-valid assignment.
+        builder.HasOne<Trainer>().WithMany().HasForeignKey(m => m.TrainerId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Member>().WithMany().HasForeignKey(m => m.MemberId).OnDelete(DeleteBehavior.Restrict);
     }
 }

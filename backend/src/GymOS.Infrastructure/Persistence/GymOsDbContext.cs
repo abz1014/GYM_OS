@@ -93,6 +93,8 @@ public class GymOsDbContext(
     // Trainers (Wave 2)
     public DbSet<Trainer> Trainers => Set<Trainer>();
     public DbSet<TrainerAssignment> TrainerAssignments => Set<TrainerAssignment>();
+
+    public DbSet<CoachMessage> CoachMessages => Set<CoachMessage>();
     public DbSet<TrainerSchedule> TrainerSchedules => Set<TrainerSchedule>();
     public DbSet<TrainerRating> TrainerRatings => Set<TrainerRating>();
     public DbSet<TrainerSession> TrainerSessions => Set<TrainerSession>();

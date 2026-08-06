@@ -51,6 +51,26 @@ public class PortalController(ISender mediator) : ControllerBase
     public async Task<ActionResult<List<WorkoutLogDto>>> Workouts(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyWorkoutLogsQuery(), cancellationToken));
 
+    // The member's own trainer and the conversation with them. Which trainer is resolved server-side
+    // from their assignment — there is no parameter here for reaching anyone else's coach.
+    [HttpGet("coach")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyCoachDto>> Coach(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyCoachQuery(), cancellationToken));
+
+    [HttpPost("coach/messages")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<Guid>> MessageCoach(MessageMyCoachCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpPost("coach/messages/read")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> ReadCoachMessages(CancellationToken cancellationToken)
+    {
+        await mediator.Send(new ReadMyCoachMessagesCommand(), cancellationToken);
+        return NoContent();
+    }
+
     // Member self-logging. Before these existed the member could see every projection the Member
     // Experience Engine produces but had no way to produce one — only staff could log on their
     // behalf. Each delegates to the same command the staff surface uses, so the XP / personal-record

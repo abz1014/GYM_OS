@@ -51,3 +51,20 @@ public record MyProposedEntryDto(Guid ExerciseId, string ExerciseName, int Sets,
 /// <param name="Source">TrainerPlan, RepeatLast, Starter or None — what the proposal is based on,
 /// so the screen can say where it came from instead of presenting numbers with no provenance.</param>
 public record MySessionProposalDto(string Source, bool CanConfirm, IReadOnlyList<MyProposedEntryDto> Entries);
+
+/// <summary>
+/// The member's coach and the conversation with them.
+/// </summary>
+/// <param name="CanSend">False once a pairing ends — the history stays readable, but there is
+/// nobody on the other end to add to it.</param>
+public record MyCoachDto(
+    Guid? TrainerId,
+    string? TrainerName,
+    bool CanSend,
+    int UnreadCount,
+    IReadOnlyList<MyCoachMessageDto> Messages);
+
+/// <param name="Author">"Member" or "Trainer".</param>
+/// <param name="WorkoutLogId">The session this message is about, when it is about one.</param>
+public record MyCoachMessageDto(
+    Guid Id, string Author, string Body, DateTimeOffset SentAt, bool Read, Guid? WorkoutLogId);

@@ -109,6 +109,8 @@ public interface IApplicationDbContext
 
     DbSet<TrainerAssignment> TrainerAssignments { get; }
 
+    DbSet<CoachMessage> CoachMessages { get; }
+
     DbSet<TrainerSchedule> TrainerSchedules { get; }
 
     DbSet<TrainerRating> TrainerRatings { get; }
