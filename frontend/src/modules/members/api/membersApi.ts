@@ -1,9 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
 import type { PagedList } from '@/types/paging'
 
 export type MemberStatus = 'Active' | 'Frozen' | 'Expired' | 'Cancelled'
+
+/**
+ * Every status the domain has — MemberStatus in the backend is a four-value enum and the list
+ * endpoint filters on exactly these. The redesign's "Expiring" and "At risk" tabs are not in this
+ * list because they are not statuses: nothing stores them and `/api/members` cannot filter by them.
+ * See MembersListPage for what was built instead.
+ */
+export const MEMBER_STATUSES: readonly MemberStatus[] = ['Active', 'Frozen', 'Expired', 'Cancelled']
 
 export interface MemberListItem {
   id: string
@@ -69,6 +77,115 @@ export function useMember(id: string | undefined) {
     queryKey: ['member', id],
     queryFn: async () => (await apiClient.get<MemberDetail>(`/api/members/${id}`)).data,
     enabled: !!id,
+  })
+}
+
+export type MemberStatusCounts = Partial<Record<MemberStatus, number>>
+
+/**
+ * A status whose count request failed is left absent rather than defaulted to 0 — a tab reading
+ * "Frozen 0" when the answer is actually unknown is the one thing a count is not allowed to do.
+ */
+function combineStatusCounts(results: UseQueryResult<number>[]) {
+  const counts: MemberStatusCounts = {}
+  MEMBER_STATUSES.forEach((status, index) => {
+    const value = results[index]?.data
+    if (typeof value === 'number') {
+      counts[status] = value
+    }
+  })
+  return { counts, isPending: results.some((result) => result.isPending) }
+}
+
+/**
+ * Live counts for the list's status tabs. There is no aggregate/counts endpoint, so each count is
+ * the totalCount of the *same* filtered query its tab applies, asked for a single row — which is
+ * the point rather than a workaround: a tab cannot show a number the table it opens then
+ * contradicts. searchTerm is carried through for the same reason.
+ */
+export function useMemberStatusCounts(searchTerm?: string) {
+  return useQueries({
+    queries: MEMBER_STATUSES.map((status) => ({
+      queryKey: ['members', 'status-count', status, searchTerm ?? ''],
+      queryFn: async () =>
+        (
+          await apiClient.get<PagedList<MemberListItem>>('/api/members', {
+            params: { searchTerm: searchTerm || undefined, status, page: 1, pageSize: 1 },
+          })
+        ).data.totalCount,
+    })),
+    combine: combineStatusCounts,
+  })
+}
+
+export interface MemberVisit {
+  id: string
+  checkInAt: string
+  checkOutAt: string | null
+  method: 'QrSimulated' | 'Manual'
+}
+
+/**
+ * A member's own check-in history, from the attendance endpoint's existing memberId filter — the
+ * member DTO carries no visit data of its own.
+ *
+ * Keyed under 'attendance' deliberately: useCheckIn (attendance module) invalidates ['attendance'],
+ * and React Query matches keys by prefix, so a check-in taken from the detail panel refreshes the
+ * panel's own visit numbers without either module knowing about the other's keys.
+ */
+export function useMemberVisits(memberId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['attendance', 'member-visits', memberId],
+    queryFn: async () =>
+      (await apiClient.get<PagedList<MemberVisit>>('/api/attendance', { params: { memberId, page: 1, pageSize: 8 } })).data,
+    enabled: enabled && !!memberId,
+  })
+}
+
+/** Visit count over a window — pageSize 1 because only totalCount is wanted, never the rows. */
+export function useMemberVisitCountSince(memberId: string | undefined, fromDate: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['attendance', 'member-visit-count', memberId, fromDate],
+    queryFn: async () =>
+      (await apiClient.get<PagedList<MemberVisit>>('/api/attendance', { params: { memberId, fromDate, page: 1, pageSize: 1 } }))
+        .data.totalCount,
+    enabled: enabled && !!memberId,
+  })
+}
+
+export type MemberInvoiceStatus = 'Draft' | 'Issued' | 'PartiallyPaid' | 'Paid' | 'Overdue' | 'Cancelled' | 'Refunded'
+
+export interface MemberInvoice {
+  id: string
+  invoiceNumber: string
+  issueDate: string
+  dueDate: string
+  status: MemberInvoiceStatus
+  totalAmount: number
+  amountPaid: number
+  amountOutstanding: number
+  currency: string
+}
+
+export function useMemberInvoices(memberId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['invoices', 'member', memberId],
+    queryFn: async () =>
+      (await apiClient.get<PagedList<MemberInvoice>>('/api/invoices', { params: { memberId, page: 1, pageSize: 10 } })).data,
+    enabled: enabled && !!memberId,
+  })
+}
+
+export interface Branch {
+  id: string
+  name: string
+}
+
+/** Same ['branches'] key the member dialogs already use, so the panel rides their cache. */
+export function useBranches() {
+  return useQuery({
+    queryKey: ['branches'],
+    queryFn: async () => (await apiClient.get<Branch[]>('/api/branches')).data,
   })
 }
 

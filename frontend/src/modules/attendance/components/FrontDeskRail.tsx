@@ -1,0 +1,162 @@
+import { CloudOff } from 'lucide-react'
+
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
+import { useAttendanceHistory } from '@/modules/attendance/api/attendanceApi'
+import { initials, kioskTimeFormat } from '@/modules/attendance/components/frontDeskFormat'
+import { useClassSessions } from '@/modules/classes/api/classesApi'
+import { ClassRosterDialog } from '@/modules/classes/components/ClassRosterDialog'
+import { useUiStore } from '@/stores/uiStore'
+
+const EYEBROW = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase'
+
+/**
+ * The rail the desk reads between scans: how full the room is, who just came through, and what's
+ * about to start.
+ *
+ * Two things the mockup puts here are missing on purpose:
+ *
+ * - **"/ 180" and the capacity bar.** `Branch` has no capacity column — not in the entity, not in the
+ *   DTO, nowhere in the schema (name, address, city, country, timezone, currency, isActive). A
+ *   denominator is the entire meaning of a fill bar, so inventing one would make every reading of this
+ *   panel wrong in the same direction. The count stands on its own until a branch capacity exists.
+ * - **"Turnstile online".** There is no turnstile, no door controller and no `IDoorAccessProvider`
+ *   implementation in this system — check-in is a row in a table. A green hardware-health dot is the
+ *   worst possible thing to fake, because staff would trust it to mean the door is working. The top
+ *   strip shows the branch instead, which is both true and the thing a multi-site desk actually needs.
+ * - **The per-row plan name and the amber "Payment overdue · let through" flag.** The feed comes from
+ *   GET /api/attendance, whose row is (id, memberId, memberName, checkInAt, checkOutAt, method) —
+ *   there is no plan and no billing state on it. The second line carries what the row does know: still
+ *   in the building, or the time they left.
+ */
+export function FrontDeskRail() {
+  const branchId = useUiStore((s) => s.selectedBranchId)
+
+  /**
+   * Bounded to today, which is load-bearing rather than tidy. The bare "checked in only" filter also
+   * returns visits from previous days that nobody ever closed — members routinely leave without
+   * checking out — so unbounded it reported 35 people in a building that had seen 16 check-ins all
+   * day, and disagreed with the dashboard's own count of the same thing on the next screen along.
+   * The number a desk trusts to say how full the room is has to be today's.
+   */
+  const today = new Date().toISOString().slice(0, 10)
+
+  // totalCount, not the page — one row is fetched purely to read the count off the envelope.
+  const inBuilding = useAttendanceHistory({
+    branchId,
+    checkedInOnly: true,
+    fromDate: today,
+    toDate: today,
+    page: 1,
+    pageSize: 1,
+  })
+  const recent = useAttendanceHistory({ branchId, page: 1, pageSize: 6 })
+  const sessions = useClassSessions({ branchId })
+
+  // "Next" means next — the endpoint's default window opens at midnight today, so this morning's
+  // finished classes are in the list and would otherwise be announced as upcoming.
+  const now = Date.now()
+  const nextClass = sessions.data
+    ?.filter((s) => s.status === 'Scheduled' && new Date(s.startsAt).getTime() > now)
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0]
+
+  return (
+    <aside className="flex flex-col gap-6 border-border p-6 lg:h-full lg:border-l">
+      <div>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-xl font-bold tracking-tight">In the building</h2>
+          {inBuilding.isPending ? (
+            <Skeleton className="h-9 w-14" />
+          ) : inBuilding.isError ? (
+            <CloudOff className="size-6 text-muted-foreground" />
+          ) : (
+            <span className="font-display text-5xl leading-none font-black tracking-tight text-primary tabular-nums">
+              {inBuilding.data.totalCount}
+            </span>
+          )}
+        </div>
+        {inBuilding.isError && (
+          <p className="mt-2 text-sm text-muted-foreground">Can't reach the desk's records right now.</p>
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1">
+        <p className={EYEBROW}>Just now</p>
+
+        {recent.isPending && (
+          <div className="mt-3 space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+            ))}
+          </div>
+        )}
+
+        {recent.isSuccess && recent.data.items.length === 0 && (
+          <p className="mt-3 rounded-2xl border border-border px-4 py-6 text-center text-sm text-muted-foreground">
+            No check-ins recorded at this branch yet.
+          </p>
+        )}
+
+        {recent.isSuccess && recent.data.items.length > 0 && (
+          <ul className="mt-3 space-y-2">
+            {recent.data.items.map((record) => {
+              const checkedOutAt = record.checkOutAt
+              return (
+                <li
+                  key={record.id}
+                  className={cn(
+                    'flex items-center gap-3 rounded-2xl px-4 py-3',
+                    checkedOutAt ? 'bg-card/50' : 'bg-card'
+                  )}
+                >
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted font-display text-xs font-black">
+                    {initials(record.memberName)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{record.memberName}</span>
+                    <span className="block truncate text-sm text-muted-foreground tabular-nums">
+                      {checkedOutAt ? `Left at ${kioskTimeFormat.format(new Date(checkedOutAt))}` : 'In the building'}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
+                    {kioskTimeFormat.format(new Date(record.checkInAt))}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Only drawn when there genuinely is a scheduled session still ahead of the clock — an empty
+          "Next class" frame at 10pm tells the desk nothing it didn't already know. */}
+      {nextClass && (
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className={EYEBROW}>Next class</p>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-muted font-display leading-none font-black tracking-tight text-chart-2 tabular-nums">
+              <span className="text-xl">{kioskTimeFormat.format(new Date(nextClass.startsAt)).slice(0, 2)}</span>
+              <span className="mt-0.5 text-[11px] opacity-70">
+                {kioskTimeFormat.format(new Date(nextClass.startsAt)).slice(2)}
+              </span>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-display text-lg font-bold tracking-tight">
+                {nextClass.classTypeName}
+              </span>
+              <span className="block truncate text-sm text-muted-foreground">
+                {/* trainerName is nullable on the session DTO — an unstaffed session says the room
+                    instead of printing an empty separator. */}
+                {nextClass.trainerName ?? nextClass.location ?? 'Booked in'}
+              </span>
+            </span>
+            {/* The real roster, with the real check-in actions on it — the same dialog the Classes
+                page opens, rather than a shortcut that goes somewhere adjacent. Its trigger already
+                reads "{booked}/{capacity}", so the fill count isn't repeated beside it. */}
+            <ClassRosterDialog session={nextClass} />
+          </div>
+        </div>
+      )}
+    </aside>
+  )
+}
