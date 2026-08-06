@@ -17,6 +17,7 @@ const LogActivityPage = lazy(() => import('@/modules/portal/pages/LogActivityPag
 const MyTrainingPage = lazy(() => import('@/modules/portal/pages/MyTrainingPage'))
 const MyNutritionPage = lazy(() => import('@/modules/portal/pages/MyNutritionPage'))
 const MyChallengesPage = lazy(() => import('@/modules/portal/pages/MyChallengesPage'))
+const LeaderboardPage = lazy(() => import('@/modules/portal/pages/LeaderboardPage'))
 const MorePage = lazy(() => import('@/modules/portal/pages/MorePage'))
 const TodayPage = lazy(() => import('@/modules/portal/pages/TodayPage'))
 const MembersListPage = lazy(() => import('@/modules/members/pages/MembersListPage'))
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
           { path: 'my-training', element: withSuspense(<MyTrainingPage />) },
           { path: 'my-nutrition', element: withSuspense(<MyNutritionPage />) },
           { path: 'my-challenges', element: withSuspense(<MyChallengesPage />) },
+          { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
           { path: 'more', element: withSuspense(<MorePage />) },
           // Membership detail lives on its own path: /account was already taken by the auth
           // "My Account" screen (password/MFA), and a second 'account' entry here would simply be

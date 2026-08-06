@@ -13,6 +13,7 @@ using GymOS.Application.Modules.Portal.Dtos;
 using GymOS.Application.Modules.Portal.Queries;
 using GymOS.Application.Modules.Workouts.Dtos;
 using GymOS.Domain.Classes;
+using GymOS.Domain.Experience;
 using GymOS.Shared;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -97,6 +98,15 @@ public class PortalController(ISender mediator) : ControllerBase
         await mediator.Send(command, cancellationToken);
         return NoContent();
     }
+
+    /// <summary>The member's branch leaderboard for a category and period.</summary>
+    [HttpGet("leaderboard")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyLeaderboardDto>> Leaderboard(
+        [FromQuery] LeaderboardCategory category = LeaderboardCategory.XpEarned,
+        [FromQuery] LeaderboardPeriod period = LeaderboardPeriod.Month,
+        CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetMyLeaderboardQuery(category, period), cancellationToken));
 
     [HttpGet("training-volume")]
     [RequirePermission(PermissionCodes.Portal.View)]

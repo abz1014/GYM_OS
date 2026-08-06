@@ -1,4 +1,4 @@
-import { Apple, CalendarDays, Dumbbell, Home, LayoutGrid, NotebookPen, TrendingUp, UserCircle, ShieldCheck, Flag, type LucideIcon } from 'lucide-react'
+import { Apple, CalendarDays, Dumbbell, Home, LayoutGrid, NotebookPen, Trophy, TrendingUp, UserCircle, ShieldCheck, Flag, type LucideIcon } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/authStore'
 
@@ -55,6 +55,7 @@ export const MEMBER_MORE_LINKS: MemberMoreLink[] = [
   { group: 'Training', label: 'My Training', description: 'Recovery, suggestions and session history', path: '/my-training', icon: Dumbbell },
   { group: 'Training', label: 'My Nutrition', description: "Today's macros, plans and water", path: '/my-nutrition', icon: Apple },
   { group: 'Training', label: 'My Classes', description: 'Book and manage your classes', path: '/my-classes', icon: CalendarDays },
+  { group: 'Community', label: 'Leaderboard', description: 'How you rank against your gym', path: '/leaderboard', icon: Trophy },
   { group: 'Community', label: 'Challenges', description: 'Join a challenge and compete', path: '/my-challenges', icon: Flag },
   { group: 'Account', label: 'Membership', description: 'Your plan, member code and referrals', path: '/membership', icon: UserCircle },
   { group: 'Account', label: 'Account & security', description: 'Password, two-factor and sign-in', path: '/account', icon: ShieldCheck },

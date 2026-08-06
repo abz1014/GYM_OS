@@ -433,6 +433,41 @@ export function useMyToday() {
   })
 }
 
+export type LeaderboardCategory = 'XpEarned' | 'WorkoutsLogged' | 'GymVisits' | 'WeeklyStreak'
+export type LeaderboardPeriod = 'Month' | 'Week'
+
+export interface LeaderboardRow {
+  rank: number
+  displayName: string
+  score: number
+  isYou: boolean
+}
+
+/**
+ * A branch leaderboard as one member sees it: the podium, where they sit, and who is either side.
+ * Never the whole gym — the full board is unbounded and mostly irrelevant to any one member.
+ */
+export interface MyLeaderboard {
+  category: LeaderboardCategory
+  period: LeaderboardPeriod
+  windowStart: string
+  windowEnd: string
+  totalRanked: number
+  podium: LeaderboardRow[]
+  aroundYou: LeaderboardRow[]
+  you: LeaderboardRow | null
+  yourPercentile: number | null
+}
+
+export function useMyLeaderboard(category: LeaderboardCategory, period: LeaderboardPeriod) {
+  return useQuery({
+    queryKey: ['portal', 'leaderboard', category, period],
+    queryFn: async () =>
+      (await apiClient.get<MyLeaderboard>('/api/me/leaderboard', { params: { category, period } })).data,
+    retry: false,
+  })
+}
+
 export function useSetMyWeeklyGoal() {
   const queryClient = useQueryClient()
   return useMutation({
