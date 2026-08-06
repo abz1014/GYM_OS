@@ -3,7 +3,8 @@
  * MemberPortalPage; they were lifted out when that page was split into focused screens so the
  * styling of a mastery bar, a macro bar or a challenge row stays identical wherever it appears.
  */
-import { BarChart3, ClipboardList, Flag, HeartPulse, Loader2, Minus, Shuffle, Sparkles, Target, TrendingDown, TrendingUp } from 'lucide-react'
+import { BarChart3, ClipboardList, Flag, HeartPulse, Loader2, Minus, Shuffle, Sparkles, Target, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +12,41 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import type { AchievementTier, OverloadSuggestion, RecommendationType, RecoveryStatus } from '@/modules/portal/api/portalApi'
 import { useJoinChallenge, useLeaveChallenge, type MyChallenge } from '@/modules/challenges/api/challengesApi'
+
+/**
+ * An empty member screen, phrased as a starting point rather than an absence.
+ *
+ * The difference matters more here than in the staff console. A member reaching an empty screen is
+ * usually new or returning after a lapse — exactly the moment the retention research says people
+ * quit — and "No workout plan assigned yet." reads as a dead end reported by a database. Every empty
+ * state gets a way forward instead: what this space is for, and the one tap that fills it.
+ */
+export function MemberEmptyState({
+  icon: Icon,
+  title,
+  hint,
+  action,
+}: {
+  icon: LucideIcon
+  title: string
+  hint?: string
+  action?: { label: string; to: string }
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-8 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-primary/10">
+        <Icon className="size-6 text-primary" />
+      </span>
+      <p className="font-medium">{title}</p>
+      {hint && <p className="max-w-xs text-sm text-muted-foreground">{hint}</p>}
+      {action && (
+        <Button asChild variant="outline" className="mt-2 h-11 px-4">
+          <Link to={action.to}>{action.label}</Link>
+        </Button>
+      )}
+    </div>
+  )
+}
 
 export const TIER_COLOR: Record<AchievementTier, string> = {
   Bronze: 'border-amber-700/40 text-amber-700',

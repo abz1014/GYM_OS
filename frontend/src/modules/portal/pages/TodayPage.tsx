@@ -100,7 +100,7 @@ export default function TodayPage() {
               goal={goal}
               colorClassName={goalMet ? 'text-emerald-500' : 'text-primary'}
             >
-              <span className="text-4xl leading-none font-bold tabular-nums">{sessions}</span>
+              <span className="text-5xl leading-none font-black tracking-tight tabular-nums">{sessions}</span>
               <span className="mt-1 text-xs text-muted-foreground">of {goal} this week</span>
             </ActivityRing>
           )}
@@ -108,7 +108,7 @@ export default function TodayPage() {
           <div className="flex flex-col items-center gap-1 sm:items-start">
             <span className="flex items-center gap-2">
               <Flame className={`size-7 ${streakWeeks > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
-              <span className="text-4xl leading-none font-bold tabular-nums">{streakWeeks}</span>
+              <span className="text-5xl leading-none font-black tracking-tight tabular-nums">{streakWeeks}</span>
             </span>
             <span className="text-sm text-muted-foreground">week streak</span>
             {streakWeeks > 0 && !goalMet && (

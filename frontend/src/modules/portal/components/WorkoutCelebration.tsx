@@ -65,7 +65,7 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
           goal={result.weeklySessionGoal}
           colorClassName={result.goalMet ? 'text-emerald-500' : 'text-primary'}
         >
-          <span className="text-4xl leading-none font-bold tabular-nums">{result.sessionsThisWeek}</span>
+          <span className="text-5xl leading-none font-black tracking-tight tabular-nums">{result.sessionsThisWeek}</span>
           <span className="mt-1 text-xs text-muted-foreground">of {result.weeklySessionGoal}</span>
         </ActivityRing>
 
@@ -138,7 +138,7 @@ function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: s
   return (
     <div className="flex flex-col items-center gap-1 rounded-xl border p-4">
       {icon}
-      <span className="text-2xl leading-none font-bold tabular-nums">{value}</span>
+      <span className="text-3xl leading-none font-black tracking-tight tabular-nums">{value}</span>
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   )

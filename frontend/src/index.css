@@ -82,6 +82,31 @@
   --warning-foreground: oklch(0.145 0 0);
 }
 
+/**
+ * The member app's own accent.
+ *
+ * Scoped rather than global on purpose: the staff console is back-office software and should stay
+ * neutral, but a member opens this between sets and it should not look like an admin panel. Because
+ * @theme inline maps Tailwind's colours to these variables by reference, re-declaring them inside
+ * this class re-points every bg-primary/text-primary underneath it — no component needs editing, and
+ * nothing outside the member shell changes.
+ *
+ * The orange is deliberately deep rather than a bright amber: primary is used for filled buttons with
+ * white text, and amber-500 against white is about 2:1 — unreadable. This sits near 5.5:1.
+ */
+.member-theme {
+  --primary: oklch(0.55 0.196 38);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.55 0.196 38);
+}
+
+.dark .member-theme {
+  /* Lighter on dark so the same accent keeps its contrast, with dark text on top of it. */
+  --primary: oklch(0.78 0.163 58);
+  --primary-foreground: oklch(0.205 0 0);
+  --ring: oklch(0.78 0.163 58);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

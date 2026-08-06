@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { GlassWater, Loader2, Ruler, UtensilsCrossed } from 'lucide-react'
+import { Dumbbell, GlassWater, Loader2, Ruler, UtensilsCrossed } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
+import { MemberEmptyState } from '@/modules/portal/components/portalShared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -34,7 +35,7 @@ function RecentWorkouts() {
       </CardHeader>
       <CardContent>
         {recent.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Nothing logged yet — your first session goes here.</p>
+          <MemberEmptyState icon={Dumbbell} title="Your first session goes here" hint="Log a workout above and it shows up straight away." />
         ) : (
           <div className="space-y-2">
             {recent.map((log) => (

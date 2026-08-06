@@ -6,14 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  MasteryBar,
-  RECOMMENDATION_STYLE,
-  RECOVERY_STYLE,
-  SUGGESTION_CONFIG,
-  SectionCard,
-  dateFormat,
-} from '@/modules/portal/components/portalShared'
+import { MasteryBar, MemberEmptyState, RECOMMENDATION_STYLE, RECOVERY_STYLE, SUGGESTION_CONFIG, SectionCard, dateFormat } from '@/modules/portal/components/portalShared'
 import {
   useLogMyRecovery,
   useMyMastery,
@@ -237,10 +230,12 @@ export default function MyTrainingPage() {
               ))}
             </ul>
           ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
-              <ClipboardList className="size-6" />
-              No workout plan assigned yet.
-            </div>
+            <MemberEmptyState
+              icon={ClipboardList}
+              title="No plan from your trainer yet"
+              hint="You don't need one to start — log whatever you do and it all counts."
+              action={{ label: 'Log a workout', to: '/log-activity' }}
+            />
           )}
         </SectionCard>
 
@@ -257,10 +252,12 @@ export default function MyTrainingPage() {
               ))}
             </ul>
           ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
-              <Dumbbell className="size-6" />
-              Nothing logged yet.
-            </div>
+            <MemberEmptyState
+              icon={Dumbbell}
+              title="Your training history starts here"
+              hint="Every session you log builds the picture — records, streaks and all."
+              action={{ label: 'Log a workout', to: '/log-activity' }}
+            />
           )}
         </SectionCard>
       </div>

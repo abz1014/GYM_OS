@@ -17,7 +17,9 @@ export function AppShell() {
   const isMember = useIsMemberOnly()
 
   return (
-    <div className="flex h-svh w-full overflow-hidden">
+    // member-theme re-points the accent variables for everything in the member shell (see index.css).
+    // Applied at the root of the shell so the tab bar and any portalled overlay inherit it too.
+    <div className={`flex h-svh w-full overflow-hidden${isMember ? ' member-theme' : ''}`}>
       {!isMember && <Sidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />

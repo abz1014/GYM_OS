@@ -4,7 +4,7 @@ import { Apple, Droplets, NotebookPen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { MacroBar, SectionCard, dateFormat, dateTimeFormat } from '@/modules/portal/components/portalShared'
+import { MacroBar, MemberEmptyState, SectionCard, dateFormat, dateTimeFormat } from '@/modules/portal/components/portalShared'
 import { useMyDietPlans, useMyNutritionSummary, useMyWaterLogs } from '@/modules/portal/api/portalApi'
 
 /** Everything food and hydration, split out of the old all-in-one portal page. */
@@ -51,10 +51,12 @@ export default function MyNutritionPage() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
-              <Apple className="size-6" />
-              No active diet plan right now.
-            </div>
+            <MemberEmptyState
+              icon={Apple}
+              title="No meal plan running"
+              hint="Ask your trainer for one, or just log what you eat — that counts too."
+              action={{ label: 'Log a meal', to: '/log-activity' }}
+            />
           )}
         </CardContent>
       </Card>
@@ -80,10 +82,11 @@ export default function MyNutritionPage() {
               ))}
             </ul>
           ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
-              <Apple className="size-6" />
-              No diet plan yet.
-            </div>
+            <MemberEmptyState
+              icon={Apple}
+              title="No plans yet"
+              hint="Any plan your trainer builds for you will appear here."
+            />
           )}
         </SectionCard>
 
@@ -100,10 +103,12 @@ export default function MyNutritionPage() {
               ))}
             </ul>
           ) : (
-            <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
-              <Droplets className="size-6" />
-              No water logged yet.
-            </div>
+            <MemberEmptyState
+              icon={Droplets}
+              title="No water logged today"
+              hint="One tap per glass — it adds up faster than you'd think."
+              action={{ label: 'Log water', to: '/log-activity' }}
+            />
           )}
         </SectionCard>
       </div>
