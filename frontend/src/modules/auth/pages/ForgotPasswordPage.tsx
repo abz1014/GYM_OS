@@ -25,8 +25,11 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-sm">
+    // Dark, like the sign-in page it is reached from — and `text-foreground` alongside `dark` for the
+    // same reason LoginPage carries it: the base layer's text colour is set on <body>, outside this
+    // scope, so it would otherwise resolve against the light palette. See LoginPage's note.
+    <div className="dark flex min-h-svh items-center justify-center bg-background p-4 text-foreground">
+      <Card className="w-full max-w-sm rounded-3xl">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Dumbbell className="size-5" />

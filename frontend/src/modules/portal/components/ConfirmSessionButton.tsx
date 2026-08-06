@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Check, Dumbbell, Loader2 } from 'lucide-react'
+import { ChevronRight, Dumbbell, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -20,7 +20,9 @@ function summarise(entries: ProposedEntry[]): string {
 }
 
 /**
- * The one action the home screen exists for, reduced to a single tap.
+ * The one action the home screen exists for, reduced to a single tap — and the redesign's promoted
+ * primary CTA: a full-width pill rather than a plain button, so it reads as the thing to do here
+ * rather than one card among several.
  *
  * It replaced a button that navigated to a form. That form was the product's central problem: after
  * a hard session nobody wants a second job, so most people never recorded anything and the whole
@@ -30,6 +32,12 @@ function summarise(entries: ProposedEntry[]): string {
  * what they actually lifted last time, and shown ON the button rather than behind it: confirming
  * blind is how a member ends up with a record they never set. "Something different" is kept
  * deliberately quiet — it's the exception, and it's still the whole logger when they want it.
+ *
+ * The design reference's mockup title reads "Start {Workout Name}" with a "{n} exercises · {duration}"
+ * subtitle — this app has no workout-template name to show for a repeat-last-session or starter
+ * proposal (only a trainer plan is named), and no duration estimate exists anywhere in the product.
+ * Rather than invent either, the title stays SESSION_SOURCE_LABEL (already honest about where the
+ * session came from) and the subtitle stays the real exercise summary, exactly as before this restyle.
  */
 export function ConfirmSessionButton({ onLogged }: { onLogged: (result: MyWorkoutResult) => void }) {
   const proposal = useMyNextSession()
@@ -57,7 +65,7 @@ export function ConfirmSessionButton({ onLogged }: { onLogged: (result: MyWorkou
   // rather than showing a button that can't do anything.
   if (!proposal.isLoading && !canConfirm) {
     return (
-      <Button asChild className="h-16 w-full text-base">
+      <Button asChild className="h-16 w-full rounded-2xl text-base">
         <Link to="/log-activity">
           <Dumbbell className="size-5" />
           Log today's workout
@@ -68,19 +76,29 @@ export function ConfirmSessionButton({ onLogged }: { onLogged: (result: MyWorkou
 
   return (
     <div className="space-y-2">
-      <Button
-        className="h-auto min-h-16 w-full flex-col gap-0.5 py-3 text-base"
+      <button
+        type="button"
         disabled={proposal.isLoading || logWorkout.isPending}
         onClick={confirm}
+        className="flex w-full items-center gap-4 rounded-[20px] bg-primary p-3 text-left text-primary-foreground shadow-[0_8px_22px_-6px_var(--primary)] transition-transform disabled:opacity-70 not-disabled:hover:scale-[1.01]"
       >
-        <span className="flex items-center gap-2 font-semibold">
-          {logWorkout.isPending ? <Loader2 className="size-5 animate-spin" /> : <Check className="size-5" />}
-          {proposal.isLoading ? 'Checking your plan…' : SESSION_SOURCE_LABEL[proposal.data!.source]}
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary-foreground/10">
+          {logWorkout.isPending ? (
+            <Loader2 className="size-5 animate-spin" />
+          ) : (
+            <Dumbbell className="size-5" />
+          )}
         </span>
-        {!proposal.isLoading && (
-          <span className="text-xs font-normal opacity-90">{summarise(entries)}</span>
-        )}
-      </Button>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-display text-lg font-bold">
+            {proposal.isLoading ? 'Checking your plan…' : SESSION_SOURCE_LABEL[proposal.data!.source]}
+          </span>
+          {!proposal.isLoading && (
+            <span className="block truncate text-sm opacity-80">{summarise(entries)}</span>
+          )}
+        </span>
+        <ChevronRight className="size-5 shrink-0 opacity-70" />
+      </button>
 
       <Button asChild variant="ghost" className="h-11 w-full text-sm text-muted-foreground">
         <Link to="/log-activity">Something different</Link>

@@ -58,6 +58,39 @@ public class WeeklyGoalPolicyTests
     public void On_sunday_the_week_still_reaches_back_to_its_monday()
         => WeeklyGoalPolicy.SessionsThisWeek([new DateOnly(2026, 8, 3)], new DateOnly(2026, 8, 9)).ShouldBe(1);
 
+    [Fact]
+    public void The_day_strip_marks_monday_first_and_always_draws_the_whole_week()
+    {
+        // Seven cells including days not yet lived — the strip shows the shape of the week the member
+        // is in, rather than growing a cell a day.
+        DateOnly[] dates = [new(2026, 8, 3), new(2026, 8, 5)]; // Monday and Wednesday
+
+        var days = WeeklyGoalPolicy.DaysTrainedThisWeek(dates, Wednesday);
+
+        days.Count.ShouldBe(7);
+        days.ShouldBe([true, false, true, false, false, false, false]);
+    }
+
+    [Fact]
+    public void The_day_strip_ignores_days_outside_this_week()
+    {
+        DateOnly[] dates = [new(2026, 8, 2), new(2026, 8, 10)]; // last Sunday and next Monday
+
+        WeeklyGoalPolicy.DaysTrainedThisWeek(dates, Wednesday).ShouldAllBe(d => !d);
+    }
+
+    [Fact]
+    public void The_day_strip_and_the_ring_never_disagree()
+    {
+        // They sit one above the other on the home screen and are computed from the same rows; a
+        // strip showing three filled days above a ring reading 2 would be the screen contradicting
+        // itself. Duplicates on one day must collapse for both.
+        DateOnly[] dates = [new(2026, 8, 3), new(2026, 8, 3), new(2026, 8, 5), new(2026, 8, 9)];
+
+        WeeklyGoalPolicy.DaysTrainedThisWeek(dates, Wednesday).Count(d => d)
+            .ShouldBe(WeeklyGoalPolicy.SessionsThisWeek(dates, Wednesday));
+    }
+
     [Theory]
     [InlineData(0, 3, 3)]
     [InlineData(1, 3, 2)]

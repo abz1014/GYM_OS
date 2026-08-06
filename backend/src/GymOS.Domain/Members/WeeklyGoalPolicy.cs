@@ -41,6 +41,23 @@ public static class WeeklyGoalPolicy
         return sessionDates.Where(d => d >= weekStart && d <= weekEnd).Distinct().Count();
     }
 
+    /// <summary>
+    /// Which of this week's seven days were trained, Monday first — the same week and the same
+    /// per-day counting rule <see cref="SessionsThisWeek"/> applies, so the day strip on the home
+    /// screen can never contradict the ring sitting directly above it.
+    ///
+    /// Always exactly seven entries including days still in the future, because the strip draws the
+    /// whole week: a member should see the shape of the week they are in, not a row that grows a cell
+    /// a day.
+    /// </summary>
+    public static IReadOnlyList<bool> DaysTrainedThisWeek(IEnumerable<DateOnly> sessionDates, DateOnly today)
+    {
+        var weekStart = StreakCalculator.WeekStart(today);
+        var trained = sessionDates.ToHashSet();
+
+        return Enumerable.Range(0, 7).Select(offset => trained.Contains(weekStart.AddDays(offset))).ToList();
+    }
+
     /// <summary>Sessions still needed this week. Zero once the goal is met — never negative, because
     /// "-1 more sessions to go" is not a thing anyone wants to read.</summary>
     public static int RemainingSessions(int sessionsThisWeek, int goal) => Math.Max(0, goal - sessionsThisWeek);

@@ -5,17 +5,22 @@ import { BatteryLow, CalendarClock, CalendarDays, ChevronRight, CloudOff, Flame,
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { ActivityRing } from '@/shared/components/ActivityRing'
 import { ConfirmSessionButton } from '@/modules/portal/components/ConfirmSessionButton'
 import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import { WeeklyGoalDialog } from '@/modules/portal/components/WeeklyGoalDialog'
-import { useMyToday, type MyInsight, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
+import { useMyToday, useMyLeaderboard, type MyInsight, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
 
 const classTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
+const dateEyebrowFormat = new Intl.DateTimeFormat('en-US', { weekday: 'long', day: 'numeric', month: 'short' })
+
+/** Monday-first, matching the week WeeklyGoalPolicy counts and the order the server returns. */
+const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 /** Recovery is the one that says "not today", so it reads differently from the rest. */
 function InsightIcon({ kind }: { kind: MyInsight['kind'] }) {
-  const className = kind === 'RecoveryAlert' ? 'mt-0.5 size-5 shrink-0 text-amber-500' : 'mt-0.5 size-5 shrink-0 text-primary'
+  const className = kind === 'RecoveryAlert' ? 'mt-0.5 size-5 shrink-0 text-warning' : 'mt-0.5 size-5 shrink-0 text-primary'
   if (kind === 'RecoveryAlert') return <BatteryLow className={className} />
   if (kind === 'ReadyForPr') return <TrendingUp className={className} />
   if (kind === 'Comeback') return <RotateCcw className={className} />
@@ -31,6 +36,14 @@ function greeting(): string {
 }
 
 /**
+ * Which day of the Monday-start week today is — the strip needs it to outline today's cell, and
+ * deriving it here rather than sending an index keeps the server's payload to the facts.
+ */
+function todayIndexInWeek(): number {
+  return (new Date().getDay() + 6) % 7
+}
+
+/**
  * The member's home. Previously this route showed membership status and a member code — real
  * information, but back-office information, and it forced a member to scroll past their admin
  * details to reach anything they'd open the app for. That content now lives on More > Membership.
@@ -41,9 +54,19 @@ function greeting(): string {
  * Every number here comes from /api/me/today rather than being stitched together from separate
  * calls: the week, the session count and the streak are one consistent answer computed once,
  * server-side, instead of five independently-cached responses the browser had to reconcile.
+ *
+ * The redesign asked for a second concentric ring ("Volume 42%") inside the sessions ring, a
+ * "best {n}" personal-best streak beside the current one, and a "▲4" movement arrow on the gym-rank
+ * chip. None of the three has anything real behind it: there is no volume TARGET anywhere in the
+ * product to be a denominator, no stored best-ever streak, and no historical rank snapshot to
+ * difference against. Each is omitted rather than invented — the same rule the insight engine and the
+ * session proposal already follow, and the reason a member can trust the numbers that ARE here.
  */
 export default function TodayPage() {
   const today = useMyToday()
+  // The rank chip's only source. Same category the Leaderboard page opens on, so a member tapping
+  // through from this chip sees the board that produced the number rather than a different one.
+  const leaderboard = useMyLeaderboard('XpEarned', 'Month')
   const [editingGoal, setEditingGoal] = useState(false)
   // Confirming a session on this screen shows the same celebration the full logger does.
   const [celebration, setCelebration] = useState<MyWorkoutResult | null>(null)
@@ -54,6 +77,8 @@ export default function TodayPage() {
   const remaining = data?.remainingSessions ?? 0
   const goalMet = data?.goalMet ?? false
   const streakWeeks = data?.workoutStreakWeeks ?? 0
+  const daysTrained = data?.daysTrainedThisWeek ?? []
+  const myRank = leaderboard.data?.you?.rank ?? null
 
   /**
    * When the gym already knows the member was here, say so instead of asking how their week is
@@ -87,15 +112,15 @@ export default function TodayPage() {
   if (today.isError && !data) {
     return (
       <div className="mx-auto max-w-2xl space-y-5">
-        <h1 className="text-2xl font-semibold tracking-tight">{greeting()}</h1>
-        <Card>
+        <h1 className="font-display text-3xl font-black tracking-tight">{greeting()}</h1>
+        <Card className="rounded-3xl">
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <CloudOff className="size-10 text-muted-foreground" />
             <p className="font-medium">We couldn't load your week</p>
             <p className="max-w-xs text-sm text-muted-foreground">
               Your training is safe — we just can't reach the gym right now.
             </p>
-            <Button variant="outline" className="mt-2" onClick={() => today.refetch()} disabled={today.isFetching}>
+            <Button variant="outline" className="mt-2 rounded-xl" onClick={() => today.refetch()} disabled={today.isFetching}>
               <RotateCw className={today.isFetching ? 'size-4 animate-spin' : 'size-4'} />
               {today.isFetching ? 'Trying…' : 'Try again'}
             </Button>
@@ -106,80 +131,157 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {greeting()}
-          {data ? `, ${data.firstName}` : ''}
-        </h1>
-        {today.isLoading ? (
-          <Skeleton className="mt-1 h-5 w-56" />
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {visitLine ??
-              (goalMet
-                ? "You've hit your goal for the week. Anything else is a bonus."
-                : sessions === 0
-                  ? "Let's get the week started."
-                  : `${remaining} more session${remaining === 1 ? '' : 's'} to hit your week.`)}
+    <div className="mx-auto max-w-2xl space-y-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+            {dateEyebrowFormat.format(new Date())}
           </p>
+          <h1 className="font-display text-3xl leading-tight font-black tracking-tight">
+            {greeting()}
+            {data ? `, ${data.firstName}` : ''}
+          </h1>
+        </div>
+        {data && (
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary font-display text-lg font-black text-primary-foreground">
+            {data.firstName.charAt(0).toUpperCase()}
+          </span>
         )}
       </div>
 
-      {/* Hero: the whole "am I on track" answer, without reading a single number twice. */}
-      <Card>
-        <CardContent className="flex flex-col items-center gap-5 py-6 sm:flex-row sm:justify-center sm:gap-8">
-          {today.isLoading ? (
-            <Skeleton className="size-40 rounded-full" />
-          ) : (
-            <ActivityRing
-              value={sessions}
-              goal={goal}
-              colorClassName={goalMet ? 'text-emerald-500' : 'text-primary'}
-            >
-              <span className="text-5xl leading-none font-black tracking-tight tabular-nums">{sessions}</span>
-              <span className="mt-1 text-xs text-muted-foreground">of {goal} this week</span>
-            </ActivityRing>
-          )}
+      {today.isLoading ? (
+        <Skeleton className="h-5 w-56" />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {visitLine ??
+            (goalMet
+              ? "You've hit your goal for the week. Anything else is a bonus."
+              : sessions === 0
+                ? "Let's get the week started."
+                : `${remaining} more session${remaining === 1 ? '' : 's'} to hit your week.`)}
+        </p>
+      )}
 
-          <div className="flex flex-col items-center gap-1 sm:items-start">
-            <span className="flex items-center gap-2">
-              <Flame className={`size-7 ${streakWeeks > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
-              <span className="text-5xl leading-none font-black tracking-tight tabular-nums">{streakWeeks}</span>
-            </span>
-            <span className="text-sm text-muted-foreground">week streak</span>
-            {streakWeeks > 0 && !goalMet && (
-              <span className="text-xs text-muted-foreground">Train this week to keep it alive</span>
-            )}
-            {data && (
-              <Button
-                variant="ghost"
-                // Visually secondary, but still a real touch target: everything else a member taps
-                // in this shell clears 44px, and this sits right under a 160px ring on a phone.
-                className="mt-1 h-11 px-3 text-xs text-muted-foreground"
-                onClick={() => setEditingGoal(true)}
+      {/* Hero: the whole "am I on track" answer, without reading a single number twice. */}
+      <Card className="rounded-3xl">
+        <CardContent className="py-6">
+          {/* Ring and streak sit side by side at every width — the two halves of one answer, and
+              stacking them pushed the primary action below the fold on a phone. */}
+          <div className="flex items-center gap-4 sm:justify-center sm:gap-8">
+            {today.isLoading ? (
+              <Skeleton className="size-32 shrink-0 rounded-full" />
+            ) : (
+              <ActivityRing
+                value={sessions}
+                goal={goal}
+                size={132}
+                colorClassName={goalMet ? 'text-success' : 'text-primary'}
               >
-                <Pencil className="size-3.5" />
-                Goal: {goal}/week
-              </Button>
+                <span className="font-display text-4xl leading-none font-black tracking-tight tabular-nums">{sessions}</span>
+                <span className="mt-1 text-[11px] text-muted-foreground">of {goal} sessions</span>
+              </ActivityRing>
             )}
+
+            <div className="flex min-w-0 flex-col items-start gap-0.5">
+              <span className="flex items-center gap-2">
+                <Flame className={`size-6 ${streakWeeks > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                <span className="font-display text-4xl leading-none font-black tracking-tight tabular-nums">{streakWeeks}</span>
+              </span>
+              <span className="text-sm text-muted-foreground">week streak</span>
+              {streakWeeks > 0 && !goalMet && (
+                <span className="text-xs text-muted-foreground">Train this week to keep it alive</span>
+              )}
+              {data && (
+                <Button
+                  variant="ghost"
+                  // Visually secondary, but still a real touch target: everything else a member taps
+                  // in this shell clears 44px, and this sits right beside the ring on a phone.
+                  className="mt-1 h-11 rounded-xl px-3 text-xs text-muted-foreground"
+                  onClick={() => setEditingGoal(true)}
+                >
+                  <Pencil className="size-3.5" />
+                  Goal: {goal}/week
+                </Button>
+              )}
+            </div>
           </div>
+
+          {/*
+            The week at a glance, under the ring that counts it. Same seven days, same rows, same rule
+            (WeeklyGoalPolicy owns both), so a filled cell and the ring's number cannot disagree. The
+            whole week is always drawn — including days not yet lived — because the shape of the week
+            is the point, not a row that grows a cell a day.
+          */}
+          {daysTrained.length === 7 && (
+            <div className="mt-6 border-t border-border pt-4">
+              <ul className="flex items-center justify-between gap-1.5">
+                {daysTrained.map((trained, index) => {
+                  const isToday = index === todayIndexInWeek()
+                  return (
+                    <li key={index} className="flex flex-1 flex-col items-center gap-1.5">
+                      <span
+                        className={cn(
+                          'text-[11px] font-bold tracking-wider uppercase',
+                          isToday ? 'text-primary' : 'text-muted-foreground',
+                        )}
+                      >
+                        {WEEKDAY_INITIALS[index]}
+                      </span>
+                      {/* An untrained day uses the border colour for the same reason the ring's
+                          remainder track does — it is the same idea, and the recessed surface is too
+                          close to the card underneath it to read as a cell at all. */}
+                      <span
+                        className={cn(
+                          'h-9 w-full rounded-xl transition-colors',
+                          trained ? 'bg-primary' : 'bg-border',
+                          isToday && !trained && 'border-2 border-primary bg-transparent',
+                        )}
+                      />
+                    </li>
+                  )
+                })}
+              </ul>
+              <span className="sr-only">
+                {daysTrained.filter(Boolean).length} of 7 days trained this week.
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* The one action this screen exists for — one tap, not a form. See ConfirmSessionButton. */}
       <ConfirmSessionButton onLogged={setCelebration} />
 
+      {/*
+        Rank comes from the leaderboard the member can actually open; it is only rendered once that
+        query has produced a position for them. A member outside the ranked set (nothing logged in the
+        window) has no rank, and the chip is dropped rather than showing a dash or a guess — which is
+        also why this is one chip rather than the design's pair, since the second was a lifted-tonnage
+        figure with no total behind it.
+      */}
+      {myRank !== null && (
+        <Link
+          to="/leaderboard"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-accent"
+        >
+          <span>
+            <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Gym rank</span>
+            <span className="font-display text-3xl font-black tracking-tight tabular-nums">#{myRank}</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+        </Link>
+      )}
+
       {data?.nextClassToday && (
         <Link
           to="/my-classes"
-          className="flex items-center gap-3 rounded-xl border p-4 transition-colors hover:bg-accent"
+          className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-accent"
         >
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
             <CalendarDays className="size-5 text-primary" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-xs font-medium tracking-wide text-muted-foreground uppercase">Today</span>
+            <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Today</span>
             <span className="block truncate font-medium">
               {classTimeFormat.format(new Date(data.nextClassToday.startsAt))} · {data.nextClassToday.classTypeName}
             </span>
@@ -188,7 +290,6 @@ export default function TodayPage() {
         </Link>
       )}
 
-      {/* A single nudge — the recommendation engine already explains itself, so one line is enough. */}
       {/*
         The only thing on this screen that looks forward. Everything else reports what already
         happened — which answers "how am I doing" but never "why open this again". Rendered only when
@@ -196,11 +297,11 @@ export default function TodayPage() {
         manufactured reason to come back is discovered once and never trusted again.
       */}
       {data?.coming && (
-        <Card>
+        <Card className="rounded-2xl">
           <CardContent className="flex items-center gap-3 py-4">
             <CalendarClock className="size-5 shrink-0 text-primary" />
             <div className="min-w-0">
-              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Coming up</p>
+              <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Coming up</p>
               <p className="truncate font-medium">{data.coming.title}</p>
               <p className="text-sm text-muted-foreground">{data.coming.detail}</p>
             </div>
@@ -214,7 +315,7 @@ export default function TodayPage() {
         nobody reads a report before training. Nothing shows when nothing is certain.
       */}
       {data?.insights.map((insight) => (
-        <Card key={insight.kind}>
+        <Card key={insight.kind} className="rounded-2xl">
           <CardContent className="flex items-start gap-3 py-4">
             <InsightIcon kind={insight.kind} />
             <div className="min-w-0">

@@ -405,6 +405,8 @@ export interface MyToday {
   remainingSessions: number
   goalMet: boolean
   workoutStreakWeeks: number
+  /** Seven flags, Monday first, for the day strip under the ring. Same rule, same rows as the count. */
+  daysTrainedThisWeek: boolean[]
   nextClassToday: MyClassBooking | null
   /** At most two, ranked by what the member can act on today. See TrainingInsightPolicy. */
   insights: MyInsight[]

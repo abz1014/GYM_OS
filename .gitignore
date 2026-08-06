@@ -33,3 +33,6 @@ npm-debug.log*
 # Claude Code local artifacts
 .claude/*
 !.claude/launch.json
+
+# Design handoff package (screenshots + HTML reference) — spec lives in docs/DESIGN_HANDOFF_REDESIGN.md
+.redesign_extract/

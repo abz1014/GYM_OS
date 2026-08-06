@@ -166,6 +166,7 @@ public class GetMyTodayQueryHandler(
             WeeklyGoalPolicy.RemainingSessions(sessionsThisWeek, goal),
             WeeklyGoalPolicy.IsGoalMet(sessionsThisWeek, goal),
             StreakCalculator.CurrentWeeklyStreak(workoutDates, today),
+            WeeklyGoalPolicy.DaysTrainedThisWeek(workoutDates, today),
             nextClassToday,
             insights.Select(i => new MyInsightDto(i.Kind.ToString(), i.Title, i.Detail)).ToList(),
             new MyVisitDto(visit.State.ToString(), visit.CheckedInAt, visit.SessionRecorded, visit.NeedsRecording),

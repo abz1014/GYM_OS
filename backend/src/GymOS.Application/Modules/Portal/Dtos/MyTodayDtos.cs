@@ -21,6 +21,9 @@ namespace GymOS.Application.Modules.Portal.Dtos;
 /// <param name="Visit">Today's visit as the turnstile already knows it. Lets the screen speak from
 /// what the gym has on record instead of greeting someone who just finished training as though they
 /// had never arrived. See VisitPolicy.</param>
+/// <param name="DaysTrainedThisWeek">Seven flags, Monday first, for the day strip under the ring —
+/// counted by the same rule from the same rows as <paramref name="SessionsThisWeek"/>, so the strip
+/// and the ring above it can never tell two different stories. See WeeklyGoalPolicy.</param>
 public record MyTodayDto(
     string FirstName,
     int SessionsThisWeek,
@@ -28,6 +31,7 @@ public record MyTodayDto(
     int RemainingSessions,
     bool GoalMet,
     int WorkoutStreakWeeks,
+    IReadOnlyList<bool> DaysTrainedThisWeek,
     MyClassBookingDto? NextClassToday,
     IReadOnlyList<MyInsightDto> Insights,
     MyVisitDto Visit,

@@ -18,31 +18,41 @@ export function AppShell() {
   const isMember = useIsMemberOnly()
 
   /**
-   * The member accent lives on <body>, not on the shell div.
+   * The member app is the dark surface (see index.css's file header) — `.dark` lives on <body>, not
+   * the shell div.
    *
    * It has to: Radix portals dialogs — and Sonner its toasts — straight to document.body, which is
    * OUTSIDE any element this component renders. Scoping the theme to the shell left a member tapping
-   * an orange button and getting a dialog with a black staff-coloured Save button. Putting the class
-   * on body makes portalled content inherit the same variables as the page behind it.
+   * a volt button and getting a dialog with light staff-coloured chrome. Putting the class on body
+   * makes portalled content inherit the same variables as the page behind it.
    *
-   * Removed on unmount and whenever a non-member is signed in, so the staff console is never tinted.
+   * Removed on unmount and whenever a non-member is signed in, so the staff console — which has no
+   * light/dark toggle of its own — is never darkened by a leftover class from a previous session.
    */
   useEffect(() => {
     if (!isMember) return
-    document.body.classList.add('member-theme')
-    return () => document.body.classList.remove('member-theme')
+    document.body.classList.add('dark')
+    return () => document.body.classList.remove('dark')
   }, [isMember])
 
   return (
     <div className="flex h-svh w-full overflow-hidden">
       {!isMember && <Sidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
+        {/*
+          No app bar on the member surface. Every member screen opens with its own header — the date,
+          the greeting, and the member's own initial — and the staff Topbar sat above that repeating
+          the brand and a second avatar, so the top of every screen carried two identity chips and no
+          extra ability. Log out already lives on More, which is where a member goes looking for it.
+        */}
+        {!isMember && <Topbar />}
         <main
           className={
             isMember
-              ? // Bottom padding clears the fixed tab bar plus the device's own safe area.
-                'flex-1 overflow-y-auto p-4 pb-[calc(5rem+env(safe-area-inset-bottom))]'
+              ? // Clears the fixed tab bar, the device's own safe area, AND the log button, which is
+                // a circle raised half its height above the bar's top edge — without the extra room
+                // it sits on top of whatever the page ends with.
+                'flex-1 overflow-y-auto p-4 pb-[calc(7rem+env(safe-area-inset-bottom))]'
               : 'flex-1 overflow-y-auto p-3 sm:p-6'
           }
         >

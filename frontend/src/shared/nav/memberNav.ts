@@ -25,13 +25,24 @@ export interface MemberTab {
 }
 
 /**
- * Four destinations, deliberately. Fitness-app UX research is consistent that a member surface
- * should carry 3–5 top-level areas with big tap targets; the portal previously exposed seven
- * sidebar items, which is what made a split-up-but-still-busy app feel complicated. Everything else
- * (classes, nutrition, challenges, leaderboard, membership admin) lives one level down under More.
+ * Five slots: four destinations either side of the centre action. Fitness-app UX research is
+ * consistent that a member surface should carry 3–5 top-level areas with big tap targets; the portal
+ * previously exposed seven sidebar items, which is what made a split-up-but-still-busy app feel
+ * complicated. Everything else (nutrition, classes, coach, passport, challenges, leaderboard,
+ * membership admin) lives one level down under More.
+ *
+ * "Log" sits at index 2 — dead centre — because MemberTabBar renders it as the elevated round action
+ * rather than a flat tab, and a centre slot is only actually centred with an equal number of tabs on
+ * each side. It keeps its entry here rather than being special-cased in the bar so its route,
+ * matching and aria-current all stay identical to every other tab's.
+ *
+ * "Train" was promoted out of More for that symmetry, and because it is the one member destination
+ * that answers "what should I do in the gym right now" — the question the tab bar should be able to
+ * answer without a detour through a menu.
  */
 export const MEMBER_TABS: MemberTab[] = [
   { label: 'Home', path: '/portal', icon: Home },
+  { label: 'Train', path: '/my-training', icon: Dumbbell },
   { label: 'Log', path: '/log-activity', icon: NotebookPen },
   { label: 'Progress', path: '/my-progress', icon: TrendingUp },
   {
@@ -40,9 +51,10 @@ export const MEMBER_TABS: MemberTab[] = [
     icon: LayoutGrid,
     // Every path in MEMBER_MORE_LINKS belongs here. Two were missed as they were added — My Coach
     // and Gym Passport — and on those screens no tab lit at all, so the app quietly stopped saying
-    // where the member was, and aria-current went with it.
+    // where the member was, and aria-current went with it. (/my-training is absent on purpose: it is
+    // its own tab now, and listing it here would light two tabs at once.)
     alsoMatches: [
-      '/my-training', '/my-nutrition', '/my-classes', '/my-coach', '/my-passport',
+      '/my-nutrition', '/my-classes', '/my-coach', '/my-passport',
       '/my-challenges', '/leaderboard', '/membership', '/account',
     ],
   },
@@ -56,9 +68,12 @@ export interface MemberMoreLink {
   group: 'Training' | 'Community' | 'Account'
 }
 
-/** Secondary destinations, surfaced on the More screen and grouped so it scans in one look. */
+/**
+ * Secondary destinations, surfaced on the More screen and grouped so it scans in one look.
+ * My Training is deliberately absent — it is a top-level tab now, and a destination that is both a
+ * tab and a More row is the same place reached two ways, which is how a menu starts feeling long.
+ */
 export const MEMBER_MORE_LINKS: MemberMoreLink[] = [
-  { group: 'Training', label: 'My Training', description: 'Recovery, suggestions and session history', path: '/my-training', icon: Dumbbell },
   { group: 'Training', label: 'My Nutrition', description: "Today's macros, plans and water", path: '/my-nutrition', icon: Apple },
   { group: 'Training', label: 'My Classes', description: 'Book and manage your classes', path: '/my-classes', icon: CalendarDays },
   { group: 'Training', label: 'My Coach', description: 'Talk to your trainer about your training', path: '/my-coach', icon: MessageCircle },

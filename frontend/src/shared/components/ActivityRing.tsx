@@ -41,13 +41,18 @@ export function ActivityRing({
   return (
     <div className={`relative shrink-0 ${colorClassName}`} style={{ width: size, height: size }}>
       <svg viewBox="0 0 100 100" className="size-full -rotate-90" aria-hidden>
+        {/*
+          The unfilled remainder. Drawn in the border colour rather than a faded copy of the arc:
+          a 15%-opacity volt track on a dark card reads as a heavy olive band competing with the arc
+          itself, when all it has to say is "this part isn't done".
+        */}
         <circle
           cx="50"
           cy="50"
           r={radius}
           fill="none"
           strokeWidth={stroke}
-          className="stroke-current opacity-15"
+          className="stroke-border"
         />
         <circle
           cx="50"

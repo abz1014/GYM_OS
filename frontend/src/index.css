@@ -3,108 +3,105 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/**
+ * One brand, two surfaces (redesign pass — see docs/DESIGN_HANDOFF_REDESIGN.md).
+ *
+ * There is no user-facing light/dark toggle anywhere in this app — `.dark` was previously unused
+ * boilerplate. It is repurposed here as the member app's permanent surface rather than a preference:
+ * AppShell adds it to <body> whenever a member-only login is active (see useIsMemberOnly), so ":root"
+ * below is simply "the staff console, always" and ".dark" is "the member app, always." Neither surface
+ * reacts to system color-scheme; both are fixed by role.
+ *
+ * The accent (volt on ink) is the same in both blocks — one product, one accent — which is what
+ * retires the old `.member-theme` scoped override below it used to need. --sidebar* is also identical
+ * in both blocks on purpose: the staff sidebar is fixed dark chrome and must not flip when the member
+ * surface's .dark class is active on some ancestor during a role switch mid-session.
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --success: oklch(0.6 0.15 145);
-  --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.75 0.15 75);
-  --warning-foreground: oklch(0.145 0 0);
+  --radius: 0.875rem;
+
+  --background: #F7F7F5;
+  --foreground: #0B0B0C;
+  --card: #FFFFFF;
+  --card-foreground: #0B0B0C;
+  --popover: #FFFFFF;
+  --popover-foreground: #0B0B0C;
+  --primary: #D6F94A;
+  --primary-foreground: #0B0B0C;
+  --secondary: #EFEFE9;
+  --secondary-foreground: #0B0B0C;
+  --muted: #EFEFE9;
+  --muted-foreground: #6E6E66;
+  --accent: #EFEFE9;
+  --accent-foreground: #0B0B0C;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E4E4DE;
+  --input: #E4E4DE;
+  --ring: #D6F94A;
+  --chart-1: #D6F94A;
+  --chart-2: #7DD3FC;
+  --chart-3: #65A30D;
+  --chart-4: #D97706;
+  --chart-5: #8A8A80;
+
+  /* Fixed dark chrome — see file header. Identical in .dark below. */
+  --sidebar: #0B0B0C;
+  --sidebar-foreground: #F2F2ED;
+  --sidebar-primary: #D6F94A;
+  --sidebar-primary-foreground: #0B0B0C;
+  --sidebar-accent: #1C1A12;
+  --sidebar-accent-foreground: #D6F94A;
+  --sidebar-border: #24242A;
+  --sidebar-ring: #D6F94A;
+
+  --success: #65A30D;
+  --success-foreground: #FFFFFF;
+  --warning: #D97706;
+  --warning-foreground: #FFFFFF;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --success: oklch(0.65 0.15 145);
-  --success-foreground: oklch(0.145 0 0);
-  --warning: oklch(0.8 0.15 75);
-  --warning-foreground: oklch(0.145 0 0);
-}
+  --background: #0B0B0C;
+  --foreground: #F2F2ED;
+  --card: #151517;
+  --card-foreground: #F2F2ED;
+  --popover: #151517;
+  --popover-foreground: #F2F2ED;
+  --primary: #D6F94A;
+  --primary-foreground: #0B0B0C;
+  --secondary: #1C1A12;
+  --secondary-foreground: #F2F2ED;
+  /* Recessed surface (wells, day-strip cells, docked sheets) — this app has no separate --recessed
+     token, so muted doubles as it here, the same relationship these two already have everywhere else. */
+  --muted: #121412;
+  --muted-foreground: #8E8E82;
+  --accent: #1C1A12;
+  --accent-foreground: #D6F94A;
+  --destructive: #F87171;
+  --destructive-foreground: #2A0B0B;
+  --border: #24242A;
+  --input: #26262A;
+  --ring: #D6F94A;
+  --chart-1: #D6F94A;
+  --chart-2: #7DD3FC;
+  --chart-3: #A3E635;
+  --chart-4: #FBBF24;
+  --chart-5: #57574F;
 
-/**
- * The member app's own accent.
- *
- * Scoped rather than global on purpose: the staff console is back-office software and should stay
- * neutral, but a member opens this between sets and it should not look like an admin panel. Because
- * @theme inline maps Tailwind's colours to these variables by reference, re-declaring them inside
- * this class re-points every bg-primary/text-primary underneath it — no component needs editing, and
- * nothing outside the member shell changes.
- *
- * The orange is deliberately deep rather than a bright amber: primary is used for filled buttons with
- * white text, and amber-500 against white is about 2:1 — unreadable. This sits near 5.5:1.
- */
-.member-theme {
-  --primary: oklch(0.55 0.196 38);
-  --primary-foreground: oklch(0.985 0 0);
-  --ring: oklch(0.55 0.196 38);
-}
+  --sidebar: #0B0B0C;
+  --sidebar-foreground: #F2F2ED;
+  --sidebar-primary: #D6F94A;
+  --sidebar-primary-foreground: #0B0B0C;
+  --sidebar-accent: #1C1A12;
+  --sidebar-accent-foreground: #D6F94A;
+  --sidebar-border: #24242A;
+  --sidebar-ring: #D6F94A;
 
-.dark .member-theme {
-  /* Lighter on dark so the same accent keeps its contrast, with dark text on top of it. */
-  --primary: oklch(0.78 0.163 58);
-  --primary-foreground: oklch(0.205 0 0);
-  --ring: oklch(0.78 0.163 58);
+  --success: #A3E635;
+  --success-foreground: #0B0B0C;
+  --warning: #FBBF24;
+  --warning-foreground: #0B0B0C;
 }
 
 @theme inline {
@@ -147,7 +144,13 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  /* Archivo for display/numerals/headings, Hanken Grotesk for everything else — see README.md's
+     Typography section. --font-sans is the Tailwind default, so plain text picks up Hanken Grotesk
+     with no per-component change; --font-display is opt-in via font-display on headings/big numbers. */
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -155,6 +158,10 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+  /* Tabular numerals everywhere a number changes but its layout shouldn't — timers, weights, KPIs. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
