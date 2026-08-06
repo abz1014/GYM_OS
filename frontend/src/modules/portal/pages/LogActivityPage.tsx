@@ -40,7 +40,7 @@ function RecentWorkouts() {
           <div className="space-y-2">
             {recent.map((log) => (
               <div key={log.id} className="flex items-center justify-between border-b pb-2 text-sm last:border-0 last:pb-0">
-                <span>{log.workoutTemplateName ?? 'Custom workout'}</span>
+                <span>{log.workoutTemplateName ?? log.character}</span>
                 <span className="text-muted-foreground">{dateFmt.format(new Date(log.loggedAt))}</span>
               </div>
             ))}

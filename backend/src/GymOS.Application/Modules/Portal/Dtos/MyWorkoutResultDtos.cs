@@ -16,8 +16,11 @@ namespace GymOS.Application.Modules.Portal.Dtos;
 /// bonuses — the change in the member's total, not just the base workout award.</param>
 /// <param name="GoalJustMet">True only when THIS session closed the weekly ring. Distinct from
 /// <paramref name="GoalMet"/>, which is also true for every extra session after it.</param>
+/// <param name="Character">What the session was — "Push day", "Legs", "Back &amp; Arms" — derived from
+/// the muscle groups trained rather than asked for. See SessionCharacterPolicy.</param>
 public record MyWorkoutResultDto(
     Guid WorkoutLogId,
+    string Character,
     int XpEarned,
     int Level,
     bool LeveledUp,

@@ -93,6 +93,12 @@ export interface WorkoutLog {
   memberId: string
   workoutTemplateId: string | null
   workoutTemplateName: string | null
+  /**
+   * What the session was, derived from the muscle groups trained — "Push day", "Legs",
+   * "Back & Arms". Always present. Prefer `workoutTemplateName` when it exists: a trainer's own
+   * name for their session beats anything derived from it.
+   */
+  character: string
   loggedAt: string
   entries: WorkoutLogEntry[]
 }

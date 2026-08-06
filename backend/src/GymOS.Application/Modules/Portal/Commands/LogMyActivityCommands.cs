@@ -58,11 +58,18 @@ public class LogMyWorkoutCommandHandler(
         // Exercises are tenant-scoped, so this both validates the ids exist and prevents a member
         // referencing another tenant's exercise.
         var exerciseIds = request.Entries.Select(e => e.ExerciseId).Distinct().ToList();
-        var knownCount = await db.Exercises.CountAsync(e => exerciseIds.Contains(e.Id), cancellationToken);
-        if (knownCount != exerciseIds.Count)
+        // Muscle groups come back from the same lookup that validates the ids — they are what names
+        // the session, so the member is told what they just did rather than "workout logged".
+        var muscleGroupById = await db.Exercises.AsNoTracking()
+            .Where(e => exerciseIds.Contains(e.Id))
+            .ToDictionaryAsync(e => e.Id, e => e.MuscleGroup, cancellationToken);
+        if (muscleGroupById.Count != exerciseIds.Count)
         {
             throw new NotFoundException(nameof(GymOS.Domain.Workouts.Exercise), string.Join(", ", exerciseIds));
         }
+
+        var character = GymOS.Domain.Workouts.SessionCharacterPolicy.Describe(
+            request.Entries.Select(e => muscleGroupById.GetValueOrDefault(e.ExerciseId)));
 
         // Snapshot the "before" side of everything worth celebrating. Reported figures are a genuine
         // diff across the log rather than the client's guess at what the engine would award.
@@ -114,6 +121,7 @@ public class LogMyWorkoutCommandHandler(
 
         return new MyWorkoutResultDto(
             workoutLogId,
+            character,
             (int)(xpAfter - xpBefore),
             levelAfter,
             levelAfter > levelBefore,

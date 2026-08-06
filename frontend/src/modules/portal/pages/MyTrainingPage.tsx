@@ -246,7 +246,7 @@ export default function MyTrainingPage() {
             <ul className="space-y-2 text-sm">
               {workouts.data.slice(0, 10).map((w) => (
                 <li key={w.id} className="flex items-center justify-between gap-2 border-b pb-2 last:border-0">
-                  <span className="truncate">{w.workoutTemplateName ?? 'Custom workout'}</span>
+                  <span className="truncate">{w.workoutTemplateName ?? w.character}</span>
                   <span className="shrink-0 text-muted-foreground">{dateFormat.format(new Date(w.loggedAt))}</span>
                 </li>
               ))}

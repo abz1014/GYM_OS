@@ -106,7 +106,7 @@ function MemberWorkoutLogs() {
             <Card key={log.id}>
               <CardContent className="space-y-2 p-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{log.workoutTemplateName ?? 'Freeform workout'}</span>
+                  <span className="font-medium">{log.workoutTemplateName ?? log.character}</span>
                   <span className="text-muted-foreground">{new Date(log.loggedAt).toLocaleString()}</span>
                 </div>
                 <div className="flex flex-wrap gap-1">

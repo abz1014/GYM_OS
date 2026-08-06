@@ -10,7 +10,15 @@ public record WorkoutTemplateDetailDto(Guid Id, string Name, string? Description
 
 public record WorkoutLogEntryDto(Guid Id, Guid ExerciseId, string ExerciseName, int SetsCompleted, int RepsCompleted, decimal? WeightKg);
 
-public record WorkoutLogDto(Guid Id, Guid MemberId, Guid? WorkoutTemplateId, string? WorkoutTemplateName, DateTimeOffset LoggedAt, IReadOnlyList<WorkoutLogEntryDto> Entries);
+/// <summary>
+/// <paramref name="Character"/> is what the session was, derived from the muscle groups trained (see
+/// SessionCharacterPolicy). It is always populated; a session logged against a trainer's template
+/// still has a <paramref name="WorkoutTemplateName"/>, and that name — being the trainer's own words
+/// — is the better one to show when it exists.
+/// </summary>
+public record WorkoutLogDto(
+    Guid Id, Guid MemberId, Guid? WorkoutTemplateId, string? WorkoutTemplateName, string Character,
+    DateTimeOffset LoggedAt, IReadOnlyList<WorkoutLogEntryDto> Entries);
 
 public record WorkoutAssignmentListItemDto(
     Guid Id, Guid WorkoutTemplateId, string WorkoutTemplateName, string? TemplateDescription,

@@ -37,13 +37,19 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
     return () => window.removeEventListener('keydown', onKey)
   }, [onDismiss])
 
+  // With nothing bigger to report, the session names itself — "Push day", "Back & Arms" — instead of
+  // the generic "Session logged" it used to fall back to. It is the member's own training described
+  // back to them, and it costs them no extra tap to say it.
   const headline = result.goalJustMet
     ? "That's your week"
     : result.leveledUp
       ? `Level ${result.level}`
       : result.newRecords.length > 0
         ? 'New personal record'
-        : 'Session logged'
+        : result.character
+
+  // When a bigger moment takes the headline, what the session actually was still gets said.
+  const kicker = headline === result.character ? null : result.character
 
   const subhead = result.goalJustMet
     ? `${result.sessionsThisWeek} of ${result.weeklySessionGoal} sessions — ring closed.`
@@ -60,6 +66,9 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
     >
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-6 py-10 text-center">
         <div className="space-y-1">
+          {kicker && (
+            <p className="text-xs font-semibold tracking-widest text-primary uppercase">{kicker}</p>
+          )}
           <h2 className="text-3xl font-bold tracking-tight">{headline}</h2>
           <p className="text-sm text-muted-foreground">{subhead}</p>
         </div>

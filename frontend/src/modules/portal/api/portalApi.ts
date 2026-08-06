@@ -611,6 +611,8 @@ export interface MyChallengeStep {
 
 export interface MyWorkoutResult {
   workoutLogId: string
+  /** What the session was — "Push day", "Legs", "Back & Arms" — derived from what was trained. */
+  character: string
   xpEarned: number
   level: number
   leveledUp: boolean
