@@ -425,6 +425,14 @@ export interface MyToday {
   nextClassToday: MyClassBooking | null
   topRecommendation: MyRecommendation | null
   visit: MyVisit
+  /** The nearest thing the member has ahead of them, or null when there honestly isn't one. */
+  coming: MyAnticipation | null
+}
+
+export interface MyAnticipation {
+  kind: 'BookedClass' | 'Challenge' | 'Level'
+  title: string
+  detail: string
 }
 
 /** Today's gym visit as the turnstile already knows it. See VisitPolicy. */

@@ -1,7 +1,9 @@
 using GymOS.Application.Common.Interfaces;
 using GymOS.Domain.Common;
 using GymOS.Application.Common.Messaging;
+using GymOS.Application.Modules.Challenges.Queries;
 using GymOS.Application.Modules.Experience.Queries;
+using GymOS.Domain.Experience;
 using GymOS.Application.Modules.Portal.Dtos;
 using GymOS.Domain.Classes;
 using GymOS.Domain.Members;
@@ -99,6 +101,33 @@ public class GetMyTodayQueryHandler(
 
         var visit = VisitPolicy.Classify(visits, workoutDates, now, zone);
 
+        // What the member has ahead of them. Every input is already loaded or already computed for
+        // something else on this screen, so looking forward costs one extra read rather than a
+        // second pass over the member's history.
+        var nextBooking = myBookings.Where(b => b.StartsAt >= now).OrderBy(b => b.StartsAt).FirstOrDefault();
+
+        var joinedChallenge = (await sender.Send(new GetMyChallengesQuery(), cancellationToken))
+            .Where(c => c.Joined && !c.IsCompleted)
+            .OrderBy(c => c.TargetWorkoutCount - c.MyWorkoutCount)
+            .FirstOrDefault();
+
+        var totalXp = await db.MemberProgressions.AsNoTracking()
+            .Where(p => p.MemberId == memberId)
+            .Select(p => (long?)p.TotalXp)
+            .FirstOrDefaultAsync(cancellationToken) ?? 0;
+        var level = XpPolicy.LevelForXp(totalXp);
+
+        var coming = AnticipationPolicy.Next(
+            new AnticipationSignals(
+                nextBooking?.ClassTypeName,
+                nextBooking?.StartsAt,
+                joinedChallenge?.Name,
+                joinedChallenge is null ? 0 : Math.Max(0, joinedChallenge.TargetWorkoutCount - joinedChallenge.MyWorkoutCount),
+                level.Level + 1,
+                level.XpForNextLevel - level.XpIntoLevel,
+                XpPolicy.AwardFor(XpReason.WorkoutCompleted)),
+            now);
+
         return new MyTodayDto(
             firstName,
             sessionsThisWeek,
@@ -108,6 +137,7 @@ public class GetMyTodayQueryHandler(
             StreakCalculator.CurrentWeeklyStreak(workoutDates, today),
             nextClassToday,
             recommendations.FirstOrDefault(),
-            new MyVisitDto(visit.State.ToString(), visit.CheckedInAt, visit.SessionRecorded, visit.NeedsRecording));
+            new MyVisitDto(visit.State.ToString(), visit.CheckedInAt, visit.SessionRecorded, visit.NeedsRecording),
+            coming is null ? null : new MyAnticipationDto(coming.Value.Kind.ToString(), coming.Value.Title, coming.Value.Detail));
     }
 }

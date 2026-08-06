@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, ChevronRight, CloudOff, Flame, Lightbulb, Pencil, RotateCw } from 'lucide-react'
+import { CalendarClock, CalendarDays, ChevronRight, CloudOff, Flame, Lightbulb, Pencil, RotateCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -174,6 +174,25 @@ export default function TodayPage() {
       )}
 
       {/* A single nudge — the recommendation engine already explains itself, so one line is enough. */}
+      {/*
+        The only thing on this screen that looks forward. Everything else reports what already
+        happened — which answers "how am I doing" but never "why open this again". Rendered only when
+        the server found something genuinely near; there is deliberately no fallback copy, because a
+        manufactured reason to come back is discovered once and never trusted again.
+      */}
+      {data?.coming && (
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <CalendarClock className="size-5 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Coming up</p>
+              <p className="truncate font-medium">{data.coming.title}</p>
+              <p className="text-sm text-muted-foreground">{data.coming.detail}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {data?.topRecommendation && (
         <Link
           to="/my-training"
