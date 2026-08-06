@@ -91,7 +91,7 @@ export function CheckInsByHourPanel() {
           </span>
           {hasBaseline && (
             <span className="flex items-center gap-1.5">
-              <span className="h-0.5 w-3 bg-muted-foreground" />
+              <span className="size-2.5 rounded-sm bg-muted" />
               4-wk avg
             </span>
           )}
@@ -121,22 +121,37 @@ export function CheckInsByHourPanel() {
                     hasBaseline ? ` · 4-wk avg ${average.toFixed(1)}` : ''
                   }`}
                 >
+                  {/*
+                    The average is a bar behind today's, not a line across it.
+
+                    It was a floating tick per column, which failed in all three positions it can
+                    take: below today's bar it drew a grey line THROUGH the ink and read as a
+                    rendering fault, above it floated in empty space attached to nothing, and on an
+                    hour with no check-ins yet it was a lone dash with nothing to compare against.
+                    Seventeen of them across the plot read as specks rather than a series.
+
+                    As a backdrop band the comparison is the shape itself: today's bar standing
+                    proud of the grey is a busy hour, sitting inside it is a quiet one, and a grey
+                    bar alone says the floor is normally busy now and isn't. Today's bar is narrower
+                    so the grey stays visible either side rather than being covered whenever the day
+                    is going well.
+                  */}
+                  {average > 0 && (
+                    <div
+                      aria-hidden
+                      className="absolute inset-x-0 bottom-0 rounded-t-md bg-muted"
+                      style={{ height: `${(average / scaleMax) * 100}%` }}
+                    />
+                  )}
                   <div
                     // Peak hour in volt, the rest in ink — the one thing a manager reads off this
                     // chart is "when is the floor full", so it gets the accent.
                     className={cn(
-                      'w-full rounded-t-md transition-[height] duration-700 ease-out',
+                      'relative mx-auto w-3/5 rounded-t-md transition-[height] duration-700 ease-out',
                       isPeak ? 'bg-primary' : 'bg-foreground'
                     )}
                     style={{ height: `${(count / scaleMax) * 100}%` }}
                   />
-                  {average > 0 && (
-                    <span
-                      aria-hidden
-                      className="absolute inset-x-0 border-t-2 border-muted-foreground/60"
-                      style={{ bottom: `${(average / scaleMax) * 100}%` }}
-                    />
-                  )}
                 </div>
               )
             })}
