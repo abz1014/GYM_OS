@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, ChevronRight, CloudOff, Dumbbell, Flame, Lightbulb, Pencil, RotateCw } from 'lucide-react'
+import { CalendarDays, ChevronRight, CloudOff, Flame, Lightbulb, Pencil, RotateCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ActivityRing } from '@/shared/components/ActivityRing'
+import { ConfirmSessionButton } from '@/modules/portal/components/ConfirmSessionButton'
+import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import { WeeklyGoalDialog } from '@/modules/portal/components/WeeklyGoalDialog'
-import { useMyToday } from '@/modules/portal/api/portalApi'
+import { useMyToday, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
 
 const classTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
 
@@ -33,6 +35,8 @@ function greeting(): string {
 export default function TodayPage() {
   const today = useMyToday()
   const [editingGoal, setEditingGoal] = useState(false)
+  // Confirming a session on this screen shows the same celebration the full logger does.
+  const [celebration, setCelebration] = useState<MyWorkoutResult | null>(null)
 
   const data = today.data
   const goal = data?.weeklySessionGoal ?? 0
@@ -130,13 +134,8 @@ export default function TodayPage() {
         </CardContent>
       </Card>
 
-      {/* The one action this screen exists for. */}
-      <Button asChild className="h-16 w-full text-base">
-        <Link to="/log-activity">
-          <Dumbbell className="size-5" />
-          Log today's workout
-        </Link>
-      </Button>
+      {/* The one action this screen exists for — one tap, not a form. See ConfirmSessionButton. */}
+      <ConfirmSessionButton onLogged={setCelebration} />
 
       {data?.nextClassToday && (
         <Link
@@ -172,6 +171,7 @@ export default function TodayPage() {
       )}
 
       <WeeklyGoalDialog open={editingGoal} onOpenChange={setEditingGoal} currentGoal={goal} />
+      {celebration && <WorkoutCelebration result={celebration} onDismiss={() => setCelebration(null)} />}
     </div>
   )
 }

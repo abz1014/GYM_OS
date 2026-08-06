@@ -1,10 +1,11 @@
-import { useEffect, type ReactNode } from 'react'
-import { Award, Flame, Sparkles, Target, Trophy, TrendingUp } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Award, Flame, Loader2, Sparkles, Target, Trophy, TrendingUp, Undo2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { ActivityRing } from '@/shared/components/ActivityRing'
 import { PR_TYPE_CONFIG } from '@/modules/portal/components/portalShared'
-import type { MyWorkoutResult } from '@/modules/portal/api/portalApi'
+import { useUndoMyWorkout, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
 
 /** Reuses the labels the progress page already uses, so a record is named the same way everywhere. */
 function formatRecord(type: string, value: number): string {
@@ -24,6 +25,9 @@ function formatRecord(type: string, value: number): string {
  * One tap dismisses it. There is deliberately no second action competing with that.
  */
 export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutResult; onDismiss: () => void }) {
+  const undo = useUndoMyWorkout()
+  const [undone, setUndone] = useState(false)
+
   // Escape dismisses too — the overlay covers the app, so it must never be a trap.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -125,9 +129,33 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
       </div>
 
       {/* Sticky so the way out is always in reach, however much landed above. */}
-      <div className="sticky bottom-0 w-full border-t bg-background px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="sticky bottom-0 w-full space-y-2 border-t bg-background px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <Button className="mx-auto flex h-14 w-full max-w-md text-base" onClick={onDismiss}>
           Done
+        </Button>
+
+        {/*
+          One tap makes logging easy and a mis-tap equally easy. Without a way back, an accidental
+          confirmation mints XP and can register a record that never happened — corrupting exactly
+          the numbers above. Kept quiet: it's the exception, not a second call to action.
+        */}
+        <Button
+          variant="ghost"
+          className="mx-auto flex h-11 w-full max-w-md text-sm text-muted-foreground"
+          disabled={undo.isPending || undone}
+          onClick={() =>
+            undo.mutate(result.workoutLogId, {
+              onSuccess: () => {
+                setUndone(true)
+                toast.success('Workout removed.')
+                onDismiss()
+              },
+              onError: () => toast.error("That workout can no longer be undone."),
+            })
+          }
+        >
+          {undo.isPending ? <Loader2 className="size-4 animate-spin" /> : <Undo2 className="size-4" />}
+          {undo.isPending ? 'Removing…' : "I didn't do this"}
         </Button>
       </div>
     </div>

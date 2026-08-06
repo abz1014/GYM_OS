@@ -108,6 +108,21 @@ public class PortalController(ISender mediator) : ControllerBase
         CancellationToken cancellationToken = default)
         => Ok(await mediator.Send(new GetMyLeaderboardQuery(category, period), cancellationToken));
 
+    /// <summary>The pre-filled session a member can confirm in one tap — see GetMyNextSessionQuery.</summary>
+    [HttpGet("next-session")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MySessionProposalDto>> NextSession(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyNextSessionQuery(), cancellationToken));
+
+    /// <summary>Takes back a just-recorded session. Window enforced by WorkoutUndoPolicy.</summary>
+    [HttpDelete("workouts/{workoutLogId:guid}")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> UndoWorkout(Guid workoutLogId, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new UndoMyWorkoutCommand(workoutLogId), cancellationToken);
+        return NoContent();
+    }
+
     [HttpGet("training-volume")]
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<MyDailyVolumeDto>>> TrainingVolume(

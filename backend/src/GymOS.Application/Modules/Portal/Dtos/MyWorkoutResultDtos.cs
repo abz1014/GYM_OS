@@ -37,3 +37,14 @@ public record MyNewAchievementDto(string Code, string Name, string Description, 
 
 /// <summary>Progress on a challenge the member has joined, and whether this session finished it.</summary>
 public record MyChallengeStepDto(string Name, int WorkoutsLogged, int TargetWorkoutCount, bool JustCompleted);
+
+/// <summary>One pre-filled movement in a proposed session.</summary>
+public record MyProposedEntryDto(Guid ExerciseId, string ExerciseName, int Sets, int Reps, decimal? WeightKg);
+
+/// <summary>
+/// The session the app believes the member is about to do, ready to confirm in one tap.
+/// See GetMyNextSessionQuery and SessionProposalPolicy for how the tier is chosen.
+/// </summary>
+/// <param name="Source">TrainerPlan, RepeatLast, Starter or None — what the proposal is based on,
+/// so the screen can say where it came from instead of presenting numbers with no provenance.</param>
+public record MySessionProposalDto(string Source, bool CanConfirm, IReadOnlyList<MyProposedEntryDto> Entries);

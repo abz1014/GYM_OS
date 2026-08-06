@@ -625,6 +625,45 @@ export interface MyWorkoutResult {
   challengeProgress: MyChallengeStep[]
 }
 
+export type SessionProposalSource = 'None' | 'TrainerPlan' | 'RepeatLast' | 'Starter'
+
+export interface ProposedEntry {
+  exerciseId: string
+  exerciseName: string
+  sets: number
+  reps: number
+  weightKg: number | null
+}
+
+/**
+ * The session the app believes the member is about to do, pre-filled so recording it is one tap.
+ * `source` says where it came from — a member should never be shown numbers with no provenance.
+ */
+export interface MySessionProposal {
+  source: SessionProposalSource
+  canConfirm: boolean
+  entries: ProposedEntry[]
+}
+
+export function useMyNextSession() {
+  return useQuery({
+    queryKey: ['portal', 'next-session'],
+    queryFn: async () => (await apiClient.get<MySessionProposal>('/api/me/next-session')).data,
+    retry: false,
+  })
+}
+
+/** Takes back a just-logged session. The server enforces the window and unwinds XP and records. */
+export function useUndoMyWorkout() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (workoutLogId: string) => {
+      await apiClient.delete(`/api/me/workouts/${workoutLogId}`)
+    },
+    onSuccess: () => invalidateAfterLogging(queryClient),
+  })
+}
+
 export function useLogMyWorkout() {
   const queryClient = useQueryClient()
   return useMutation({
