@@ -845,3 +845,43 @@ export function useReadMyCoachMessages() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'coach'] }),
   })
 }
+
+// ---------------------------------------------------------------------------
+// The member's map of their own gym. Every other surface reports what they trained; this is the only
+// one that knows what they have not touched, because it leads with the gym's catalogue.
+
+export interface MyPassportEntry {
+  exerciseId: string
+  exerciseName: string
+  muscleGroup: string | null
+  tried: boolean
+  sessions: number
+  /** Null for a movement carrying no load — "0kg" on a plank would read as a failure. */
+  bestWeightKg: number | null
+  lastTrained: string | null
+}
+
+export interface MyPassportStamp {
+  equipment: string
+  tried: number
+  available: number
+  complete: boolean
+  entries: MyPassportEntry[]
+}
+
+export interface MyPassport {
+  tried: number
+  /** Size of this gym's own catalogue — coverage is measured against the site they actually train at. */
+  available: number
+  percentCovered: number
+  complete: boolean
+  stamps: MyPassportStamp[]
+}
+
+export function useMyPassport() {
+  return useQuery({
+    queryKey: ['portal', 'passport'],
+    queryFn: async () => (await apiClient.get<MyPassport>('/api/me/passport')).data,
+    retry: false,
+  })
+}

@@ -51,6 +51,13 @@ public class PortalController(ISender mediator) : ControllerBase
     public async Task<ActionResult<List<WorkoutLogDto>>> Workouts(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyWorkoutLogsQuery(), cancellationToken));
 
+    // Every movement this gym offers, marked with what the member has done on it. The catalogue is
+    // the gym's own, so coverage means something specific to the site they actually train at.
+    [HttpGet("passport")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyPassportDto>> Passport(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyPassportQuery(), cancellationToken));
+
     // The member's own trainer and the conversation with them. Which trainer is resolved server-side
     // from their assignment — there is no parameter here for reaching anyone else's coach.
     [HttpGet("coach")]

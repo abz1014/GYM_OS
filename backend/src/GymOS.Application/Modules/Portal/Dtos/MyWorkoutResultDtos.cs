@@ -71,3 +71,21 @@ public record MyCoachDto(
 /// <param name="WorkoutLogId">The session this message is about, when it is about one.</param>
 public record MyCoachMessageDto(
     Guid Id, string Author, string Body, DateTimeOffset SentAt, bool Read, Guid? WorkoutLogId);
+
+/// <summary>
+/// The member's map of their own gym — what they have used and what is still waiting.
+/// </summary>
+/// <param name="Available">Size of this gym's catalogue. Coverage is measured against the site the
+/// member actually trains at, not a notional complete gym.</param>
+public record MyPassportDto(
+    int Tried, int Available, int PercentCovered, bool Complete, IReadOnlyList<MyPassportStampDto> Stamps);
+
+/// <summary>One kind of equipment and how much of it the member has covered.</summary>
+public record MyPassportStampDto(
+    string Equipment, int Tried, int Available, bool Complete, IReadOnlyList<MyPassportEntryDto> Entries);
+
+/// <param name="BestWeightKg">Null for a movement carrying no load — a plank has no best weight, and
+/// "0kg" would read as a failure rather than the absence of a number.</param>
+public record MyPassportEntryDto(
+    Guid ExerciseId, string ExerciseName, string? MuscleGroup, bool Tried, int Sessions,
+    decimal? BestWeightKg, DateOnly? LastTrained);
