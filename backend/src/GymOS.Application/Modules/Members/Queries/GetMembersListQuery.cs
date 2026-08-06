@@ -37,9 +37,25 @@ public class GetMembersListQueryHandler(IApplicationDbContext db, ICurrentUserSe
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
             var term = request.SearchTerm.Trim();
+            /*
+             * The QR token is matched EXACTLY, everything else by substring.
+             *
+             * Every member has carried a QrCodeToken since they were created, and the attendance
+             * method is literally called QrSimulated — but nothing ever searched by it, so a real
+             * scanner emitting a member's token found nobody and the loop was never closed. Adding it
+             * here rather than behind a second endpoint means the front desk keeps ONE input: a name,
+             * a code, an email and a scanned card all land in the same box, which is the only design
+             * that works when the thing typing is a barcode reader.
+             *
+             * Exact, not Contains, for two reasons. A token is opaque and 32 hex characters, so a
+             * substring match buys nothing a human would ever type; and a short accidental term could
+             * otherwise collide with the middle of somebody's token and return a member the person
+             * searching has no business being shown.
+             */
             query = query.Where(m =>
                 m.FirstName.Contains(term) || m.LastName.Contains(term) ||
-                m.Email.Contains(term) || m.MemberCode.Contains(term));
+                m.Email.Contains(term) || m.MemberCode.Contains(term) ||
+                m.QrCodeToken == term);
         }
 
         var projected = query

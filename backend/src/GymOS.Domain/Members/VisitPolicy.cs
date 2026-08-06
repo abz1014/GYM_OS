@@ -39,6 +39,20 @@ public static class VisitPolicy
     }
 
     /// <summary>
+    /// Whether one attendance row means "this member is in the building right now".
+    ///
+    /// Both halves matter. Open (no check-out) is the obvious one. Dated TODAY is the one that keeps
+    /// a forgotten check-out from doing damage: gyms are full of visits nobody ever closed, and a
+    /// member who left last Tuesday without swiping out is not inside — so treating that stale row as
+    /// "already here" would refuse to record every real visit they made afterwards.
+    ///
+    /// Read on the gym's clock, like every other day this product counts, so a late-evening visit
+    /// belongs to the evening it happened rather than to tomorrow in UTC.
+    /// </summary>
+    public static bool IsInsideNow(DateTimeOffset checkInAt, DateTimeOffset? checkOutAt, DateTimeOffset now, TimeZoneInfo zone)
+        => checkOutAt is null && GymDay.Of(checkInAt, zone) == GymDay.Of(now, zone);
+
+    /// <summary>
     /// Classifies today from the member's own check-ins and the dates they have sessions on.
     /// </summary>
     /// <param name="visits">Check-in/check-out pairs. Any date; only today's are considered.</param>

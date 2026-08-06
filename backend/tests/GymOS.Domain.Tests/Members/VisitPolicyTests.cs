@@ -128,4 +128,48 @@ public class VisitPolicyTests
         visit.SessionRecorded.ShouldBeTrue();
         visit.NeedsRecording.ShouldBeFalse();
     }
+
+    [Fact]
+    public void An_open_visit_from_today_means_they_are_inside()
+    {
+        var (inAt, outAt) = Visit(17);
+
+        VisitPolicy.IsInsideNow(inAt, outAt, Now, TimeZoneInfo.Utc).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void A_closed_visit_from_today_means_they_have_left()
+    {
+        var (inAt, outAt) = Visit(9, 10);
+
+        VisitPolicy.IsInsideNow(inAt, outAt, Now, TimeZoneInfo.Utc).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void A_visit_nobody_ever_closed_does_not_keep_them_inside_forever()
+    {
+        // The rule this exists for. Someone who left last week without swiping out is not in the
+        // building, and treating that row as "already here" would refuse every real visit since.
+        var lastWeek = new DateTimeOffset(2026, 7, 30, 17, 0, 0, TimeSpan.Zero);
+
+        VisitPolicy.IsInsideNow(lastWeek, null, Now, TimeZoneInfo.Utc).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Inside_is_judged_on_the_gyms_clock_not_utc()
+    {
+        // 9pm Wednesday in New York is already Thursday in UTC. The member walked in on Wednesday
+        // evening and is still there; on a UTC calendar that visit belongs to a different day than
+        // the one being asked about, and they would read as gone.
+        var zone = GymDay.ZoneOrUtc("America/New_York");
+        var wednesdayEvening = new DateTimeOffset(2026, 8, 5, 21, 0, 0, TimeSpan.FromHours(-4));
+        var anHourLater = wednesdayEvening.AddHours(1);
+
+        VisitPolicy.IsInsideNow(wednesdayEvening, null, anHourLater, zone).ShouldBeTrue();
+        VisitPolicy.IsInsideNow(wednesdayEvening, null, anHourLater, TimeZoneInfo.Utc).ShouldBeTrue();
+
+        // ...and the next morning, local, they are no longer "inside" on either calendar.
+        var thursdayMorning = new DateTimeOffset(2026, 8, 6, 9, 0, 0, TimeSpan.FromHours(-4));
+        VisitPolicy.IsInsideNow(wednesdayEvening, null, thursdayMorning, zone).ShouldBeFalse();
+    }
 }
