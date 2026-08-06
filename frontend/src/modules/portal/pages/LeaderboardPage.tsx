@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Dumbbell, Flame, Sparkles, Trophy, Users } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { MemberEmptyState } from '@/modules/portal/components/portalShared'
 import {
   useMyLeaderboard,
@@ -22,30 +22,53 @@ const CATEGORIES: { key: LeaderboardCategory; label: string; unit: string }[] = 
 /** Below this many ranked members, a percentage says less than the raw field size. */
 const MIN_RANKED_FOR_PERCENTILE = 20
 
-/** Medal colours for the top three. Everyone below reads as ordinary text on purpose. */
-const PODIUM_STYLE = ['text-amber-500', 'text-slate-400', 'text-amber-700']
+/** Initials for the row avatar. Names arrive as "First L." (see LeaderboardPolicy). */
+function initials(displayName: string): string {
+  return displayName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('')
+}
 
 function Row({ row, unit }: { row: LeaderboardRow; unit: string }) {
   return (
-    <div
-      className={`flex items-center gap-3 border-b p-3 last:border-b-0 ${
-        row.isYou ? 'bg-primary/5' : ''
-      }`}
+    <li
+      className={cn(
+        'flex items-center gap-3 rounded-2xl border p-3',
+        row.isYou
+          ? // Inverted rather than merely tinted: a member scrolling for themselves should find their
+            // own row without reading a single name.
+            'border-primary bg-primary text-primary-foreground'
+          : row.rank === 1
+            ? 'border-warning/40 bg-card'
+            : 'border-border bg-card',
+      )}
     >
-      <span className="flex w-8 shrink-0 justify-center">
-        {row.rank <= 3 ? (
-          <Trophy className={`size-5 ${PODIUM_STYLE[row.rank - 1]}`} />
-        ) : (
-          <span className="text-sm font-semibold tabular-nums text-muted-foreground">{row.rank}</span>
+      <span
+        className={cn(
+          'w-7 shrink-0 text-right font-display text-lg font-black tabular-nums',
+          row.isYou ? 'text-primary-foreground' : row.rank === 1 ? 'text-warning' : 'text-muted-foreground',
         )}
+      >
+        {row.rank}
       </span>
-      <span className="min-w-0 flex-1 truncate font-medium">
-        {row.displayName}
-        {row.isYou && <span className="ml-2 text-xs font-normal text-primary">You</span>}
+      <span
+        className={cn(
+          'flex size-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold',
+          row.isYou
+            ? 'bg-primary-foreground text-primary'
+            : row.rank === 1
+              ? 'bg-warning/15 text-warning'
+              : 'bg-muted text-muted-foreground',
+        )}
+      >
+        {initials(row.displayName)}
       </span>
-      <span className="shrink-0 font-semibold tabular-nums">{row.score.toLocaleString()}</span>
-      <span className="w-10 shrink-0 text-xs text-muted-foreground">{unit}</span>
-    </div>
+      <span className="min-w-0 flex-1 truncate font-medium">{row.isYou ? 'You' : row.displayName}</span>
+      <span className="shrink-0 font-display font-black tabular-nums">{row.score.toLocaleString()}</span>
+      <span className={cn('w-9 shrink-0 text-xs', row.isYou ? 'opacity-70' : 'text-muted-foreground')}>{unit}</span>
+    </li>
   )
 }
 
@@ -59,6 +82,11 @@ function Row({ row, unit }: { row: LeaderboardRow; unit: string }) {
  * Four categories rather than one because a single board only motivates whoever is winning it: the
  * heaviest lifter, the most consistent attender and the longest streak are different people, and
  * each should be able to find a board they're near the top of.
+ *
+ * The redesign proposed fusing this with Challenges into one screen. Kept separate: a challenge is
+ * something a member opted into with an end date, a leaderboard is a standing comparison that always
+ * exists — and the gap sentence the merged design leads with ("one more heavy session should do it")
+ * needs pace-to-target maths that only a challenge has. The visual language is shared instead.
  */
 export default function LeaderboardPage() {
   const [category, setCategory] = useState<LeaderboardCategory>('XpEarned')
@@ -71,7 +99,7 @@ export default function LeaderboardPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Leaderboard</h1>
+        <h1 className="font-display text-3xl font-black tracking-tight">Leaderboard</h1>
         <p className="text-sm text-muted-foreground">How you're doing against your gym this {period.toLowerCase()}.</p>
       </div>
 
@@ -81,13 +109,9 @@ export default function LeaderboardPage() {
           <Button
             key={c.key}
             variant={c.key === category ? 'default' : 'outline'}
-            className="h-11 w-full px-3 text-sm"
+            className="h-11 w-full rounded-xl px-3 text-sm font-bold"
             onClick={() => setCategory(c.key)}
           >
-            {c.key === 'XpEarned' && <Sparkles className="size-4" />}
-            {c.key === 'WorkoutsLogged' && <Dumbbell className="size-4" />}
-            {c.key === 'GymVisits' && <Users className="size-4" />}
-            {c.key === 'WeeklyStreak' && <Flame className="size-4" />}
             {c.label}
           </Button>
         ))}
@@ -96,21 +120,24 @@ export default function LeaderboardPage() {
       {/* A streak is a standing run, not something accumulated in a window, so the period toggle
           would be a lie on that board — hide it rather than show a control that does nothing. */}
       {category !== 'WeeklyStreak' && (
-        <div className="flex gap-2">
+        <div className="flex gap-1 rounded-2xl bg-muted p-1">
           {(['Month', 'Week'] as LeaderboardPeriod[]).map((p) => (
-            <Button
+            <button
               key={p}
-              variant={p === period ? 'secondary' : 'ghost'}
-              className="h-11 flex-1 text-sm"
+              type="button"
               onClick={() => setPeriod(p)}
+              className={cn(
+                'h-10 flex-1 rounded-xl text-sm font-bold transition-colors',
+                p === period ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
             >
               This {p.toLowerCase()}
-            </Button>
+            </button>
           ))}
         </div>
       )}
 
-      {board.isLoading && <Skeleton className="h-64 w-full rounded-xl" />}
+      {board.isLoading && <Skeleton className="h-64 w-full rounded-3xl" />}
 
       {board.isError && !data && (
         <MemberEmptyState icon={Trophy} title="We couldn't load the board" hint="Check your connection and try again." />
@@ -128,70 +155,75 @@ export default function LeaderboardPage() {
       {data && data.totalRanked > 0 && (
         <>
           {/* Your standing, stated before the list — most members open this to find themselves. */}
-          <Card>
-            <CardContent className="flex items-center justify-between gap-4 py-5">
-              {data.you ? (
-                <>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Your rank</p>
-                    <p className="text-4xl leading-none font-black tracking-tight tabular-nums">
-                      #{data.you.rank}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    {/*
-                      "Top X%" only once the board is big enough for a percentage to mean anything.
-                      At a gym with four ranked members, first place is mathematically "top 25%",
-                      which reads as an insult rather than a win — so small boards show the field
-                      size instead, which is honest at any scale.
-                    */}
-                    {data.totalRanked >= MIN_RANKED_FOR_PERCENTILE ? (
-                      <>
-                        <p className="text-sm text-muted-foreground">Top</p>
-                        <p className="text-4xl leading-none font-black tracking-tight tabular-nums text-primary">
-                          {Math.max(1, Math.round((data.you.rank / data.totalRanked) * 100))}%
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm text-muted-foreground">Out of</p>
-                        <p className="text-4xl leading-none font-black tracking-tight tabular-nums text-primary">
-                          {data.totalRanked}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </>
-              ) : (
+          <div className="rounded-3xl border border-border bg-card p-5">
+            {data.you ? (
+              <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="font-medium">You're not on this board yet</p>
-                  <p className="text-sm text-muted-foreground">
-                    Log a session and you'll appear from the next refresh.
+                  <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+                    Your position
+                  </p>
+                  <p className="mt-1 flex items-baseline gap-2">
+                    <span className="font-display text-6xl leading-none font-black tracking-tight text-primary tabular-nums">
+                      {data.you.rank}
+                    </span>
+                    <span className="text-lg text-muted-foreground">of {data.totalRanked}</span>
                   </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <div className="text-right">
+                  {/*
+                    "Top X%" only once the board is big enough for a percentage to mean anything.
+                    At a gym with four ranked members, first place is mathematically "top 25%",
+                    which reads as an insult rather than a win — so small boards show the raw score
+                    instead, which is honest at any scale.
+                  */}
+                  {data.totalRanked >= MIN_RANKED_FOR_PERCENTILE ? (
+                    <>
+                      <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Top</p>
+                      <p className="font-display text-3xl leading-none font-black tracking-tight tabular-nums">
+                        {Math.max(1, Math.round((data.you.rank / data.totalRanked) * 100))}%
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">{unit}</p>
+                      <p className="font-display text-3xl leading-none font-black tracking-tight tabular-nums">
+                        {data.you.score.toLocaleString()}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="font-medium">You're not on this board yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Log a session and you'll appear from the next refresh.
+                </p>
+              </div>
+            )}
+          </div>
 
           <section className="space-y-2">
-            <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            <h2 className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
               Top {Math.min(3, data.podium.length)} of {data.totalRanked}
             </h2>
-            <div className="overflow-hidden rounded-xl border">
+            <ul className="space-y-2">
               {data.podium.map((r) => (
                 <Row key={`podium-${r.rank}-${r.displayName}`} row={r} unit={unit} />
               ))}
-            </div>
+            </ul>
           </section>
 
           {data.aroundYou.length > 0 && (
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Around you</h2>
-              <div className="overflow-hidden rounded-xl border">
+              {/* The break in rank between the podium above and the member's neighbours below, said
+                  as a gap rather than left as an unexplained jump from 3 to 19. */}
+              <p aria-hidden className="text-center text-lg tracking-[0.3em] text-muted-foreground">···</p>
+              <ul className="space-y-2">
                 {data.aroundYou.map((r) => (
                   <Row key={`near-${r.rank}-${r.displayName}`} row={r} unit={unit} />
                 ))}
-              </div>
+              </ul>
             </section>
           )}
         </>
