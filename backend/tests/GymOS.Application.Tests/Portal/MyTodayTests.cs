@@ -307,6 +307,47 @@ public class MyTodayTests : ApplicationTestBase
         (await SendAsync(new GetMyTodayQuery())).Visit.State.ShouldBe("None");
     }
 
+    [Fact]
+    public async Task A_sunday_evening_session_closes_that_week_not_the_next_one()
+    {
+        // The worst case of counting in UTC days. 8:30pm Sunday in New York is already Monday in UTC,
+        // so the last session of the week landed in the next one: the ring reset with the work
+        // undone, and the streak it feeds broke while the member was training exactly as planned.
+        var ctx = await SeedAsync();
+        AsMember(ctx);
+        await SetBranchTimeZoneAsync(ctx, "America/New_York");
+
+        var sundayEvening = new DateTimeOffset(2026, 8, 9, 20, 30, 0, TimeSpan.FromHours(-4));
+        DateTimeProvider.UtcNow = sundayEvening;
+        await SendAsync(new LogMyWorkoutCommand([new WorkoutLogEntryInput(ctx.ExerciseId, 3, 10, null)]));
+
+        var today = await SendAsync(new GetMyTodayQuery());
+
+        today.SessionsThisWeek.ShouldBe(1);
+        today.WorkoutStreakWeeks.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_gym_with_an_unreadable_timezone_still_serves_the_member()
+    {
+        // Settings are typed by people. A bad value must degrade to UTC days, not a portal that 500s.
+        var ctx = await SeedAsync();
+        AsMember(ctx);
+        await SetBranchTimeZoneAsync(ctx, "Not/AZone");
+        await SendAsync(new LogMyWorkoutCommand([new WorkoutLogEntryInput(ctx.ExerciseId, 3, 10, null)]));
+
+        (await SendAsync(new GetMyTodayQuery())).SessionsThisWeek.ShouldBe(1);
+    }
+
+    private async Task SetBranchTimeZoneAsync(SeedContext ctx, string timeZoneId)
+    {
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var branch = await db.Branches.FirstAsync(b => b.Id == ctx.BranchId);
+        branch.TimeZone = timeZoneId;
+        await db.SaveChangesAsync();
+    }
+
     private async Task CheckInAsync(SeedContext ctx, DateTimeOffset checkInAt, DateTimeOffset? checkOutAt)
     {
         using var scope = CreateScope();

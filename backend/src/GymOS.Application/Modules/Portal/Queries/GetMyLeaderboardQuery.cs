@@ -1,4 +1,5 @@
 using GymOS.Application.Common.Interfaces;
+using GymOS.Domain.Common;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Portal.Dtos;
 using GymOS.Domain.Experience;
@@ -27,7 +28,8 @@ public class GetMyLeaderboardQueryHandler(
     public async Task<MyLeaderboardDto> Handle(GetMyLeaderboardQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
         var (windowStart, windowEnd) = LeaderboardPolicy.WindowFor(request.Period, today);
 
         var branchId = await db.Members.AsNoTracking()
@@ -41,7 +43,7 @@ public class GetMyLeaderboardQueryHandler(
             .ToListAsync(cancellationToken);
 
         var memberIds = roster.Select(r => r.Id).ToList();
-        var scores = await ScoreAsync(request.Category, memberIds, windowStart, windowEnd, today, cancellationToken);
+        var scores = await ScoreAsync(request.Category, memberIds, windowStart, windowEnd, today, zone, cancellationToken);
 
         var standings = LeaderboardPolicy.Rank(scores);
         var namesById = roster.ToDictionary(r => r.Id, r => LeaderboardPolicy.DisplayName(r.FirstName, r.LastName));
@@ -75,11 +77,11 @@ public class GetMyLeaderboardQueryHandler(
     /// </summary>
     private async Task<List<(Guid MemberId, int Score)>> ScoreAsync(
         LeaderboardCategory category, List<Guid> memberIds,
-        DateOnly windowStart, DateOnly windowEnd, DateOnly today, CancellationToken cancellationToken)
+        DateOnly windowStart, DateOnly windowEnd, DateOnly today, TimeZoneInfo zone, CancellationToken cancellationToken)
     {
         bool InWindow(DateTimeOffset at)
         {
-            var d = DateOnly.FromDateTime(at.UtcDateTime);
+            var d = GymDay.Of(at, zone);
             return d >= windowStart && d <= windowEnd;
         }
 
@@ -109,7 +111,7 @@ public class GetMyLeaderboardQueryHandler(
                 // splitting one workout into five entries would outrank someone who trained twice.
                 return rows.Where(r => InWindow(r.LoggedAt))
                     .GroupBy(r => r.MemberId)
-                    .Select(g => (g.Key, g.Select(r => DateOnly.FromDateTime(r.LoggedAt.UtcDateTime)).Distinct().Count()))
+                    .Select(g => (g.Key, g.Select(r => GymDay.Of(r.LoggedAt, zone)).Distinct().Count()))
                     .ToList();
             }
 
@@ -123,7 +125,7 @@ public class GetMyLeaderboardQueryHandler(
                 // Also per day: two check-ins on one day is one visit, not two.
                 return rows.Where(r => InWindow(r.CheckInAt))
                     .GroupBy(r => r.MemberId)
-                    .Select(g => (g.Key, g.Select(r => DateOnly.FromDateTime(r.CheckInAt.UtcDateTime)).Distinct().Count()))
+                    .Select(g => (g.Key, g.Select(r => GymDay.Of(r.CheckInAt, zone)).Distinct().Count()))
                     .ToList();
             }
 
@@ -138,7 +140,7 @@ public class GetMyLeaderboardQueryHandler(
 
                 return rows.GroupBy(r => r.MemberId)
                     .Select(g => (g.Key, StreakCalculator.CurrentWeeklyStreak(
-                        g.Select(r => DateOnly.FromDateTime(r.LoggedAt.UtcDateTime)), today)))
+                        g.Select(r => GymDay.Of(r.LoggedAt, zone)), today)))
                     .ToList();
             }
 

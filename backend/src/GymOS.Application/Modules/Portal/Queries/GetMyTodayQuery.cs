@@ -1,4 +1,5 @@
 using GymOS.Application.Common.Interfaces;
+using GymOS.Domain.Common;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Experience.Queries;
 using GymOS.Application.Modules.Portal.Dtos;
@@ -27,8 +28,9 @@ public class GetMyTodayQueryHandler(
     public async Task<MyTodayDto> Handle(GetMyTodayQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
         var now = dateTimeProvider.UtcNow;
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var today = GymDay.Of(now, zone);
 
         var firstName = await db.Members.AsNoTracking()
             .Where(m => m.Id == memberId)
@@ -43,7 +45,7 @@ public class GetMyTodayQueryHandler(
                 .Where(w => w.MemberId == memberId)
                 .Select(w => w.LoggedAt)
                 .ToListAsync(cancellationToken))
-            .Select(loggedAt => DateOnly.FromDateTime(loggedAt.UtcDateTime))
+            .Select(loggedAt => GymDay.Of(loggedAt, zone))
             .ToList();
 
         // An absent preference row means "never customised" and reads as the default, so members who
@@ -76,7 +78,7 @@ public class GetMyTodayQueryHandler(
             .ToListAsync(cancellationToken);
 
         var nextClassToday = myBookings
-            .Where(b => b.StartsAt >= now && DateOnly.FromDateTime(b.StartsAt.UtcDateTime) == today)
+            .Where(b => b.StartsAt >= now && GymDay.Of(b.StartsAt, zone) == today)
             .OrderBy(b => b.StartsAt)
             .FirstOrDefault();
 
@@ -95,7 +97,7 @@ public class GetMyTodayQueryHandler(
             .Select(a => (a.CheckInAt, a.CheckOutAt))
             .ToList();
 
-        var visit = VisitPolicy.Classify(visits, workoutDates, now);
+        var visit = VisitPolicy.Classify(visits, workoutDates, now, zone);
 
         return new MyTodayDto(
             firstName,

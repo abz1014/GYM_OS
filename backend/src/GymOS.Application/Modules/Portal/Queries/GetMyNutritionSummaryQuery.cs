@@ -1,4 +1,5 @@
 using GymOS.Application.Common.Interfaces;
+using GymOS.Domain.Common;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Portal.Dtos;
 using MediatR;
@@ -21,7 +22,8 @@ public class GetMyNutritionSummaryQueryHandler(IApplicationDbContext db, ICurren
     public async Task<MyNutritionSummaryDto> Handle(GetMyNutritionSummaryQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
 
         var activePlan = await db.DietPlans.AsNoTracking()
             .Where(p => p.MemberId == memberId && p.StartDate <= today && (p.EndDate == null || p.EndDate >= today))
@@ -41,7 +43,7 @@ public class GetMyNutritionSummaryQueryHandler(IApplicationDbContext db, ICurren
             .Select(e => new { e.Quantity, e.ConsumedAt, e.FoodItemId })
             .ToListAsync(cancellationToken);
 
-        var todaysEntries = entries.Where(e => DateOnly.FromDateTime(e.ConsumedAt!.Value.UtcDateTime) == today).ToList();
+        var todaysEntries = entries.Where(e => GymDay.Of(e.ConsumedAt!.Value, zone) == today).ToList();
         var foodItemIds = todaysEntries.Select(e => e.FoodItemId).Distinct().ToList();
         var foodItems = await db.FoodItems.AsNoTracking()
             .Where(f => foodItemIds.Contains(f.Id))
@@ -65,7 +67,7 @@ public class GetMyNutritionSummaryQueryHandler(IApplicationDbContext db, ICurren
             .Where(w => w.MemberId == memberId)
             .Select(w => new { w.AmountMl, w.LoggedAt })
             .ToListAsync(cancellationToken);
-        var waterToday = waterLogs.Where(w => DateOnly.FromDateTime(w.LoggedAt.UtcDateTime) == today).Sum(w => w.AmountMl);
+        var waterToday = waterLogs.Where(w => GymDay.Of(w.LoggedAt, zone) == today).Sum(w => w.AmountMl);
 
         return new MyNutritionSummaryDto(
             activePlan.Name, activePlan.TargetCalories, activePlan.TargetProteinG, activePlan.TargetCarbsG, activePlan.TargetFatG,

@@ -1,4 +1,5 @@
 using GymOS.Application.Common.Interfaces;
+using GymOS.Domain.Common;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Portal.Dtos;
 using GymOS.Domain.Workouts;
@@ -27,7 +28,8 @@ public class GetMyNextSessionQueryHandler(
     public async Task<MySessionProposalDto> Handle(GetMyNextSessionQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
 
         // 1. An active trainer plan, if there is one. Templates carry sets and reps but never load.
         // Exactly one plan is taken — the most recently started. A member moved onto a new block before

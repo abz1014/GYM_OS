@@ -1,6 +1,7 @@
 using FluentValidation;
 using GymOS.Application.Common.Exceptions;
 using GymOS.Application.Common.Interfaces;
+using GymOS.Domain.Common;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Challenges.Queries;
 using GymOS.Application.Modules.Members.Commands;
@@ -53,7 +54,8 @@ public class LogMyWorkoutCommandHandler(
     public async Task<MyWorkoutResultDto> Handle(LogMyWorkoutCommand request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
 
         // Exercises are tenant-scoped, so this both validates the ids exist and prevents a member
         // referencing another tenant's exercise.
@@ -76,7 +78,7 @@ public class LogMyWorkoutCommandHandler(
         var (xpBefore, levelBefore) = await ReadProgressionAsync(memberId, cancellationToken);
         var achievementsBefore = await db.MemberAchievements.AsNoTracking()
             .Where(a => a.MemberId == memberId).Select(a => a.Code).ToListAsync(cancellationToken);
-        var sessionsBefore = WeeklyGoalPolicy.SessionsThisWeek(await WorkoutDatesAsync(memberId, cancellationToken), today);
+        var sessionsBefore = WeeklyGoalPolicy.SessionsThisWeek(await WorkoutDatesAsync(memberId, zone, cancellationToken), today);
         var challengesBefore = (await sender.Send(new GetMyChallengesQuery(), cancellationToken))
             .ToDictionary(c => c.Id, c => c.IsCompleted);
 
@@ -85,7 +87,7 @@ public class LogMyWorkoutCommandHandler(
         var workoutLogId = await sender.Send(new LogWorkoutCommand(memberId, null, request.Entries), cancellationToken);
 
         var (xpAfter, levelAfter) = await ReadProgressionAsync(memberId, cancellationToken);
-        var workoutDates = await WorkoutDatesAsync(memberId, cancellationToken);
+        var workoutDates = await WorkoutDatesAsync(memberId, zone, cancellationToken);
         var sessionsAfter = WeeklyGoalPolicy.SessionsThisWeek(workoutDates, today);
 
         var goal = await db.MemberTrainingPreferences.AsNoTracking()
@@ -148,12 +150,12 @@ public class LogMyWorkoutCommandHandler(
         return row is null ? (0L, 1) : (row.TotalXp, row.Level);
     }
 
-    private async Task<List<DateOnly>> WorkoutDatesAsync(Guid memberId, CancellationToken cancellationToken)
+    private async Task<List<DateOnly>> WorkoutDatesAsync(Guid memberId, TimeZoneInfo zone, CancellationToken cancellationToken)
         => (await db.WorkoutLogs.AsNoTracking()
                 .Where(w => w.MemberId == memberId)
                 .Select(w => w.LoggedAt)
                 .ToListAsync(cancellationToken))
-            .Select(d => DateOnly.FromDateTime(d.UtcDateTime))
+            .Select(d => GymDay.Of(d, zone))
             .ToList();
 }
 
@@ -172,6 +174,7 @@ public class LogMyWaterCommandHandler(IApplicationDbContext db, ICurrentUserServ
     public async Task<Guid> Handle(LogMyWaterCommand request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
         return await sender.Send(new LogWaterCommand(memberId, request.AmountMl), cancellationToken);
     }
 }
@@ -200,7 +203,8 @@ public class LogMyMealCommandHandler(
     public async Task<Guid> Handle(LogMyMealCommand request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
 
         var planId = await db.DietPlans.AsNoTracking()
             .Where(p => p.MemberId == memberId && p.StartDate <= today && (p.EndDate == null || p.EndDate >= today))
@@ -246,7 +250,8 @@ public class LogMyMeasurementCommandHandler(
     public async Task<Guid> Handle(LogMyMeasurementCommand request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
 
         return await sender.Send(
             new AddMeasurementCommand(

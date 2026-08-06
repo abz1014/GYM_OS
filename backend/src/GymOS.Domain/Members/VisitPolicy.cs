@@ -1,3 +1,5 @@
+using GymOS.Domain.Common;
+
 namespace GymOS.Domain.Members;
 
 /// <summary>Where a member stands in relation to the gym today.</summary>
@@ -41,19 +43,22 @@ public static class VisitPolicy
     /// </summary>
     /// <param name="visits">Check-in/check-out pairs. Any date; only today's are considered.</param>
     /// <param name="sessionDates">Dates the member has logged a workout on.</param>
+    /// <param name="zone">The gym's clock. "Today" has to mean the member's today: on a UTC day an
+    /// evening visit in New York falls on tomorrow, so someone who had just trained was told nothing.</param>
     public static TodaysVisit Classify(
         IEnumerable<(DateTimeOffset CheckInAt, DateTimeOffset? CheckOutAt)> visits,
         IEnumerable<DateOnly> sessionDates,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        TimeZoneInfo zone)
     {
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var today = GymDay.Of(now, zone);
         var recorded = sessionDates.Any(d => d == today);
 
         // Filtering on the check-IN date is what keeps a forgotten check-out harmless. Gyms are full
         // of visits nobody ever closed; without this, one stale open record would tell a member they
         // were in the building every day forever.
         var todaysVisits = visits
-            .Where(v => DateOnly.FromDateTime(v.CheckInAt.UtcDateTime) == today)
+            .Where(v => GymDay.Of(v.CheckInAt, zone) == today)
             .OrderByDescending(v => v.CheckInAt)
             .ToList();
 

@@ -1,5 +1,6 @@
 using GymOS.Application.Common.Exceptions;
 using GymOS.Application.Common.Interfaces;
+using GymOS.Domain.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymOS.Application.Modules.Portal;
@@ -27,5 +28,26 @@ internal static class MyMemberResolver
             .FirstOrDefaultAsync(cancellationToken);
 
         return memberId ?? throw new NotFoundException("MemberProfile", currentUser.UserId);
+    }
+
+    /// <summary>
+    /// The timezone of the gym this member belongs to — the clock that decides what "today" means
+    /// for them. Everything a member counts is counted in days, and a UTC day is nobody's day: in
+    /// New York an 8pm session lands on the next UTC date, so evening training was being counted
+    /// against the following day. Resolved per request rather than cached because a member moves
+    /// branch rarely and correctness here is worth one small read.
+    /// </summary>
+    public static async Task<TimeZoneInfo> ResolveGymZoneAsync(
+        IApplicationDbContext db, Guid memberId, CancellationToken cancellationToken)
+    {
+        // Member carries a BranchId but no navigation to it, so this joins the tenant-scoped branch
+        // table directly — the same shape the portal queries use for the exercise catalogue.
+        var timeZoneId = await (from m in db.Members.AsNoTracking()
+                                join b in db.Branches.AsNoTracking() on m.BranchId equals b.Id
+                                where m.Id == memberId
+                                select b.TimeZone)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return GymDay.ZoneOrUtc(timeZoneId);
     }
 }

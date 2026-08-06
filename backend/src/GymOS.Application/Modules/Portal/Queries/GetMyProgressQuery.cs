@@ -1,4 +1,5 @@
 using GymOS.Application.Common.Interfaces;
+using GymOS.Domain.Common;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Portal.Dtos;
 using GymOS.Domain.Members;
@@ -22,7 +23,8 @@ public class GetMyProgressQueryHandler(IApplicationDbContext db, ICurrentUserSer
     public async Task<MyProgressDto> Handle(GetMyProgressQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
         var monthStart = new DateOnly(today.Year, today.Month, 1);
 
         var checkInDates = await db.AttendanceRecords.AsNoTracking()
@@ -30,7 +32,7 @@ public class GetMyProgressQueryHandler(IApplicationDbContext db, ICurrentUserSer
             .Select(a => a.CheckInAt)
             .ToListAsync(cancellationToken);
 
-        var checkInDays = checkInDates.Select(c => DateOnly.FromDateTime(c.UtcDateTime)).ToList();
+        var checkInDays = checkInDates.Select(c => GymDay.Of(c, zone)).ToList();
 
         var measurements = await db.MemberMeasurements.AsNoTracking()
             .Where(m => m.MemberId == memberId && m.WeightKg != null)
