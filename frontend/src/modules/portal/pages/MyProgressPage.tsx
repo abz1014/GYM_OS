@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarCheck, Camera, Check, CheckCircle2, Flame, History, Loader2, Plus, Ruler, Scale, Target, Trophy, Award, TrendingDown, TrendingUp } from 'lucide-react'
+import { CalendarCheck, Camera, Check, CheckCircle2, Dumbbell, Flame, History, Loader2, Plus, Ruler, Scale, Target, Trophy, Award, TrendingDown, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +33,7 @@ const fullDateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'num
 
 // Timeline entry type -> icon + accent color.
 const TIMELINE_STYLE: Record<TimelineEntryType, { icon: typeof Ruler; text: string }> = {
+  Workout: { icon: Dumbbell, text: 'text-primary' },
   Measurement: { icon: Ruler, text: 'text-sky-600' },
   Photo: { icon: Camera, text: 'text-violet-600' },
   GoalAchieved: { icon: CheckCircle2, text: 'text-emerald-600' },

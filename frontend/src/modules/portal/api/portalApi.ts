@@ -488,7 +488,14 @@ export function useSetMyWeeklyGoal() {
   })
 }
 
-export type TimelineEntryType = 'Measurement' | 'Photo' | 'GoalAchieved' | 'PersonalRecord' | 'Achievement'
+export type TimelineEntryType =
+  | 'Workout'
+  | 'Measurement'
+  | 'Photo'
+  | 'GoalAchieved'
+  /** Only for a record with no session attached — one set during a session is folded into it. */
+  | 'PersonalRecord'
+  | 'Achievement'
 
 export interface MyTimelineEntry {
   type: TimelineEntryType

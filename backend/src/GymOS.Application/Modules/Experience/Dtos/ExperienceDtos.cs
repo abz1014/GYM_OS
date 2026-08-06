@@ -72,7 +72,8 @@ public record MuscleRecoveryDto(
     int TimesLast7Days,
     int? DaysSinceLastTrained);
 
-/// <summary>One entry in a member's transformation timeline — a merge of measurements, photos,
-/// achieved goals, personal records, and unlocked achievements, ordered by when it happened. A pure
-/// read composition over existing append-only tables — no new source of truth.</summary>
+/// <summary>One entry in a member's story — sessions, measurements, photos, achieved goals and
+/// unlocked achievements, ordered by when they happened. Records set during a session are folded
+/// into that session rather than listed beside it; see GetMyTimelineQuery. A pure read composition
+/// over existing append-only tables — no new source of truth.</summary>
 public record MyTimelineEntryDto(string Type, DateTimeOffset OccurredAt, string Title, string? Description, string? PhotoUrl);

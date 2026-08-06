@@ -77,6 +77,85 @@ public class TransformationTimelineTests : ApplicationTestBase
     }
 
     [Fact]
+    public async Task A_session_appears_in_the_story_under_the_name_of_what_was_trained()
+    {
+        var ctx = await SeedAsync();
+        SetAuthenticatedAs(ctx.TenantId, ctx.UserId);
+        await LogSessionAsync(ctx, DateTimeProvider.UtcNow.AddDays(-1), records: 0);
+
+        var timeline = await SendAsync(new GetMyTimelineQuery());
+
+        var session = timeline.ShouldHaveSingleItem();
+        session.Type.ShouldBe("Workout");
+        session.Title.ShouldBe("Chest");                       // from the muscle group trained
+        session.Description.ShouldBe("Bench Press 3×8");
+    }
+
+    [Fact]
+    public async Task A_record_set_during_a_session_is_part_of_that_session_not_a_line_of_its_own()
+    {
+        var ctx = await SeedAsync();
+        SetAuthenticatedAs(ctx.TenantId, ctx.UserId);
+        // One good session writes a record per type, which is what used to bury the feed: three rows
+        // saying the same thing, none of them mentioning the workout they came from.
+        await LogSessionAsync(ctx, DateTimeProvider.UtcNow.AddDays(-1), records: 3);
+
+        var timeline = await SendAsync(new GetMyTimelineQuery());
+
+        var session = timeline.ShouldHaveSingleItem();
+        session.Type.ShouldBe("Workout");
+        session.Description.ShouldContain("new best on Bench Press");
+        // Named once, however many record types the lift set.
+        session.Description!.Split("Bench Press").Length.ShouldBe(3); // "…Bench Press 3×8 — new best on Bench Press"
+        timeline.ShouldNotContain(e => e.Type == "PersonalRecord");
+    }
+
+    [Fact]
+    public async Task A_record_with_no_session_attached_is_still_shown_on_its_own()
+    {
+        var ctx = await SeedAsync();
+        SetAuthenticatedAs(ctx.TenantId, ctx.UserId);
+        using (var scope = CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+            // A backfilled or imported record. Dropping it would take an achievement off the member.
+            db.PersonalRecords.Add(new PersonalRecord
+            {
+                TenantId = ctx.TenantId, MemberId = ctx.MemberId, ExerciseId = ctx.ExerciseId,
+                Type = PersonalRecordType.MaxWeight, Value = 120m, AchievedAt = DateTimeProvider.UtcNow.AddDays(-9)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var timeline = await SendAsync(new GetMyTimelineQuery());
+
+        timeline.ShouldHaveSingleItem().Type.ShouldBe("PersonalRecord");
+    }
+
+    private async Task LogSessionAsync((Guid TenantId, Guid BranchId, Guid MemberId, Guid ExerciseId, Guid UserId) ctx,
+        DateTimeOffset at, int records)
+    {
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        var log = new WorkoutLog { MemberId = ctx.MemberId, LoggedAt = at };
+        log.Entries.Add(new WorkoutLogEntry { ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+        db.WorkoutLogs.Add(log);
+
+        var types = new[] { PersonalRecordType.MaxWeight, PersonalRecordType.EstimatedOneRepMax, PersonalRecordType.SessionVolume };
+        for (var i = 0; i < records; i++)
+        {
+            db.PersonalRecords.Add(new PersonalRecord
+            {
+                TenantId = ctx.TenantId, MemberId = ctx.MemberId, ExerciseId = ctx.ExerciseId,
+                Type = types[i], Value = 60m + i, AchievedAt = at, WorkoutLogId = log.Id
+            });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
     public async Task Timeline_is_empty_with_no_history()
     {
         var ctx = await SeedAsync();

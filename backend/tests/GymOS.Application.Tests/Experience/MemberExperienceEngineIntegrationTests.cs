@@ -103,7 +103,11 @@ public class MemberExperienceEngineIntegrationTests : ApplicationTestBase
 
         // ================= S7: timeline merges what the other slices produced =================
         var timeline = await SendAsync(new GetMyTimelineQuery());
-        timeline.ShouldContain(e => e.Type == "PersonalRecord");
+        // The sessions are the spine, and the records they set are reported as part of them rather
+        // than as separate lines — both workouts here set records, so neither stands alone.
+        timeline.Count(e => e.Type == "Workout").ShouldBe(2);
+        timeline.ShouldContain(e => e.Type == "Workout" && e.Description!.Contains("new best on"));
+        timeline.ShouldNotContain(e => e.Type == "PersonalRecord");
         timeline.ShouldContain(e => e.Type == "Achievement");
         timeline.Select(e => e.OccurredAt).ShouldBe(timeline.Select(e => e.OccurredAt).OrderByDescending(o => o));
 
