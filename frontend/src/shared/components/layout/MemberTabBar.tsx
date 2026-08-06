@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
 import { MEMBER_TABS } from '@/shared/nav/memberNav'
@@ -27,7 +27,14 @@ export function MemberTabBar() {
 
           return (
             <li key={tab.path} className="flex-1">
-              <NavLink
+              {/*
+                A plain Link, not a NavLink, on purpose. NavLink decides "active" by matching its own
+                `to` and then sets aria-current itself, overriding anything passed in — so on a More
+                sub-route like /leaderboard the tab looked active to sighted users but reported
+                nothing to a screen reader. This tab bar already computes `active` from alsoMatches,
+                so it owns that state and says so.
+              */}
+              <Link
                 to={tab.path}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
@@ -38,7 +45,7 @@ export function MemberTabBar() {
               >
                 <tab.icon className={cn('size-6', active && 'stroke-[2.5]')} />
                 {tab.label}
-              </NavLink>
+              </Link>
             </li>
           )
         })}
