@@ -1,11 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Award, Flame, Loader2, Sparkles, Target, Trophy, TrendingUp, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { ActivityRing } from '@/shared/components/ActivityRing'
 import { PR_TYPE_CONFIG } from '@/modules/portal/components/portalShared'
-import { useUndoMyWorkout, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
+import { useOfferUndo, useUndoMyWorkout, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
 
 /** Reuses the labels the progress page already uses, so a record is named the same way everywhere. */
 function formatRecord(type: string, value: number): string {
@@ -26,16 +26,29 @@ function formatRecord(type: string, value: number): string {
  */
 export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutResult; onDismiss: () => void }) {
   const undo = useUndoMyWorkout()
+  const offerUndo = useOfferUndo()
   const [undone, setUndone] = useState(false)
 
-  // Escape dismisses too — the overlay covers the app, so it must never be a trap.
+  /**
+   * Closing this screen used to take the only way back with it: a member who tapped Done and then
+   * realised had no recourse, however recent the mistake. The way out now carries the way back for
+   * a few seconds, since whoever mis-taps the confirm is the same person likely to dismiss on
+   * reflex. Nothing is offered after an undo — there is no session left to take back.
+   */
+  const onDone = useCallback(() => {
+    if (!undone) offerUndo(result.workoutLogId, result.character)
+    onDismiss()
+  }, [undone, offerUndo, result.workoutLogId, result.character, onDismiss])
+
+  // Escape dismisses too — the overlay covers the app, so it must never be a trap. It goes through
+  // the same path as Done, or the fastest way out would be the one with no way back.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onDismiss()
+      if (e.key === 'Escape') onDone()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onDismiss])
+  }, [onDone])
 
   // With nothing bigger to report, the session names itself — "Push day", "Back & Arms" — instead of
   // the generic "Session logged" it used to fall back to. It is the member's own training described
@@ -139,7 +152,12 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
 
       {/* Sticky so the way out is always in reach, however much landed above. */}
       <div className="sticky bottom-0 w-full space-y-2 border-t bg-background px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <Button className="mx-auto flex h-14 w-full max-w-md text-base" onClick={onDismiss}>
+        {/*
+          Closing the celebration used to take the only way back with it. The way out now carries
+          the way back for a few seconds — the member who taps Done reflexively is the same one who
+          mis-tapped in the first place.
+        */}
+        <Button className="mx-auto flex h-14 w-full max-w-md text-base" onClick={onDone}>
           Done
         </Button>
 

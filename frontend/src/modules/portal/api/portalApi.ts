@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 import { apiClient } from '@/lib/apiClient'
 import type { MemberDetail } from '@/modules/members/api/membersApi'
@@ -684,15 +685,56 @@ export function useMyNextSession() {
   })
 }
 
+/** How long the "Undo" on the confirmation toast stays reachable. */
+export const UNDO_TOAST_MS = 20_000
+
+/**
+ * The one implementation of taking a session back. Shared by the button on the celebration and by
+ * the toast that outlives it, so there is a single call and a single cache invalidation however the
+ * member reaches for it. Takes the query client rather than being a hook, because the toast fires
+ * after the component that raised it has gone.
+ */
+async function undoWorkout(queryClient: ReturnType<typeof useQueryClient>, workoutLogId: string) {
+  await apiClient.delete(`/api/me/workouts/${workoutLogId}`)
+  invalidateAfterLogging(queryClient)
+}
+
 /** Takes back a just-logged session. The server enforces the window and unwinds XP and records. */
 export function useUndoMyWorkout() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (workoutLogId: string) => {
-      await apiClient.delete(`/api/me/workouts/${workoutLogId}`)
-    },
-    onSuccess: () => invalidateAfterLogging(queryClient),
+    mutationFn: (workoutLogId: string) => undoWorkout(queryClient, workoutLogId),
   })
+}
+
+/**
+ * Offers the way back for a few seconds after the member closes the celebration.
+ *
+ * One tap to log makes a mis-tap equally cheap, and the person most likely to mis-tap is also the
+ * one most likely to dismiss reflexively — so the recovery has to survive the screen it was on.
+ * Until now it did not: closing the celebration took the only "I didn't do this" with it, and the
+ * member was left with XP, possibly a record, and no way to say it never happened.
+ *
+ * Returned as a plain function bound to the query client, not a mutation, so it keeps working after
+ * the celebration unmounts.
+ */
+export function useOfferUndo() {
+  const queryClient = useQueryClient()
+  return (workoutLogId: string, character: string) =>
+    toast(`${character} saved.`, {
+      duration: UNDO_TOAST_MS,
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          try {
+            await undoWorkout(queryClient, workoutLogId)
+            toast.success('Workout removed.')
+          } catch {
+            toast.error('That workout can no longer be undone.')
+          }
+        },
+      },
+    })
 }
 
 export function useLogMyWorkout() {
