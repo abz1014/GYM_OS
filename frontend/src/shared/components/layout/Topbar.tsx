@@ -1,79 +1,20 @@
-import { useNavigate } from 'react-router-dom'
-import { Dumbbell, LogOut, User as UserIcon } from 'lucide-react'
-
-import { useLogout } from '@/modules/auth/api/authApi'
-import { useAuthStore } from '@/stores/authStore'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { BranchSwitcher } from '@/shared/components/layout/BranchSwitcher'
 import { MobileNav } from '@/shared/components/layout/MobileNav'
-import { useIsMemberOnly } from '@/shared/nav/memberNav'
 
+/**
+ * The staff top bar, reduced to what the sidebar cannot hold.
+ *
+ * It used to carry the branch switcher and an avatar dropdown; both moved into the dark rail, where
+ * the redesign puts them and where they are visible without a click. What is left is the drawer
+ * trigger, which only exists below the md breakpoint because that is where the rail is hidden — so on
+ * a desktop this bar renders nothing at all and the content starts at the top of the window.
+ *
+ * Members never see this: AppShell renders it only for staff (their own header is part of each
+ * screen, and the bar above it was repeating the brand and a second avatar for no extra ability).
+ */
 export function Topbar() {
-  const isMember = useIsMemberOnly()
-  const user = useAuthStore((s) => s.user)
-  const refreshToken = useAuthStore((s) => s.refreshToken)
-  const clearSession = useAuthStore((s) => s.clearSession)
-  const logout = useLogout()
-  const navigate = useNavigate()
-
-  const initials = user ? `${user.firstName.at(0) ?? ''}${user.lastName.at(0) ?? ''}` : ''
-
-  const handleLogout = () => {
-    if (refreshToken) {
-      logout.mutate(refreshToken)
-    }
-    clearSession()
-    navigate('/login')
-  }
-
   return (
-    <header className="flex h-14 items-center justify-between gap-4 border-b bg-background px-4">
-      <div className="flex items-center gap-2">
-        {/* Members navigate via the bottom tab bar and belong to a single branch, so neither the
-            staff drawer nor the branch switcher applies to them. */}
-        {isMember ? (
-          <span className="flex items-center gap-2 font-semibold">
-            <Dumbbell className="size-5 text-primary" />
-            Titan Fitness
-          </span>
-        ) : (
-          <>
-            <MobileNav />
-            <BranchSwitcher />
-          </>
-        )}
-      </div>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent">
-          <Avatar className="size-7">
-            <AvatarFallback className="text-xs">{initials || <UserIcon className="size-4" />}</AvatarFallback>
-          </Avatar>
-          <span className="hidden sm:inline">
-            {user?.firstName} {user?.lastName}
-          </span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{user?.roles.join(', ')}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => navigate('/account')}>
-            <UserIcon />
-            My Account
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={handleLogout}>
-            <LogOut />
-            Log out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-background px-4 md:hidden">
+      <MobileNav />
     </header>
   )
 }

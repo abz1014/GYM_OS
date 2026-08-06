@@ -15,6 +15,8 @@ export function resolveLandingRoute(hasPermission: (code: string) => boolean): s
     return '/portal'
   }
 
-  const firstAllowed = NAV_MODULES.find((m) => m.wave === 1 && hasPermission(m.permission))
+  // No wave filter any more: every module ships, and NAV_MODULES is ordered by section, so the first
+  // permitted entry is already the most prominent thing this user can actually open.
+  const firstAllowed = NAV_MODULES.find((m) => hasPermission(m.permission))
   return firstAllowed?.path ?? '/account'
 }
