@@ -84,6 +84,19 @@ public class GetMyTodayQueryHandler(
         // composition GetMyRecommendationsQuery itself uses for its own inputs.
         var recommendations = await sender.Send(new GetMyRecommendationsQuery(), cancellationToken);
 
+        // The member's own check-ins, reduced in memory for the same reason the workout dates above
+        // are: a DateTimeOffset cannot be bucketed to a date or range-filtered in SQL on SQLite, so
+        // narrowing to today has to happen after the read. AttendanceRecord is IBranchScoped, so the
+        // rows are already confined to this tenant and branch before the member filter applies.
+        var visits = (await db.AttendanceRecords.AsNoTracking()
+                .Where(a => a.MemberId == memberId)
+                .Select(a => new { a.CheckInAt, a.CheckOutAt })
+                .ToListAsync(cancellationToken))
+            .Select(a => (a.CheckInAt, a.CheckOutAt))
+            .ToList();
+
+        var visit = VisitPolicy.Classify(visits, workoutDates, now);
+
         return new MyTodayDto(
             firstName,
             sessionsThisWeek,
@@ -92,6 +105,7 @@ public class GetMyTodayQueryHandler(
             WeeklyGoalPolicy.IsGoalMet(sessionsThisWeek, goal),
             StreakCalculator.CurrentWeeklyStreak(workoutDates, today),
             nextClassToday,
-            recommendations.FirstOrDefault());
+            recommendations.FirstOrDefault(),
+            new MyVisitDto(visit.State.ToString(), visit.CheckedInAt, visit.SessionRecorded, visit.NeedsRecording));
     }
 }

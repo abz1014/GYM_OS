@@ -15,6 +15,9 @@ namespace GymOS.Application.Modules.Portal.Dtos;
 /// filtered server-side, so the client renders it or doesn't rather than deciding what "today" means.</param>
 /// <param name="TopRecommendation">The single highest-priority coaching nudge, or null when the
 /// engine has nothing worth saying. The home screen shows at most one on purpose.</param>
+/// <param name="Visit">Today's visit as the turnstile already knows it. Lets the screen speak from
+/// what the gym has on record instead of greeting someone who just finished training as though they
+/// had never arrived. See VisitPolicy.</param>
 public record MyTodayDto(
     string FirstName,
     int SessionsThisWeek,
@@ -23,4 +26,14 @@ public record MyTodayDto(
     bool GoalMet,
     int WorkoutStreakWeeks,
     MyClassBookingDto? NextClassToday,
-    MyRecommendationDto? TopRecommendation);
+    MyRecommendationDto? TopRecommendation,
+    MyVisitDto Visit);
+
+/// <summary>
+/// Today's gym visit. Always present; <paramref name="State"/> is "None" when the member has not
+/// checked in today.
+/// </summary>
+/// <param name="State">None, InGym or Visited.</param>
+/// <param name="NeedsRecording">They were here and nothing was written down — the gap between a
+/// visit and a session, which is most visits at industry baseline.</param>
+public record MyVisitDto(string State, DateTimeOffset? CheckedInAt, bool SessionRecorded, bool NeedsRecording);

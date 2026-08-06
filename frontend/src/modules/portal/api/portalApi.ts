@@ -423,6 +423,16 @@ export interface MyToday {
   workoutStreakWeeks: number
   nextClassToday: MyClassBooking | null
   topRecommendation: MyRecommendation | null
+  visit: MyVisit
+}
+
+/** Today's gym visit as the turnstile already knows it. See VisitPolicy. */
+export interface MyVisit {
+  state: 'None' | 'InGym' | 'Visited'
+  checkedInAt: string | null
+  sessionRecorded: boolean
+  /** They were here today and nothing was written down. */
+  needsRecording: boolean
 }
 
 export function useMyToday() {

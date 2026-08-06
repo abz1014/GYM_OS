@@ -3,6 +3,7 @@ using GymOS.Application.Modules.Portal.Commands;
 using GymOS.Application.Modules.Portal.Queries;
 using GymOS.Application.Modules.Workouts.Commands;
 using GymOS.Application.Tests.TestSupport;
+using GymOS.Domain.Attendance;
 using GymOS.Domain.Classes;
 using GymOS.Domain.Identity;
 using GymOS.Domain.Members;
@@ -250,6 +251,71 @@ public class MyTodayTests : ApplicationTestBase
             MemberId = ctx.MemberId, Status = ClassBookingStatus.Booked, BookedAt = DateTimeProvider.UtcNow
         });
 
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task A_visit_with_nothing_logged_against_it_is_reported_as_needing_recording()
+    {
+        var ctx = await SeedAsync();
+        AsMember(ctx);
+        await CheckInAsync(ctx, Wednesday.AddHours(-3), Wednesday.AddHours(-2));
+
+        var today = await SendAsync(new GetMyTodayQuery());
+
+        // The turnstile knows they trained; nothing else does. This is the gap the home screen exists
+        // to close, and it is most visits at industry baseline.
+        today.Visit.State.ShouldBe("Visited");
+        today.Visit.SessionRecorded.ShouldBeFalse();
+        today.Visit.NeedsRecording.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Logging_the_session_closes_the_gap()
+    {
+        var ctx = await SeedAsync();
+        AsMember(ctx);
+        await CheckInAsync(ctx, Wednesday.AddHours(-3), Wednesday.AddHours(-2));
+        await SendAsync(new LogMyWorkoutCommand([new WorkoutLogEntryInput(ctx.ExerciseId, 3, 10, null)]));
+
+        var today = await SendAsync(new GetMyTodayQuery());
+
+        today.Visit.SessionRecorded.ShouldBeTrue();
+        today.Visit.NeedsRecording.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task An_open_check_in_says_the_member_is_here_now()
+    {
+        var ctx = await SeedAsync();
+        AsMember(ctx);
+        await CheckInAsync(ctx, Wednesday.AddHours(-1), checkOutAt: null);
+
+        (await SendAsync(new GetMyTodayQuery())).Visit.State.ShouldBe("InGym");
+    }
+
+    [Fact]
+    public async Task Another_members_visit_is_never_mistaken_for_mine()
+    {
+        var mine = await SeedAsync();
+        var theirs = await SeedAsync();
+        AsMember(theirs);
+        await CheckInAsync(theirs, Wednesday.AddHours(-2), Wednesday.AddHours(-1));
+
+        AsMember(mine);
+
+        (await SendAsync(new GetMyTodayQuery())).Visit.State.ShouldBe("None");
+    }
+
+    private async Task CheckInAsync(SeedContext ctx, DateTimeOffset checkInAt, DateTimeOffset? checkOutAt)
+    {
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        db.AttendanceRecords.Add(new AttendanceRecord
+        {
+            TenantId = ctx.TenantId, BranchId = ctx.BranchId, MemberId = ctx.MemberId,
+            CheckInAt = checkInAt, CheckOutAt = checkOutAt, Method = AttendanceMethod.Manual
+        });
         await db.SaveChangesAsync();
     }
 

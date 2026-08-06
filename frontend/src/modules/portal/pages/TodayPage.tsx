@@ -46,6 +46,23 @@ export default function TodayPage() {
   const streakWeeks = data?.workoutStreakWeeks ?? 0
 
   /**
+   * When the gym already knows the member was here, say so instead of asking how their week is
+   * going. The turnstile records the visit; only about a third of visits ever get a session
+   * attached, and every streak, record and ring is computed from the sessions. Someone standing in
+   * the changing room having just trained is the one person for whom "2 more sessions to hit your
+   * week" is the wrong sentence — the app is asking for something it already has evidence of.
+   *
+   * It says the member was here, never what they did. That still takes one tap, and inventing the
+   * contents of a session from a door swipe would be exactly the dishonesty the proposal avoids.
+   */
+  const visit = data?.visit
+  const visitLine = !visit?.needsRecording
+    ? null
+    : visit.state === 'InGym'
+      ? "You're at the gym. One tap when you're done."
+      : 'You trained today — want to keep it?'
+
+  /**
    * When the request fails outright there is nothing honest to draw. Falling through to the normal
    * layout would render a closed-nothing ring and a zero streak — which reads as "you have trained
    * nothing this week and your streak is gone" rather than "we couldn't check". For a screen whose
@@ -84,11 +101,12 @@ export default function TodayPage() {
           <Skeleton className="mt-1 h-5 w-56" />
         ) : (
           <p className="text-sm text-muted-foreground">
-            {goalMet
-              ? "You've hit your goal for the week. Anything else is a bonus."
-              : sessions === 0
-                ? "Let's get the week started."
-                : `${remaining} more session${remaining === 1 ? '' : 's'} to hit your week.`}
+            {visitLine ??
+              (goalMet
+                ? "You've hit your goal for the week. Anything else is a bonus."
+                : sessions === 0
+                  ? "Let's get the week started."
+                  : `${remaining} more session${remaining === 1 ? '' : 's'} to hit your week.`)}
           </p>
         )}
       </div>
