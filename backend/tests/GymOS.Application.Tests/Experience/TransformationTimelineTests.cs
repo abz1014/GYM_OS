@@ -68,7 +68,7 @@ public class TransformationTimelineTests : ApplicationTestBase
         timeline.ShouldContain(e => e.Type == "Measurement" && e.Description!.Contains("82.5"));
         timeline.ShouldContain(e => e.Type == "Photo" && e.PhotoUrl == "https://example.com/photo.jpg");
         timeline.ShouldContain(e => e.Type == "GoalAchieved" && e.Title.Contains("Bench 100kg"));
-        timeline.ShouldContain(e => e.Type == "PersonalRecord" && e.Description!.Contains("100"));
+        timeline.ShouldContain(e => e.Type == "PersonalRecord" && e.Title.Contains("100"));
         timeline.ShouldContain(e => e.Type == "Achievement" && e.Title.Contains("First Workout"));
         timeline.ShouldNotContain(e => e.Title.Contains("Run a 5k"));
 
@@ -88,7 +88,7 @@ public class TransformationTimelineTests : ApplicationTestBase
         var session = timeline.ShouldHaveSingleItem();
         session.Type.ShouldBe("Workout");
         session.Title.ShouldBe("Chest");                       // from the muscle group trained
-        session.Description.ShouldBe("Bench Press 3×8");
+        session.Description.ShouldBe("Bench Press 3×8.");
     }
 
     [Fact]
@@ -104,9 +104,9 @@ public class TransformationTimelineTests : ApplicationTestBase
 
         var session = timeline.ShouldHaveSingleItem();
         session.Type.ShouldBe("Workout");
-        session.Description.ShouldContain("new best on Bench Press");
-        // Named once, however many record types the lift set.
-        session.Description!.Split("Bench Press").Length.ShouldBe(3); // "…Bench Press 3×8 — new best on Bench Press"
+        // Reported as the weight on the bar, not the session-volume figure that happens to be the
+        // biggest number of the three the lift set at once.
+        session.Description.ShouldBe("Bench Press 3×8. Your best Bench Press yet at 60kg.");
         timeline.ShouldNotContain(e => e.Type == "PersonalRecord");
     }
 

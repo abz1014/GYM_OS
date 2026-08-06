@@ -92,37 +92,55 @@ public class GetMyTimelineQueryHandler(IApplicationDbContext db, ICurrentUserSer
             .GroupBy(r => r.WorkoutLogId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        // What each record beat. Every one of the member's records is already loaded, so the previous
+        // best on the same exercise and measure is a lookup rather than another round trip — and it
+        // is the difference between "a new best" and "up 2.5kg to 62.5kg", which is the sentence
+        // worth reading.
+        var recordHistory = records
+            .GroupBy(r => (r.ExerciseId, r.Type))
+            .ToDictionary(g => g.Key, g => g.OrderBy(r => r.AchievedAt).ToList());
+
+        // Matched on when it was set, not on the value: a member who equals a record has two rows
+        // with the same number, and looking the value up would find the wrong one.
+        decimal? PreviousBest(Guid exerciseId, PersonalRecordType type, DateTimeOffset achievedAt) =>
+            recordHistory[(exerciseId, type)]
+                .Where(r => r.AchievedAt < achievedAt)
+                .Select(r => (decimal?)r.Value)
+                .LastOrDefault();
+
         entries.AddRange(sessions.Select(s =>
         {
             var character = SessionCharacterPolicy.Describe(
                 s.Entries.Select(e => exercises.GetValueOrDefault(e.ExerciseId)?.MuscleGroup));
 
-            var movements = s.Entries.Select(e => $"{NameOf(e.ExerciseId)} {e.SetsCompleted}×{e.RepsCompleted}").ToList();
-            var detail = movements.Count == 0 ? null : string.Join(" · ", movements);
+            var movements = s.Entries
+                .Select(e => $"{NameOf(e.ExerciseId)} {e.SetsCompleted}×{e.RepsCompleted}")
+                .ToList();
 
-            // Records are named by exercise rather than counted: a member remembers "a new best on
-            // bench", not "3 personal records". Distinct collapses the three record types one lift
-            // can set at once into the one thing that actually happened.
-            if (recordsBySession.TryGetValue(s.Id, out var setHere))
-            {
-                var lifts = setHere.Select(r => NameOf(r.ExerciseId)).Distinct().OrderBy(n => n).ToList();
-                var best = $"new best on {string.Join(", ", lifts)}";
-                detail = detail is null ? best : $"{detail} — {best}";
-            }
+            var gains = recordsBySession.TryGetValue(s.Id, out var setHere)
+                ? setHere.Select(r => new RecordGain(
+                    NameOf(r.ExerciseId),
+                    r.Value,
+                    UnitFor(r.Type),
+                    PreviousBest(r.ExerciseId, r.Type, r.AchievedAt),
+                    ProminenceOf(r.Type))).ToList()
+                : [];
 
-            return new MyTimelineEntryDto("Workout", s.LoggedAt, character, detail, null);
+            var story = WorkoutStoryPolicy.Tell(character, movements, gains);
+            return new MyTimelineEntryDto("Workout", s.LoggedAt, story.Title, story.OneLine, null);
         }));
 
-        // Anything not attached to a session still stands on its own. Nothing in the current data
-        // lands here, but a backfilled or imported record would, and dropping it silently would take
-        // an achievement away from the member.
+        // Anything not attached to a session still stands on its own, and says why it looks different
+        // from everything around it. Nothing in the current data lands here — but a record carried in
+        // from whatever the gym used before has no session to belong to, and dropping it silently
+        // would take an achievement off a member who earned it somewhere this app never saw.
         entries.AddRange(records
             .Where(r => r.WorkoutLogId == null)
             .Select(r => new MyTimelineEntryDto(
                 "PersonalRecord",
                 r.AchievedAt,
-                $"New PR: {NameOf(r.ExerciseId)}",
-                $"{FormatPrType(r.Type)}: {r.Value}",
+                $"{NameOf(r.ExerciseId)} — {FormatPrType(r.Type).ToLowerInvariant()} {r.Value:0.##}{UnitFor(r.Type)}",
+                "Imported from a previous system, so there is no session attached.",
                 null)));
 
         var unlockedAchievements = await db.MemberAchievements.AsNoTracking()
@@ -152,6 +170,27 @@ public class GetMyTimelineQueryHandler(IApplicationDbContext db, ICurrentUserSer
         if (m.ThighCm is { } thigh) parts.Add($"Thigh {thigh}cm");
         return parts.Count > 0 ? string.Join(", ", parts) : m.Notes;
     }
+
+    /// <summary>
+    /// Which measure to tell the story with when one lift set several. The weight on the bar is what
+    /// a member trains by and remembers; an estimate derived from it comes next; total volume last,
+    /// because its number is the largest and means the least.
+    /// </summary>
+    private static int ProminenceOf(PersonalRecordType type) => type switch
+    {
+        PersonalRecordType.MaxWeight => 0,
+        PersonalRecordType.EstimatedOneRepMax => 1,
+        PersonalRecordType.SessionVolume => 2,
+        _ => 3
+    };
+
+    /// <summary>What a record's number is measured in, so a story can say "up 2.5kg" and mean it.</summary>
+    private static string UnitFor(PersonalRecordType type) => type switch
+    {
+        PersonalRecordType.MaxWeight or PersonalRecordType.EstimatedOneRepMax => "kg",
+        PersonalRecordType.SessionVolume => "kg total",
+        _ => string.Empty
+    };
 
     private static string FormatPrType(PersonalRecordType type) => type switch
     {
