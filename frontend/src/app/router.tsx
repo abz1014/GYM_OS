@@ -14,6 +14,7 @@ const MemberPortalPage = lazy(() => import('@/modules/portal/pages/MemberPortalP
 const MyClassesPage = lazy(() => import('@/modules/portal/pages/MyClassesPage'))
 const MyProgressPage = lazy(() => import('@/modules/portal/pages/MyProgressPage'))
 const LogActivityPage = lazy(() => import('@/modules/portal/pages/LogActivityPage'))
+const ActiveWorkoutPage = lazy(() => import('@/modules/portal/workout/ActiveWorkoutPage'))
 const MyTrainingPage = lazy(() => import('@/modules/portal/pages/MyTrainingPage'))
 const MyNutritionPage = lazy(() => import('@/modules/portal/pages/MyNutritionPage'))
 const MyChallengesPage = lazy(() => import('@/modules/portal/pages/MyChallengesPage'))
@@ -66,6 +67,10 @@ export const router = createBrowserRouter([
           { path: 'portal', element: withSuspense(<TodayPage />) },
           { path: 'my-classes', element: withSuspense(<MyClassesPage />) },
           { path: 'my-progress', element: withSuspense(<MyProgressPage />) },
+          // The live session (centre action) and the after-the-fact logger are different jobs, so
+          // they are different routes: /workout is "I am training now", /log-activity is "I want to
+          // write down a workout, a meal or a measurement".
+          { path: 'workout', element: withSuspense(<ActiveWorkoutPage />) },
           { path: 'log-activity', element: withSuspense(<LogActivityPage />) },
           { path: 'my-training', element: withSuspense(<MyTrainingPage />) },
           { path: 'my-nutrition', element: withSuspense(<MyNutritionPage />) },

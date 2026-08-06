@@ -262,13 +262,14 @@ export function useMyExperience() {
 }
 
 /*
- * Records, achievements and streaks have no hook of their own any more. Each had one, none had a
- * screen: the app already tells the member all three, in the place each belongs — records and
- * achievements inside the session they happened on the timeline, the streak on the home screen. A
- * hook nothing calls is a feature that looks shipped from the code and is invisible from the app.
+ * Achievements and streaks have no hook of their own. Each had one, neither had a screen: the app
+ * already tells the member both, in the place each belongs — achievements inside the session they
+ * happened on the timeline, the streak on the home screen. A hook nothing calls is a feature that
+ * looks shipped from the code and is invisible from the app.
  *
- * The endpoints stay. They are self-scoped, tested, and the obvious thing a second client would ask
- * for; it is the unused wiring that was the dead weight, not the API.
+ * Their endpoints stay. They are self-scoped, tested, and the obvious thing a second client would ask
+ * for; it is the unused wiring that was the dead weight, not the API — which is exactly why records
+ * got their hook back below the moment a screen actually needed them.
  */
 export interface MyPersonalRecord {
   exerciseId: string
@@ -276,6 +277,15 @@ export interface MyPersonalRecord {
   type: 'MaxWeight' | 'EstimatedOneRepMax' | 'SessionVolume'
   value: number
   achievedAt: string
+}
+
+/** Read by the live session, to tell a member when the set in front of them is worth a record. */
+export function useMyPersonalRecords() {
+  return useQuery({
+    queryKey: ['portal', 'personal-records'],
+    queryFn: async () => (await apiClient.get<MyPersonalRecord[]>('/api/me/personal-records')).data,
+    retry: false,
+  })
 }
 
 export interface ExerciseMastery {

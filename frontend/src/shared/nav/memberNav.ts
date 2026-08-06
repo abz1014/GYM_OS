@@ -43,7 +43,10 @@ export interface MemberTab {
 export const MEMBER_TABS: MemberTab[] = [
   { label: 'Home', path: '/portal', icon: Home },
   { label: 'Train', path: '/my-training', icon: Dumbbell },
-  { label: 'Log', path: '/log-activity', icon: NotebookPen },
+  // The centre action starts a live session. It used to open the after-the-fact logger, which is a
+  // different job and now lives under More — a member tapping the big button mid-session wants to
+  // record the set they just did, not fill in a form about a workout that already ended.
+  { label: 'Log', path: '/workout', icon: NotebookPen },
   { label: 'Progress', path: '/my-progress', icon: TrendingUp },
   {
     label: 'More',
@@ -55,7 +58,7 @@ export const MEMBER_TABS: MemberTab[] = [
     // its own tab now, and listing it here would light two tabs at once.)
     alsoMatches: [
       '/my-nutrition', '/my-classes', '/my-coach', '/my-passport',
-      '/my-challenges', '/leaderboard', '/membership', '/account',
+      '/my-challenges', '/leaderboard', '/membership', '/account', '/log-activity',
     ],
   },
 ]
@@ -78,6 +81,9 @@ export const MEMBER_MORE_LINKS: MemberMoreLink[] = [
   { group: 'Training', label: 'My Classes', description: 'Book and manage your classes', path: '/my-classes', icon: CalendarDays },
   { group: 'Training', label: 'My Coach', description: 'Talk to your trainer about your training', path: '/my-coach', icon: MessageCircle },
   { group: 'Training', label: 'Gym Passport', description: "What you've used here, and what you haven't", path: '/my-passport', icon: MapPin },
+  // Reachable from here since the centre action became the live session. Everything recorded after
+  // the fact — a workout you didn't log at the time, a meal, a measurement — is one job, one screen.
+  { group: 'Training', label: 'Log something else', description: 'A past workout, a meal or your measurements', path: '/log-activity', icon: NotebookPen },
   { group: 'Community', label: 'Leaderboard', description: 'How you rank against your gym', path: '/leaderboard', icon: Trophy },
   { group: 'Community', label: 'Challenges', description: 'Join a challenge and compete', path: '/my-challenges', icon: Flag },
   { group: 'Account', label: 'Membership', description: 'Your plan, member code and referrals', path: '/membership', icon: UserCircle },
