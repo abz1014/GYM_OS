@@ -548,11 +548,53 @@ function invalidateAfterLogging(queryClient: ReturnType<typeof useQueryClient>) 
   queryClient.invalidateQueries({ queryKey: ['portal'] })
 }
 
+/**
+ * What the engine actually did with a logged session. Every figure is a real diff computed
+ * server-side — the screen that shows this used to assert a flat "+50 XP" regardless of what was
+ * awarded, which was simply untrue once personal-record and achievement bonuses existed.
+ */
+export interface MyNewRecord {
+  exerciseName: string
+  type: string
+  value: number
+}
+
+export interface MyNewAchievement {
+  code: string
+  name: string
+  description: string
+  tier: string
+  icon: string
+}
+
+export interface MyChallengeStep {
+  name: string
+  workoutsLogged: number
+  targetWorkoutCount: number
+  justCompleted: boolean
+}
+
+export interface MyWorkoutResult {
+  workoutLogId: string
+  xpEarned: number
+  level: number
+  leveledUp: boolean
+  sessionsThisWeek: number
+  weeklySessionGoal: number
+  goalMet: boolean
+  /** True only for the session that closed the ring, not every session after it. */
+  goalJustMet: boolean
+  workoutStreakWeeks: number
+  newRecords: MyNewRecord[]
+  newAchievements: MyNewAchievement[]
+  challengeProgress: MyChallengeStep[]
+}
+
 export function useLogMyWorkout() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (entries: WorkoutEntryInput[]) =>
-      (await apiClient.post<string>('/api/me/workouts', { entries })).data,
+      (await apiClient.post<MyWorkoutResult>('/api/me/workouts', { entries })).data,
     onSuccess: () => invalidateAfterLogging(queryClient),
   })
 }

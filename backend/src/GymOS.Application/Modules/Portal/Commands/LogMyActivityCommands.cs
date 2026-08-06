@@ -2,9 +2,13 @@ using FluentValidation;
 using GymOS.Application.Common.Exceptions;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
+using GymOS.Application.Modules.Challenges.Queries;
 using GymOS.Application.Modules.Members.Commands;
 using GymOS.Application.Modules.Nutrition.Commands;
+using GymOS.Application.Modules.Portal.Dtos;
 using GymOS.Application.Modules.Workouts.Commands;
+using GymOS.Domain.Experience;
+using GymOS.Domain.Members;
 using GymOS.Domain.Nutrition;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +26,7 @@ namespace GymOS.Application.Modules.Portal.Commands;
 /// command, so validation and business rules live in exactly one place and the member path can
 /// never diverge from the staff path. No command here accepts a member id from the caller.
 /// </summary>
-public record LogMyWorkoutCommand(IReadOnlyList<WorkoutLogEntryInput> Entries) : ICommand<Guid>;
+public record LogMyWorkoutCommand(IReadOnlyList<WorkoutLogEntryInput> Entries) : ICommand<MyWorkoutResultDto>;
 
 public class LogMyWorkoutCommandValidator : AbstractValidator<LogMyWorkoutCommand>
 {
@@ -42,12 +46,14 @@ public class LogMyWorkoutCommandValidator : AbstractValidator<LogMyWorkoutComman
     }
 }
 
-public class LogMyWorkoutCommandHandler(IApplicationDbContext db, ICurrentUserService currentUser, ISender sender)
-    : IRequestHandler<LogMyWorkoutCommand, Guid>
+public class LogMyWorkoutCommandHandler(
+    IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider, ISender sender)
+    : IRequestHandler<LogMyWorkoutCommand, MyWorkoutResultDto>
 {
-    public async Task<Guid> Handle(LogMyWorkoutCommand request, CancellationToken cancellationToken)
+    public async Task<MyWorkoutResultDto> Handle(LogMyWorkoutCommand request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
+        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
 
         // Exercises are tenant-scoped, so this both validates the ids exist and prevents a member
         // referencing another tenant's exercise.
@@ -58,10 +64,89 @@ public class LogMyWorkoutCommandHandler(IApplicationDbContext db, ICurrentUserSe
             throw new NotFoundException(nameof(GymOS.Domain.Workouts.Exercise), string.Join(", ", exerciseIds));
         }
 
+        // Snapshot the "before" side of everything worth celebrating. Reported figures are a genuine
+        // diff across the log rather than the client's guess at what the engine would award.
+        var (xpBefore, levelBefore) = await ReadProgressionAsync(memberId, cancellationToken);
+        var achievementsBefore = await db.MemberAchievements.AsNoTracking()
+            .Where(a => a.MemberId == memberId).Select(a => a.Code).ToListAsync(cancellationToken);
+        var sessionsBefore = WeeklyGoalPolicy.SessionsThisWeek(await WorkoutDatesAsync(memberId, cancellationToken), today);
+        var challengesBefore = (await sender.Send(new GetMyChallengesQuery(), cancellationToken))
+            .ToDictionary(c => c.Id, c => c.IsCompleted);
+
         // Delegate: LogWorkoutCommand is what raises WorkoutLoggedEvent, which is what drives XP,
         // personal records, mastery, achievements, streaks and challenge progress.
-        return await sender.Send(new LogWorkoutCommand(memberId, null, request.Entries), cancellationToken);
+        var workoutLogId = await sender.Send(new LogWorkoutCommand(memberId, null, request.Entries), cancellationToken);
+
+        var (xpAfter, levelAfter) = await ReadProgressionAsync(memberId, cancellationToken);
+        var workoutDates = await WorkoutDatesAsync(memberId, cancellationToken);
+        var sessionsAfter = WeeklyGoalPolicy.SessionsThisWeek(workoutDates, today);
+
+        var goal = await db.MemberTrainingPreferences.AsNoTracking()
+            .Where(p => p.MemberId == memberId)
+            .Select(p => (int?)p.WeeklySessionGoal)
+            .FirstOrDefaultAsync(cancellationToken) ?? WeeklyGoalPolicy.DefaultWeeklySessionGoal;
+
+        // Records carry the id of the log that set them, so "what did THIS session beat" is a lookup
+        // rather than a guess from timestamps.
+        // PersonalRecord carries no Exercise navigation, so join to the tenant-scoped exercise catalog
+        // for the name the member actually recognises.
+        var newRecords = await (from r in db.PersonalRecords.AsNoTracking()
+                                join e in db.Exercises.AsNoTracking() on r.ExerciseId equals e.Id
+                                where r.MemberId == memberId && r.WorkoutLogId == workoutLogId
+                                select new MyNewRecordDto(e.Name, r.Type.ToString(), r.Value))
+            .ToListAsync(cancellationToken);
+
+        var newAchievements = (await db.MemberAchievements.AsNoTracking()
+                .Where(a => a.MemberId == memberId && !achievementsBefore.Contains(a.Code))
+                .Select(a => a.Code)
+                .ToListAsync(cancellationToken))
+            .Select(code => AchievementCatalog.All.FirstOrDefault(d => d.Code == code))
+            .Where(d => d is not null)
+            .Select(d => new MyNewAchievementDto(d!.Code, d.Name, d.Description, d.Tier.ToString(), d.Icon))
+            .ToList();
+
+        var challengeProgress = (await sender.Send(new GetMyChallengesQuery(), cancellationToken))
+            .Where(c => c.Joined)
+            .Select(c => new MyChallengeStepDto(
+                c.Name, c.MyWorkoutCount, c.TargetWorkoutCount,
+                c.IsCompleted && !challengesBefore.GetValueOrDefault(c.Id)))
+            .ToList();
+
+        return new MyWorkoutResultDto(
+            workoutLogId,
+            (int)(xpAfter - xpBefore),
+            levelAfter,
+            levelAfter > levelBefore,
+            sessionsAfter,
+            goal,
+            WeeklyGoalPolicy.IsGoalMet(sessionsAfter, goal),
+            // "Just met" is the celebration-worthy transition; GoalMet alone stays true for every
+            // bonus session afterwards, and re-congratulating someone every time gets hollow fast.
+            WeeklyGoalPolicy.IsGoalMet(sessionsAfter, goal) && !WeeklyGoalPolicy.IsGoalMet(sessionsBefore, goal),
+            StreakCalculator.CurrentWeeklyStreak(workoutDates, today),
+            newRecords,
+            newAchievements,
+            challengeProgress);
     }
+
+    /// <summary>Total XP and level, or (0, 1) for a member who has never earned any.</summary>
+    private async Task<(long Xp, int Level)> ReadProgressionAsync(Guid memberId, CancellationToken cancellationToken)
+    {
+        var row = await db.MemberProgressions.AsNoTracking()
+            .Where(p => p.MemberId == memberId)
+            .Select(p => new { p.TotalXp, p.Level })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return row is null ? (0L, 1) : (row.TotalXp, row.Level);
+    }
+
+    private async Task<List<DateOnly>> WorkoutDatesAsync(Guid memberId, CancellationToken cancellationToken)
+        => (await db.WorkoutLogs.AsNoTracking()
+                .Where(w => w.MemberId == memberId)
+                .Select(w => w.LoggedAt)
+                .ToListAsync(cancellationToken))
+            .Select(d => DateOnly.FromDateTime(d.UtcDateTime))
+            .ToList();
 }
 
 /// <summary>A member logging their own water intake.</summary>

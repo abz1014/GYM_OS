@@ -1,0 +1,39 @@
+namespace GymOS.Application.Modules.Portal.Dtos;
+
+/// <summary>
+/// What actually happened because a member logged a workout.
+///
+/// Logging is the one moment a member gives the app something, and until now it answered with a
+/// toast that claimed a flat "+50 XP" whether or not that was the real number. Everything the
+/// Member Experience Engine computes off a logged session — XP, a level, personal records,
+/// achievements, the weekly ring, the streak, challenge progress — was already being written; it
+/// just wasn't being told back to the person who earned it.
+///
+/// Assembled by diffing the member's state either side of the log, so the numbers are what the
+/// engine really did rather than what the client guessed.
+/// </summary>
+/// <param name="XpEarned">Total XP from this session, including any personal-record and achievement
+/// bonuses — the change in the member's total, not just the base workout award.</param>
+/// <param name="GoalJustMet">True only when THIS session closed the weekly ring. Distinct from
+/// <paramref name="GoalMet"/>, which is also true for every extra session after it.</param>
+public record MyWorkoutResultDto(
+    Guid WorkoutLogId,
+    int XpEarned,
+    int Level,
+    bool LeveledUp,
+    int SessionsThisWeek,
+    int WeeklySessionGoal,
+    bool GoalMet,
+    bool GoalJustMet,
+    int WorkoutStreakWeeks,
+    IReadOnlyList<MyNewRecordDto> NewRecords,
+    IReadOnlyList<MyNewAchievementDto> NewAchievements,
+    IReadOnlyList<MyChallengeStepDto> ChallengeProgress);
+
+/// <summary>A personal record set by this session. Tied to the workout log itself, not inferred.</summary>
+public record MyNewRecordDto(string ExerciseName, string Type, decimal Value);
+
+public record MyNewAchievementDto(string Code, string Name, string Description, string Tier, string Icon);
+
+/// <summary>Progress on a challenge the member has joined, and whether this session finished it.</summary>
+public record MyChallengeStepDto(string Name, int WorkoutsLogged, int TargetWorkoutCount, bool JustCompleted);

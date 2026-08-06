@@ -61,7 +61,7 @@ public class PortalController(ISender mediator) : ControllerBase
 
     [HttpPost("workouts")]
     [RequirePermission(PermissionCodes.Portal.View)]
-    public async Task<ActionResult<Guid>> LogWorkout(LogMyWorkoutCommand command, CancellationToken cancellationToken)
+    public async Task<ActionResult<MyWorkoutResultDto>> LogWorkout(LogMyWorkoutCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
 
     [HttpPost("nutrition/meals")]

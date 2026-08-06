@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import {
   useLogMyWorkout,
   useMyLoggingOptions,
   useMyWorkoutLogs,
   useMyWorkoutSuggestions,
+  type MyWorkoutResult,
   type WorkoutEntryInput,
 } from '@/modules/portal/api/portalApi'
 
@@ -92,6 +94,8 @@ export function QuickLogWorkout() {
   const logWorkout = useLogMyWorkout()
 
   const [pending, setPending] = useState<PendingEntry[]>([])
+  // Holds the just-logged session's result while the celebration is on screen; null means dismissed.
+  const [celebration, setCelebration] = useState<MyWorkoutResult | null>(null)
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
   const [draft, setDraft] = useState({ sets: 3, reps: 10, weight: 0 })
   const [showAll, setShowAll] = useState(false)
@@ -161,8 +165,11 @@ export function QuickLogWorkout() {
       weightKg: p.weight,
     }))
     logWorkout.mutate(entries, {
-      onSuccess: () => {
-        toast.success(`Nice work! ${entries.length} exercise${entries.length === 1 ? '' : 's'} logged · +50 XP`)
+      // The result replaces the old toast entirely. That toast claimed a flat "+50 XP" whatever the
+      // engine actually awarded, and vanished in three seconds — a poor answer to the only effort
+      // the app asks a member to make.
+      onSuccess: (result) => {
+        setCelebration(result)
         setPending([])
       },
       onError: () => toast.error("Couldn't save that workout."),
@@ -326,6 +333,8 @@ export function QuickLogWorkout() {
           ? 'Pick an exercise to start'
           : `Finish workout · ${pending.length} exercise${pending.length === 1 ? '' : 's'}`}
       </Button>
+
+      {celebration && <WorkoutCelebration result={celebration} onDismiss={() => setCelebration(null)} />}
     </div>
   )
 }
