@@ -52,6 +52,12 @@ public class ReportsController(ISender mediator) : ControllerBase
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "membership-report.xlsx");
     }
 
+    /// <summary>Share of gym visits that produced a recorded workout — see GetLoggingCaptureReportQuery.</summary>
+    [HttpGet("logging-capture")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<ActionResult<LoggingCaptureReportDto>> LoggingCapture(int weeksBack = 12, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetLoggingCaptureReportQuery(weeksBack), cancellationToken));
+
     [HttpGet("trainer-commissions")]
     [RequirePermission(PermissionCodes.Reports.View)]
     public async Task<ActionResult<List<TrainerCommissionReportRowDto>>> TrainerCommissions(int monthsBack = 6, CancellationToken cancellationToken = default)

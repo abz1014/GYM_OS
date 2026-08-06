@@ -36,3 +36,28 @@ public record CohortRetentionPointDto(
 
 public record LtvBySourceRowDto(
     string Source, int MemberCount, decimal TotalRevenue, decimal AverageLtv);
+
+/// <summary>One week of capture figures.</summary>
+public record CaptureRatePointDto(
+    DateOnly WeekStart, int VisitDays, int LoggedVisitDays, int OrphanLogDays, int CaptureRatePercent);
+
+/// <summary>
+/// How much of what happens in the gym the app captures. See GetLoggingCaptureReportQuery for why
+/// this is the number the member-experience work is measured against.
+/// </summary>
+/// <param name="IsReliable">False when too many workouts were logged on days with no visit, which
+/// means the rate has stopped describing gym behaviour (see CaptureRatePolicy).</param>
+/// <param name="MembersVisitingWithoutLogging">Members who turned up but never recorded anything —
+/// the population one-tap logging is aimed at.</param>
+public record LoggingCaptureReportDto(
+    DateOnly WindowStart,
+    DateOnly WindowEnd,
+    int TotalVisitDays,
+    int TotalLoggedVisitDays,
+    int TotalOrphanLogDays,
+    int CaptureRatePercent,
+    bool IsReliable,
+    int MembersWhoVisited,
+    int MembersWhoLogged,
+    int MembersVisitingWithoutLogging,
+    IReadOnlyList<CaptureRatePointDto> Weekly);

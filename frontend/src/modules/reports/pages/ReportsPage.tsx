@@ -25,6 +25,7 @@ import {
   exportTrainerCommissionReport,
   exportWorkoutActivityReport,
   useAtRiskMembersReport,
+  useLoggingCaptureReport,
   useAttendanceReport,
   useCohortRetentionReport,
   useCrmPipelineConversionReport,
@@ -533,11 +534,64 @@ function AnalyticsTab() {
   )
 }
 
+function LoggingCaptureCard() {
+  const { data, isLoading } = useLoggingCaptureReport(12)
+
+  return (
+    <ReportCard title="Workout capture rate (last 12 weeks)">
+      {isLoading ? (
+        <Skeleton className="h-48 w-full" />
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+            <div>
+              <p className="text-2xl font-semibold">{data?.captureRatePercent ?? 0}%</p>
+              <p className="text-muted-foreground">Visits that were logged</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold">{(data?.totalVisitDays ?? 0).toLocaleString()}</p>
+              <p className="text-muted-foreground">Gym visits</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold">{(data?.totalLoggedVisitDays ?? 0).toLocaleString()}</p>
+              <p className="text-muted-foreground">Recorded sessions</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold">{data?.membersVisitingWithoutLogging ?? 0}</p>
+              <p className="text-muted-foreground">Members who never log</p>
+            </div>
+          </div>
+
+          {/* The rate is gameable — workouts logged on days with no visit are the tell. Say so on the
+              report rather than letting a climbing number be read as progress. */}
+          {data && !data.isReliable && (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+              {data.totalOrphanLogDays.toLocaleString()} sessions were logged on days with no recorded
+              visit, so this rate may not reflect what happens in the gym.
+            </p>
+          )}
+
+          <SimpleBarChart
+            data={(data?.weekly ?? []).map((w) => ({ label: w.weekStart.slice(5), value: w.captureRatePercent }))}
+            valueFormatter={(v) => `${v}%`}
+          />
+
+          <p className="text-sm text-muted-foreground">
+            Members can only be shown progress from sessions that were recorded. Every point below
+            100% is training this gym did that the app never saw.
+          </p>
+        </div>
+      )}
+    </ReportCard>
+  )
+}
+
 function EngagementTab() {
   const { data, isLoading } = useEngagementSummary()
 
   return (
     <div className="space-y-4">
+      <LoggingCaptureCard />
       <ReportCard title="Engagement Overview">
         {isLoading ? (
           <Skeleton className="h-24 w-full" />

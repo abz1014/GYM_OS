@@ -162,6 +162,44 @@ export function useNutritionReport(daysBack = 30) {
   })
 }
 
+/** One week of capture figures. */
+export interface CaptureRatePoint {
+  weekStart: string
+  visitDays: number
+  loggedVisitDays: number
+  orphanLogDays: number
+  captureRatePercent: number
+}
+
+/**
+ * How much of what happens in the gym the app actually captures. Everything the member experience
+ * gives back — XP, records, streaks, leaderboards — is computed from recorded sessions, so a gym
+ * that trains hard and logs nothing has an engine running on air, and no other report shows it.
+ */
+export interface LoggingCaptureReport {
+  windowStart: string
+  windowEnd: string
+  totalVisitDays: number
+  totalLoggedVisitDays: number
+  totalOrphanLogDays: number
+  captureRatePercent: number
+  /** False when too many workouts were logged on days with no visit — the rate has stopped
+   *  describing gym behaviour and shouldn't be read as progress. */
+  isReliable: boolean
+  membersWhoVisited: number
+  membersWhoLogged: number
+  membersVisitingWithoutLogging: number
+  weekly: CaptureRatePoint[]
+}
+
+export function useLoggingCaptureReport(weeksBack = 12) {
+  return useQuery({
+    queryKey: ['reports', 'logging-capture', weeksBack],
+    queryFn: async () =>
+      (await apiClient.get<LoggingCaptureReport>('/api/reports/logging-capture', { params: { weeksBack } })).data,
+  })
+}
+
 export function useAtRiskMembersReport() {
   return useQuery({
     queryKey: ['reports', 'at-risk-members'],
