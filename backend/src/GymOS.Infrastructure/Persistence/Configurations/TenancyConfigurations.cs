@@ -21,6 +21,8 @@ public class BranchConfiguration : IEntityTypeConfiguration<Branch>
     {
         builder.Property(b => b.Name).HasMaxLength(200).IsRequired();
         builder.Property(b => b.Currency).HasMaxLength(3).IsRequired();
+        // Capacity stays nullable with no default — see Branch.Capacity: "nobody has told us" is a
+        // real state, and a default would be a fabricated denominator.
         builder.HasIndex(b => b.TenantId);
     }
 }

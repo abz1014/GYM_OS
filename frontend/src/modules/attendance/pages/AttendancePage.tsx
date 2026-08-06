@@ -13,6 +13,8 @@ import { useUiStore } from '@/stores/uiStore'
 interface Branch {
   id: string
   name: string
+  /** Null when the gym has never set one — see Branch.Capacity. Not zero, and not a default. */
+  capacity: number | null
 }
 
 /**
@@ -60,7 +62,8 @@ export default function AttendancePage() {
     queryKey: ['branches'],
     queryFn: async () => (await apiClient.get<Branch[]>('/api/branches')).data,
   })
-  const branchName = branches?.find((b) => b.id === branchId)?.name
+  const branch = branches?.find((b) => b.id === branchId)
+  const branchName = branch?.name
 
   return (
     <div className="dark -m-3 flex min-h-[calc(100%+1.5rem)] flex-col bg-background text-foreground sm:-m-6 sm:min-h-[calc(100%+3rem)]">
@@ -117,7 +120,7 @@ export default function AttendancePage() {
           <div className="flex min-w-0 items-center px-6">
             <CheckInPanel />
           </div>
-          <FrontDeskRail />
+          <FrontDeskRail capacity={branch?.capacity ?? null} />
         </div>
       ) : (
         <AttendanceHistoryPanel />

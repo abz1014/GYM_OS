@@ -37,6 +37,26 @@ export interface Branch {
   timeZone: string
   currency: string
   isActive: boolean
+  /** Null when the gym has never set one. Null is not zero — see Branch.Capacity server-side. */
+  capacity: number | null
+}
+
+/**
+ * Mirrors Branch.MaxCapacity server-side. It is not a plausible gym size — it is the point past which
+ * a capacity is a slipped digit, and the validator rejects anything above it either way.
+ */
+export const MAX_BRANCH_CAPACITY = 100_000
+
+/**
+ * An empty capacity box means "we haven't been told", which is a different thing from zero and has to
+ * reach the server as null. Anything unparseable collapses to null for the same reason: better the
+ * occupancy bar disappears than divides by a number nobody typed.
+ */
+export function parseCapacity(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (trimmed === '') return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : null
 }
 
 export function useAdminBranchesList(includeInactive = true) {
@@ -53,6 +73,7 @@ interface CreateBranchInput {
   country: string
   timeZone: string
   currency: string
+  capacity: number | null
 }
 
 export function useCreateBranch() {

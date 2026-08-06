@@ -111,8 +111,17 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         var tenant = new Tenant { Name = "Titan Fitness", Slug = "titan-fitness", IsActive = true, CreatedAt = DateTimeOffset.UtcNow };
         db.Tenants.Add(tenant);
 
-        var branchNames = new[] { "Downtown", "Uptown", "Westside" };
-        foreach (var name in branchNames)
+        // Capacity is a number a gym looks up off its licence, so the sites differ — and Westside is
+        // deliberately left unset. Every surface that divides by capacity has to hold up for a gym
+        // that never filled it in, and a demo where all three are populated would never show that
+        // path to anyone.
+        var branches = new[]
+        {
+            (Name: "Downtown", Capacity: (int?)180),
+            (Name: "Uptown", Capacity: (int?)120),
+            (Name: "Westside", Capacity: (int?)null),
+        };
+        foreach (var (name, capacity) in branches)
         {
             db.Branches.Add(new Branch
             {
@@ -123,6 +132,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
                 Country = "United States",
                 TimeZone = "America/New_York",
                 Currency = "USD",
+                Capacity = capacity,
                 IsActive = true,
                 CreatedAt = DateTimeOffset.UtcNow
             });

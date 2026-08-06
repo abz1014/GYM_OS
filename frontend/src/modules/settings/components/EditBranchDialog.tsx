@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { useUpdateBranch, type Branch } from '@/modules/settings/api/settingsApi'
+import { MAX_BRANCH_CAPACITY, parseCapacity, useUpdateBranch, type Branch } from '@/modules/settings/api/settingsApi'
 
 export function EditBranchDialog({ branch }: { branch: Branch }) {
   const [open, setOpen] = useState(false)
@@ -25,13 +25,16 @@ export function EditBranchDialog({ branch }: { branch: Branch }) {
   const [timeZone, setTimeZone] = useState(branch.timeZone)
   const [currency, setCurrency] = useState(branch.currency)
   const [isActive, setIsActive] = useState(branch.isActive)
+  // String, not number: the empty box has to survive a round trip, because clearing it is a real
+  // edit meaning "we no longer stand behind that figure" and the server accepts null back.
+  const [capacity, setCapacity] = useState(branch.capacity?.toString() ?? '')
 
   const updateBranch = useUpdateBranch()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     updateBranch.mutate(
-      { id: branch.id, name, addressLine, city, country, timeZone, currency, isActive },
+      { id: branch.id, name, addressLine, city, country, timeZone, currency, isActive, capacity: parseCapacity(capacity) },
       {
         onSuccess: () => {
           toast.success('Branch updated.')
@@ -86,6 +89,26 @@ export function EditBranchDialog({ branch }: { branch: Branch }) {
                 onChange={(e) => setCurrency(e.target.value.toUpperCase())}
               />
             </div>
+          </div>
+          {/*
+            Optional, and left genuinely blank rather than pre-filled with a plausible number. A
+            capacity is something the gym reads off its fire-safety certificate, and the occupancy
+            bar on the front desk divides by it — a guessed default would be wrong on every reading
+            without ever looking wrong. Empty means "not told", and the desk shows a bare count.
+          */}
+          <div className="space-y-1.5">
+            <Label htmlFor="editBranchCapacity">Capacity <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <Input
+              id="editBranchCapacity"
+              type="number"
+              min={1}
+              max={MAX_BRANCH_CAPACITY}
+              inputMode="numeric"
+              placeholder="Not set"
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">How many people the site holds. Leave blank if you don't have the figure.</p>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox id="branchIsActive" checked={isActive} onCheckedChange={(v) => setIsActive(v === true)} />

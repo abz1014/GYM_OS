@@ -14,12 +14,12 @@ const EYEBROW = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground u
  * The rail the desk reads between scans: how full the room is, who just came through, and what's
  * about to start.
  *
- * Two things the mockup puts here are missing on purpose:
+ * The "/ 180" and the fill bar are here, but only for a site that has actually been given a capacity.
+ * `Branch.Capacity` is nullable on purpose, so a gym that never filled it in keeps the bare count
+ * rather than being measured against a ceiling this app invented for it.
  *
- * - **"/ 180" and the capacity bar.** `Branch` has no capacity column — not in the entity, not in the
- *   DTO, nowhere in the schema (name, address, city, country, timezone, currency, isActive). A
- *   denominator is the entire meaning of a fill bar, so inventing one would make every reading of this
- *   panel wrong in the same direction. The count stands on its own until a branch capacity exists.
+ * Two things the mockup puts here are still missing on purpose:
+ *
  * - **"Turnstile online".** There is no turnstile, no door controller and no `IDoorAccessProvider`
  *   implementation in this system — check-in is a row in a table. A green hardware-health dot is the
  *   worst possible thing to fake, because staff would trust it to mean the door is working. The top
@@ -29,7 +29,12 @@ const EYEBROW = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground u
  *   there is no plan and no billing state on it. The second line carries what the row does know: still
  *   in the building, or the time they left.
  */
-export function FrontDeskRail() {
+/**
+ * @param capacity The licensed number for this site, or null when the gym has never set one. Passed
+ *   in rather than fetched: the page above already has the branch list, and the branches endpoint is
+ *   fetched in enough places already without this adding another.
+ */
+export function FrontDeskRail({ capacity }: { capacity: number | null }) {
   const branchId = useUiStore((s) => s.selectedBranchId)
 
   /**
@@ -70,11 +75,37 @@ export function FrontDeskRail() {
           ) : inBuilding.isError ? (
             <CloudOff className="size-6 text-muted-foreground" />
           ) : (
-            <span className="font-display text-5xl leading-none font-black tracking-tight text-primary tabular-nums">
-              {inBuilding.data.totalCount}
+            <span className="flex items-baseline gap-1.5">
+              <span className="font-display text-5xl leading-none font-black tracking-tight text-primary tabular-nums">
+                {inBuilding.data.totalCount}
+              </span>
+              {/*
+                The denominator, and only when the gym has actually given one. Branch.Capacity is
+                nullable because "nobody has told us" is a real and common state — so a site that
+                never filled it in keeps the bare count rather than being measured against a ceiling
+                this app invented for it.
+              */}
+              {capacity !== null && (
+                <span className="text-lg text-muted-foreground tabular-nums">/ {capacity}</span>
+              )}
             </span>
           )}
         </div>
+
+        {capacity !== null && !inBuilding.isPending && !inBuilding.isError && (
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                'h-full rounded-full transition-[width] duration-700 ease-out',
+                // Over the licensed number is a fact staff need to act on, not a full bar — the fill
+                // is clamped so the bar stays a bar, and the colour is what carries the alarm.
+                inBuilding.data.totalCount >= capacity ? 'bg-destructive' : 'bg-primary',
+              )}
+              style={{ width: `${Math.min(100, (inBuilding.data.totalCount / capacity) * 100)}%` }}
+            />
+          </div>
+        )}
+
         {inBuilding.isError && (
           <p className="mt-2 text-sm text-muted-foreground">Can't reach the desk's records right now.</p>
         )}

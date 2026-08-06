@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { useCreateBranch } from '@/modules/settings/api/settingsApi'
+import { MAX_BRANCH_CAPACITY, parseCapacity, useCreateBranch } from '@/modules/settings/api/settingsApi'
 
 export function CreateBranchDialog() {
   const [open, setOpen] = useState(false)
@@ -23,6 +23,7 @@ export function CreateBranchDialog() {
   const [country, setCountry] = useState('')
   const [timeZone, setTimeZone] = useState('UTC')
   const [currency, setCurrency] = useState('USD')
+  const [capacity, setCapacity] = useState('')
 
   const createBranch = useCreateBranch()
 
@@ -31,12 +32,13 @@ export function CreateBranchDialog() {
     setAddressLine('')
     setCity('')
     setCountry('')
+    setCapacity('')
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     createBranch.mutate(
-      { name, addressLine, city, country, timeZone, currency },
+      { name, addressLine, city, country, timeZone, currency, capacity: parseCapacity(capacity) },
       {
         onSuccess: () => {
           toast.success('Branch created.')
@@ -93,6 +95,26 @@ export function CreateBranchDialog() {
                 onChange={(e) => setCurrency(e.target.value.toUpperCase())}
               />
             </div>
+          </div>
+          {/*
+            Optional, and left genuinely blank rather than pre-filled with a plausible number. A
+            capacity is something the gym reads off its fire-safety certificate, and the occupancy
+            bar on the front desk divides by it — a guessed default would be wrong on every reading
+            without ever looking wrong. Empty means "not told", and the desk shows a bare count.
+          */}
+          <div className="space-y-1.5">
+            <Label htmlFor="branchCapacity">Capacity <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <Input
+              id="branchCapacity"
+              type="number"
+              min={1}
+              max={MAX_BRANCH_CAPACITY}
+              inputMode="numeric"
+              placeholder="Not set"
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">How many people the site holds. Leave blank if you don't have the figure.</p>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={createBranch.isPending}>

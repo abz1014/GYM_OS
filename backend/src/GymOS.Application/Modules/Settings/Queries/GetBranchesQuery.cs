@@ -21,7 +21,7 @@ public class GetBranchesQueryHandler(IApplicationDbContext db) : IRequestHandler
 
         return query
             .OrderBy(b => b.Name)
-            .Select(b => new BranchDto(b.Id, b.Name, b.AddressLine, b.City, b.Country, b.TimeZone, b.Currency, b.IsActive))
+            .Select(b => new BranchDto(b.Id, b.Name, b.AddressLine, b.City, b.Country, b.TimeZone, b.Currency, b.IsActive, b.Capacity))
             .ToListAsync(cancellationToken);
     }
 }

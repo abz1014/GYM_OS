@@ -40,6 +40,9 @@ function BranchesTab() {
               <div className="flex flex-wrap gap-1">
                 <Badge variant="outline">{branch.timeZone}</Badge>
                 <Badge variant="outline">{branch.currency}</Badge>
+                {/* Only when set. A site with no capacity shows no badge rather than "Cap 0", which
+                    would read as a closed building instead of an unanswered question. */}
+                {branch.capacity !== null && <Badge variant="outline">Cap {branch.capacity}</Badge>}
                 {!branch.isActive && <Badge variant="secondary">Inactive</Badge>}
               </div>
             </CardContent>
