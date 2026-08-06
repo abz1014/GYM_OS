@@ -2,6 +2,7 @@ using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Experience.Dtos;
 using GymOS.Application.Modules.Portal;
+using GymOS.Domain.Common;
 using GymOS.Domain.Experience;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +23,11 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
     public async Task<MyRecoveryDto> Handle(GetMyRecoveryQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        // On the gym's clock, like every other day the member is shown. Recovery is the first thing
+        // the home screen says, so counting it in UTC put the headline on a different calendar from
+        // the weekly ring directly above it.
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
         var windowStart = today.AddDays(-6); // 7-day inclusive window (today .. today-6)
 
         // Whole-body signals: distinct workout days (an entry-less log still counts as a gym session)
@@ -30,7 +35,7 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
         // in memory.
         var workoutDates = (await db.WorkoutLogs.AsNoTracking()
                 .Where(w => w.MemberId == memberId).Select(w => w.LoggedAt).ToListAsync(cancellationToken))
-            .Select(ToDate).Distinct().ToList();
+            .Select(d => GymDay.Of(d, zone)).Distinct().ToList();
 
         var restDates = (await db.RecoveryLogs.AsNoTracking()
                 .Where(r => r.MemberId == memberId).Select(r => r.LoggedOn).ToListAsync(cancellationToken))
@@ -63,7 +68,7 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
 
             muscleGroups = entryRows
                 .Where(r => groupByExercise.ContainsKey(r.ExerciseId))
-                .Select(r => new { Group = groupByExercise[r.ExerciseId], Date = ToDate(r.LoggedAt) })
+                .Select(r => new { Group = groupByExercise[r.ExerciseId], Date = GymDay.Of(r.LoggedAt, zone) })
                 .GroupBy(x => x.Group)
                 .Select(g =>
                 {
@@ -80,6 +85,4 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
 
         return new MyRecoveryDto(overallStatus.ToString(), overallReason, sessionsLast7, restLast7, daysSinceLastWorkout, muscleGroups);
     }
-
-    private static DateOnly ToDate(DateTimeOffset value) => DateOnly.FromDateTime(value.UtcDateTime);
 }

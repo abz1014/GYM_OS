@@ -91,7 +91,8 @@ export default function MemberPortalPage() {
         </div>
       )}
 
-      {/* A compact level readout; the full XP ledger, streaks and badges live on My Progress. */}
+      {/* A compact level readout; the XP ledger and the badges they've unlocked live on My Progress,
+          the latter on the timeline alongside the session that earned each one. */}
       {experience.data && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">

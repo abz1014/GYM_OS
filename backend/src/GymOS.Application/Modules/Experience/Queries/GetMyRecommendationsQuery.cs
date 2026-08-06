@@ -3,6 +3,7 @@ using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Experience.Dtos;
 using GymOS.Application.Modules.Portal;
 using GymOS.Application.Modules.Portal.Queries;
+using GymOS.Domain.Common;
 using GymOS.Domain.Experience;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -10,12 +11,18 @@ using Microsoft.EntityFrameworkCore;
 namespace GymOS.Application.Modules.Experience.Queries;
 
 /// <summary>
-/// The member's coaching nudges in one round trip — plateau alerts, weekly focus, volume trend,
-/// recovery advice, and skill-tree exercise substitution — synthesized by the pure
-/// RecommendationPolicy from signals the rest of the Member Experience Engine already computes.
-/// Deliberately reuses GetMyWorkoutSuggestionsQuery, GetMyMasteryQuery, and GetMyRecoveryQuery via
-/// ISender rather than recomputing their logic (the established pattern — see
-/// GetMyWorkoutAssignmentsQuery). Self-scoped via MyMemberResolver.
+/// What the member's training says that no other surface says: an acknowledgement of the plan their
+/// trainer has them on, the next rung of a skill tree, and a week-over-week swing in volume.
+/// Synthesized by the pure RecommendationPolicy from signals the rest of the Member Experience
+/// Engine already computes, reusing GetMyRecoveryQuery via ISender rather than recomputing it.
+/// Self-scoped via MyMemberResolver.
+///
+/// It used to also carry per-exercise overload alerts and a weakest-muscle-group focus. Both were
+/// dropped in the Step 9 review, for the same reason: each restated, in different words, something
+/// the member was already reading on the very same screen — the overload alerts duplicated the
+/// workout-suggestions list directly below them, and the focus line duplicated the mastery bars
+/// beside it. Both facts survive; TrainingInsightPolicy ranks them onto the home screen, where one
+/// of them is the top thing a member is told rather than the fourth.
 /// </summary>
 public record GetMyRecommendationsQuery : IQuery<List<MyRecommendationDto>>;
 
@@ -26,13 +33,14 @@ public class GetMyRecommendationsQueryHandler(
     public async Task<List<MyRecommendationDto>> Handle(GetMyRecommendationsQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
 
         var recommendations = new List<Recommendation>();
 
-        // A trainer's active plan decides whether the self-directed "what to train" recommendations
-        // (WeeklyFocus, ExerciseSubstitution) run at all — recovery/plateau/volume stay independent,
-        // since those are about the member's own body state, not program direction.
+        // A trainer's active plan decides whether the self-directed "what to train" recommendation
+        // (ExerciseSubstitution) runs at all — recovery and volume stay independent, since those are
+        // about the member's own body state, not program direction.
         var activePlanName = await db.WorkoutAssignments.AsNoTracking()
             .Where(a => a.MemberId == memberId && a.StartDate <= today && (a.EndDate == null || a.EndDate >= today))
             .Select(a => a.WorkoutTemplate!.Name)
@@ -50,26 +58,12 @@ public class GetMyRecommendationsQueryHandler(
             recommendations.Add(recoveryAdvice);
         }
 
-        var suggestions = await sender.Send(new GetMyWorkoutSuggestionsQuery(), cancellationToken);
-        var overloadSignals = suggestions
-            .Select(s => new ExerciseOverloadSignal(s.ExerciseId, s.ExerciseName, s.Suggestion, s.LastWeightKg))
-            .ToList();
-        recommendations.AddRange(RecommendationPolicy.PlateauAlerts(overloadSignals));
-
         if (activePlanName is null)
         {
-            var mastery = await sender.Send(new GetMyMasteryQuery(), cancellationToken);
-            var groupSignals = mastery.MuscleGroups.Select(g => new MuscleGroupSignal(g.Name, g.MasteryPercent)).ToList();
-            var weeklyFocus = RecommendationPolicy.WeeklyFocus(groupSignals);
-            if (weeklyFocus is not null)
-            {
-                recommendations.Add(weeklyFocus);
-            }
-
             recommendations.AddRange(await BuildExerciseSubstitutionsAsync(memberId, cancellationToken));
         }
 
-        var volumeRecommendation = await BuildVolumeTrendAsync(memberId, today, cancellationToken);
+        var volumeRecommendation = await BuildVolumeTrendAsync(memberId, today, zone, cancellationToken);
         if (volumeRecommendation is not null)
         {
             recommendations.Add(volumeRecommendation);
@@ -80,7 +74,7 @@ public class GetMyRecommendationsQueryHandler(
 
     /// <summary>Week-over-week logged training volume. No existing query owns this metric, so it's
     /// computed directly here; pulled to memory since DateTimeOffset can't be bucketed in SQL on SQLite.</summary>
-    private async Task<Recommendation?> BuildVolumeTrendAsync(Guid memberId, DateOnly today, CancellationToken cancellationToken)
+    private async Task<Recommendation?> BuildVolumeTrendAsync(Guid memberId, DateOnly today, TimeZoneInfo zone, CancellationToken cancellationToken)
     {
         var rows = await db.WorkoutLogEntries.AsNoTracking()
             .Where(e => e.WorkoutLog!.MemberId == memberId)
@@ -95,7 +89,7 @@ public class GetMyRecommendationsQueryHandler(
         var previousVolume = 0m;
         foreach (var row in rows)
         {
-            var date = DateOnly.FromDateTime(row.LoggedAt.UtcDateTime);
+            var date = GymDay.Of(row.LoggedAt, zone);
             var volume = row.SetsCompleted * row.RepsCompleted * (row.WeightKg ?? 0m);
 
             if (date >= currentWindowStart)

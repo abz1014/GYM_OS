@@ -3,7 +3,7 @@
  * MemberPortalPage; they were lifted out when that page was split into focused screens so the
  * styling of a mastery bar, a macro bar or a challenge row stays identical wherever it appears.
  */
-import { BarChart3, ClipboardList, Flag, HeartPulse, Loader2, Minus, Shuffle, Sparkles, Target, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react'
+import { BarChart3, ClipboardList, Flag, HeartPulse, Loader2, Minus, Shuffle, Sparkles, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -65,9 +65,7 @@ export const RECOVERY_STYLE: Record<RecoveryStatus, { ring: string; text: string
 }
 
 // Recommendation type -> icon + accent color, so the card reads at a glance without parsing text.
-export const RECOMMENDATION_STYLE: Record<RecommendationType, { icon: typeof Target; text: string }> = {
-  PlateauAlert: { icon: TrendingUp, text: 'text-amber-600' },
-  WeeklyFocus: { icon: Target, text: 'text-sky-600' },
+export const RECOMMENDATION_STYLE: Record<RecommendationType, { icon: typeof Shuffle; text: string }> = {
   VolumeSuggestion: { icon: BarChart3, text: 'text-violet-600' },
   ExerciseSubstitution: { icon: Shuffle, text: 'text-emerald-600' },
   RecoveryAdvice: { icon: HeartPulse, text: 'text-red-600' },

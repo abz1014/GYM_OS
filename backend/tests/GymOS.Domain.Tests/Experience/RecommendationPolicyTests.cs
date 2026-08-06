@@ -1,53 +1,20 @@
 using GymOS.Domain.Experience;
-using GymOS.Domain.Workouts;
 using Shouldly;
 
 namespace GymOS.Domain.Tests.Experience;
 
 /// <summary>
-/// The recommendation engine is pure, so each nudge's trigger condition is pinned here: plateaus only
-/// promote the ReadyToIncreaseWeight signal, weekly focus picks the true weakest group, volume trend
+/// The recommendation engine is pure, so each nudge's trigger condition is pinned here: volume trend
 /// only fires on a meaningful swing, recovery advice only fires when action is warranted, and every
 /// recommendation carries a non-empty explanation ("always explain").
+///
+/// What is no longer here is the point of the Step 9 review. A per-exercise overload alert and a
+/// weakest-muscle-group focus used to live in this engine, and both were removed for restating
+/// something the member already had on screen. TrainingInsightPolicy owns those two facts now, and
+/// its own tests pin them.
 /// </summary>
 public class RecommendationPolicyTests
 {
-    [Fact]
-    public void PlateauAlerts_only_promotes_ReadyToIncreaseWeight_signals()
-    {
-        var exerciseId = Guid.NewGuid();
-        var signals = new List<ExerciseOverloadSignal>
-        {
-            new(exerciseId, "Bench Press", OverloadSuggestion.ReadyToIncreaseWeight, 60m),
-            new(Guid.NewGuid(), "Barbell Squat", OverloadSuggestion.Progressing, 85m),
-            new(Guid.NewGuid(), "Deadlift", OverloadSuggestion.ConsiderDeload, 100m),
-            new(Guid.NewGuid(), "Pull-Up", OverloadSuggestion.InsufficientData, null),
-        };
-
-        var alerts = RecommendationPolicy.PlateauAlerts(signals);
-
-        alerts.ShouldHaveSingleItem();
-        alerts[0].Type.ShouldBe(RecommendationType.PlateauAlert);
-        alerts[0].ExerciseId.ShouldBe(exerciseId);
-        alerts[0].Explanation.ShouldContain("Bench Press");
-    }
-
-    [Fact]
-    public void WeeklyFocus_picks_the_lowest_mastery_group()
-    {
-        var groups = new List<MuscleGroupSignal> { new("Legs", 40), new("Chest", 8), new("Back", 25) };
-
-        var focus = RecommendationPolicy.WeeklyFocus(groups);
-
-        focus.ShouldNotBeNull();
-        focus!.Title.ShouldContain("Chest");
-        focus.Explanation.ShouldContain("8%");
-    }
-
-    [Fact]
-    public void WeeklyFocus_is_null_with_no_mastery_data()
-        => RecommendationPolicy.WeeklyFocus([]).ShouldBeNull();
-
     [Theory]
     [InlineData(1000, 2000, true)]  // dropped to 50% -> notable decline
     [InlineData(3000, 1000, true)]  // jumped to 300% -> notable increase
@@ -71,15 +38,12 @@ public class RecommendationPolicyTests
     [Fact]
     public void Every_recommendation_carries_a_non_empty_explanation()
     {
-        var plateau = RecommendationPolicy.PlateauAlerts(
-            [new ExerciseOverloadSignal(Guid.NewGuid(), "Bench Press", OverloadSuggestion.ReadyToIncreaseWeight, 60m)])[0];
-        var focus = RecommendationPolicy.WeeklyFocus([new MuscleGroupSignal("Chest", 8)])!;
         var volume = RecommendationPolicy.VolumeTrend(1000, 2000)!;
         var recovery = RecommendationPolicy.RecoveryAdvice(RecoveryStatus.Fatigued, "trained hard all week")!;
         var substitution = RecommendationPolicy.ExerciseSubstitution(Guid.NewGuid(), "Deadlift", "You've mastered the squat pattern.");
         var trainerPlan = RecommendationPolicy.TrainerPlanActive("Strength Foundations");
 
-        foreach (var rec in new[] { plateau, focus, volume, recovery, substitution, trainerPlan })
+        foreach (var rec in new[] { volume, recovery, substitution, trainerPlan })
         {
             rec.Explanation.ShouldNotBeNullOrWhiteSpace();
             rec.Title.ShouldNotBeNullOrWhiteSpace();

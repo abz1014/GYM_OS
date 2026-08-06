@@ -76,7 +76,7 @@ export const router = createBrowserRouter([
           { path: 'more', element: withSuspense(<MorePage />) },
           // Membership detail lives on its own path: /account was already taken by the auth
           // "My Account" screen (password/MFA), and a second 'account' entry here would simply be
-          // shadowed by it. /portal also still renders this until Phase B replaces it with Today.
+          // shadowed by it.
           { path: 'membership', element: withSuspense(<MemberPortalPage />) },
           { path: 'members', element: withSuspense(<MembersListPage />) },
           { path: 'members/:id', element: withSuspense(<MemberDetailPage />) },

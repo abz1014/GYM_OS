@@ -261,20 +261,21 @@ export function useMyExperience() {
   })
 }
 
+/*
+ * Records, achievements and streaks have no hook of their own any more. Each had one, none had a
+ * screen: the app already tells the member all three, in the place each belongs — records and
+ * achievements inside the session they happened on the timeline, the streak on the home screen. A
+ * hook nothing calls is a feature that looks shipped from the code and is invisible from the app.
+ *
+ * The endpoints stay. They are self-scoped, tested, and the obvious thing a second client would ask
+ * for; it is the unused wiring that was the dead weight, not the API.
+ */
 export interface MyPersonalRecord {
   exerciseId: string
   exerciseName: string
   type: 'MaxWeight' | 'EstimatedOneRepMax' | 'SessionVolume'
   value: number
   achievedAt: string
-}
-
-export function useMyPersonalRecords() {
-  return useQuery({
-    queryKey: ['portal', 'personal-records'],
-    queryFn: async () => (await apiClient.get<MyPersonalRecord[]>('/api/me/personal-records')).data,
-    retry: false,
-  })
 }
 
 export interface ExerciseMastery {
@@ -324,26 +325,10 @@ export interface MyAchievement {
   unlockedAt: string | null
 }
 
-export function useMyAchievements() {
-  return useQuery({
-    queryKey: ['portal', 'achievements'],
-    queryFn: async () => (await apiClient.get<MyAchievement[]>('/api/me/achievements')).data,
-    retry: false,
-  })
-}
-
 export interface MyStreaks {
   attendanceWeeks: number
   workoutWeeks: number
   nutritionWeeks: number
-}
-
-export function useMyStreaks() {
-  return useQuery({
-    queryKey: ['portal', 'streaks'],
-    queryFn: async () => (await apiClient.get<MyStreaks>('/api/me/streaks')).data,
-    retry: false,
-  })
 }
 
 export type RecoveryStatus = 'Fresh' | 'Ready' | 'Fatigued' | 'OvertrainingRisk'
@@ -387,8 +372,6 @@ export function useLogMyRecovery() {
 }
 
 export type RecommendationType =
-  | 'PlateauAlert'
-  | 'WeeklyFocus'
   | 'VolumeSuggestion'
   | 'ExerciseSubstitution'
   | 'RecoveryAdvice'

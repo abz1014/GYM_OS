@@ -1,6 +1,7 @@
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Portal;
+using GymOS.Domain.Common;
 using GymOS.Domain.Experience;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +22,11 @@ public class LogMyRecoveryCommandHandler(IApplicationDbContext db, ICurrentUserS
     public async Task<Guid> Handle(LogMyRecoveryCommand request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
+        // The rest day belongs to the evening it was taken. Stamped in UTC, a 9pm rest day is filed
+        // under tomorrow — absent from the window asking whether they rested today, and doubled up
+        // in a day not yet lived, which also lets the once-per-day guard be sidestepped.
+        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
 
         var existing = await db.RecoveryLogs
             .FirstOrDefaultAsync(r => r.MemberId == memberId && r.LoggedOn == today, cancellationToken);

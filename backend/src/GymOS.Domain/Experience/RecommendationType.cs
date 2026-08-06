@@ -4,12 +4,6 @@ namespace GymOS.Domain.Experience;
 /// pick an icon/tone without parsing the explanation text.</summary>
 public enum RecommendationType
 {
-    /// <summary>An exercise has held identical weight/reps for two sessions running — add weight next time.</summary>
-    PlateauAlert,
-
-    /// <summary>The member's weakest trained muscle group — a nudge toward balance.</summary>
-    WeeklyFocus,
-
     /// <summary>This week's training volume moved sharply versus last week (up or down).</summary>
     VolumeSuggestion,
 

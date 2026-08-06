@@ -112,12 +112,19 @@ export default function MyTrainingPage() {
         </Card>
       )}
 
+      {/*
+        Everything this card said about adding weight or training a weak area came out in the Step 9
+        review: the first was repeated verbatim by the suggestions list below, the second by the
+        mastery bars beside it, and both are said better on the home screen where they're ranked
+        against everything else. What's left is what nothing else here knows — the plan you're on,
+        the next rung of a progression, a week that swung.
+      */}
       {recommendations.data && recommendations.data.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Lightbulb className="size-4 text-amber-500" />
-              Recommendations
+              Worth knowing
             </CardTitle>
           </CardHeader>
           <CardContent>

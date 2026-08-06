@@ -1,56 +1,21 @@
-using GymOS.Domain.Workouts;
-
 namespace GymOS.Domain.Experience;
 
-/// <summary>One exercise's progressive-overload read for the recommendation engine — the same signal
-/// ProgressiveOverloadPolicy already produces per exercise, carried with enough context to phrase a
-/// recommendation.</summary>
-public readonly record struct ExerciseOverloadSignal(Guid ExerciseId, string ExerciseName, OverloadSuggestion Suggestion, decimal? LastWeightKg);
-
-/// <summary>One muscle group's mastery, as already aggregated by MasteryPolicy/GetMyMasteryQuery.</summary>
-public readonly record struct MuscleGroupSignal(string MuscleGroup, int MasteryPercent);
-
 /// <summary>
-/// The pure recommendation engine (blueprint Phase 6/7): synthesizes typed, always-explained nudges
-/// from signals the rest of the Member Experience Engine already computes — ProgressiveOverloadPolicy
-/// (plateaus), MasteryPolicy (weakest muscle group), RecoveryPolicy (recovery advice), logged training
+/// The pure recommendation engine: typed, always-explained nudges built from signals the rest of the
+/// Member Experience Engine already computes — RecoveryPolicy (recovery advice), logged training
 /// volume (week-over-week trend), and SkillTreePolicy (exercise substitution). Deliberately does not
-/// recompute any of those — it only decides what to say and why, given what they already found.
+/// recompute any of those; it only decides what to say and why, given what they already found.
 /// "Never reward unsafe lifting alone" carries over here as "never recommend blind": every method
 /// either returns nothing or a Recommendation with a concrete Explanation.
+///
+/// Two members of this family went in the Step 9 review — a per-exercise overload alert and a
+/// weakest-muscle-group focus. Not because either was wrong, but because each restated something the
+/// member was already reading on the same screen, and both facts are put better by
+/// TrainingInsightPolicy, which ranks them against everything else instead of listing them fourth.
+/// What is left here is what only this engine knows.
 /// </summary>
 public static class RecommendationPolicy
 {
-    /// <summary>A plateau alert per exercise that's held identical weight/reps for two sessions running
-    /// — the same signal the per-exercise "add weight next time" card already shows, just promoted to
-    /// a top-level nudge. Exercises still progressing or lacking history are silently excluded.</summary>
-    public static IReadOnlyList<Recommendation> PlateauAlerts(IReadOnlyList<ExerciseOverloadSignal> signals)
-        => signals
-            .Where(s => s.Suggestion == OverloadSuggestion.ReadyToIncreaseWeight)
-            .Select(s => new Recommendation(
-                RecommendationType.PlateauAlert,
-                $"{s.ExerciseName}: ready to add weight",
-                $"You've held {(s.LastWeightKg is { } w ? $"{w}kg" : "the same weight")} for two sessions running on {s.ExerciseName} — try a small increase next time.",
-                s.ExerciseId))
-            .ToList();
-
-    /// <summary>The member's weakest trained muscle group, as a nudge toward balance. Null when the
-    /// member has no mastery data yet (nothing to compare) — "trained" is implicit, since a muscle
-    /// group only appears in the mastery breakdown once it has logged sessions.</summary>
-    public static Recommendation? WeeklyFocus(IReadOnlyList<MuscleGroupSignal> muscleGroups)
-    {
-        if (muscleGroups.Count == 0)
-        {
-            return null;
-        }
-
-        var weakest = muscleGroups.OrderBy(g => g.MasteryPercent).ThenBy(g => g.MuscleGroup).First();
-        return new Recommendation(
-            RecommendationType.WeeklyFocus,
-            $"Focus on {weakest.MuscleGroup} this week",
-            $"{weakest.MuscleGroup} is your weakest trained muscle group at {weakest.MasteryPercent}% mastery — give it some attention to stay balanced.");
-    }
-
     /// <summary>Week-over-week training volume trend. Null when there's no prior week to compare
     /// against, or the swing is unremarkable (0.7x–1.5x) — only a meaningful jump or drop is worth
     /// surfacing.</summary>
@@ -95,9 +60,9 @@ public static class RecommendationPolicy
     public static Recommendation ExerciseSubstitution(Guid exerciseId, string exerciseName, string unlockExplanation)
         => new(RecommendationType.ExerciseSubstitution, $"Try {exerciseName} next", unlockExplanation, exerciseId);
 
-    /// <summary>A trainer has an active plan on file — self-directed "what to train" recommendations
-    /// (WeeklyFocus, ExerciseSubstitution) defer to it rather than compete with it. Recovery/plateau/
-    /// volume signals are about the member's own body state and stay independent of any plan.</summary>
+    /// <summary>A trainer has an active plan on file — the self-directed "what to train" suggestion
+    /// (ExerciseSubstitution) defers to it rather than competing with it. Recovery and volume signals
+    /// are about the member's own body state and stay independent of any plan.</summary>
     public static Recommendation TrainerPlanActive(string planName)
         => new(RecommendationType.TrainerPlanActive, "Follow your trainer's plan",
             $"Your trainer has assigned \"{planName}\" — follow that plan rather than self-directed suggestions.");

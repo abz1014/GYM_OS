@@ -38,7 +38,13 @@ export const MEMBER_TABS: MemberTab[] = [
     label: 'More',
     path: '/more',
     icon: LayoutGrid,
-    alsoMatches: ['/my-training', '/my-nutrition', '/my-classes', '/my-challenges', '/leaderboard', '/membership', '/account'],
+    // Every path in MEMBER_MORE_LINKS belongs here. Two were missed as they were added — My Coach
+    // and Gym Passport — and on those screens no tab lit at all, so the app quietly stopped saying
+    // where the member was, and aria-current went with it.
+    alsoMatches: [
+      '/my-training', '/my-nutrition', '/my-classes', '/my-coach', '/my-passport',
+      '/my-challenges', '/leaderboard', '/membership', '/account',
+    ],
   },
 ]
 

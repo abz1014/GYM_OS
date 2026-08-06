@@ -13,15 +13,19 @@ using Shouldly;
 namespace GymOS.Application.Tests.Experience;
 
 /// <summary>
-/// Slice 6: the recommendation engine synthesizes typed nudges from the member's own real history —
-/// a plateau alert from progressive-overload signals, weekly focus from mastery, exercise substitution
-/// from skill-tree progress — and a trainer's active plan suppresses the self-directed "what to train"
-/// ones (WeeklyFocus, ExerciseSubstitution) in favor of a single TrainerPlanActive nudge.
+/// The recommendation engine synthesizes typed nudges from the member's own real history — exercise
+/// substitution from skill-tree progress, a volume swing, recovery advice — and a trainer's active
+/// plan suppresses the self-directed "what to train" one in favour of a single TrainerPlanActive
+/// nudge.
+///
+/// The overload alert and weakest-group focus this suite used to cover went in the Step 9 review:
+/// each said, in different words, something the member was already reading on the same screen.
+/// TrainingInsightPolicy carries both facts now, ranked rather than listed.
 /// </summary>
 public class RecommendationEngineTests : ApplicationTestBase
 {
     [Fact]
-    public async Task Trainer_plan_active_suppresses_weekly_focus_and_exercise_substitution()
+    public async Task Trainer_plan_active_suppresses_exercise_substitution()
     {
         var ctx = await SeedAsync();
         SetAuthenticatedAs(ctx.TenantId, ctx.UserId);
@@ -31,15 +35,8 @@ public class RecommendationEngineTests : ApplicationTestBase
             var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
             var now = DateTimeProvider.UtcNow;
 
-            // A weak-mastery muscle group so WeeklyFocus WOULD fire if not for the trainer plan below.
-            db.ExerciseMasteries.Add(new ExerciseMastery
-            {
-                TenantId = ctx.TenantId, MemberId = ctx.MemberId, ExerciseId = ctx.ExerciseId,
-                Sessions = 1, TotalVolume = 500m, BestWeightKg = 50m, LastTrainedAt = now, UpdatedAt = now
-            });
-
-            // A skill tree with its first node already cleared, so ExerciseSubstitution WOULD also fire
-            // if not for the trainer plan below.
+            // A skill tree with its first node already cleared, so ExerciseSubstitution WOULD fire if
+            // not for the trainer plan below.
             var nextExercise = new Exercise { TenantId = ctx.TenantId, Name = "Overhead Press", MuscleGroup = "Shoulders" };
             db.Exercises.Add(nextExercise);
             var tree = new SkillTree { TenantId = ctx.TenantId, Name = "Push Strength Progression", MuscleGroup = "Chest" };
@@ -68,13 +65,15 @@ public class RecommendationEngineTests : ApplicationTestBase
         var recommendations = await SendAsync(new GetMyRecommendationsQuery());
 
         recommendations.ShouldContain(r => r.Type == "TrainerPlanActive" && r.Explanation.Contains("Strength Foundations"));
-        recommendations.ShouldNotContain(r => r.Type == "WeeklyFocus");
         recommendations.ShouldNotContain(r => r.Type == "ExerciseSubstitution");
     }
 
     [Fact]
-    public async Task Plateau_alert_fires_for_a_two_session_plateau()
+    public async Task Nothing_here_repeats_what_another_surface_already_says()
     {
+        // The Step 9 subtraction, pinned. A member two sessions into the same weight used to be told
+        // "ready to add weight" here, on the same screen as the suggestion list that says it, and
+        // again on the home screen. This engine is now silent on both — one fact, one place.
         var ctx = await SeedAsync();
         SetAuthenticatedAs(ctx.TenantId, ctx.UserId);
 
@@ -91,47 +90,19 @@ public class RecommendationEngineTests : ApplicationTestBase
             newer.Entries.Add(new WorkoutLogEntry { ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
             db.WorkoutLogs.Add(newer);
 
-            await db.SaveChangesAsync();
-        }
-
-        var recommendations = await SendAsync(new GetMyRecommendationsQuery());
-
-        recommendations.ShouldContain(r => r.Type == "PlateauAlert" && r.ExerciseId == ctx.ExerciseId);
-    }
-
-    [Fact]
-    public async Task Weekly_focus_recommends_the_weakest_trained_muscle_group()
-    {
-        var ctx = await SeedAsync();
-        SetAuthenticatedAs(ctx.TenantId, ctx.UserId);
-
-        using (var scope = CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
-            var now = DateTimeProvider.UtcNow;
-
-            var strongExercise = new Exercise { TenantId = ctx.TenantId, Name = "Barbell Squat", MuscleGroup = "Legs" };
-            db.Exercises.Add(strongExercise);
-            await db.SaveChangesAsync();
-
-            // ctx.ExerciseId ("Bench Press", muscle group "Chest") gets a weak, single-session mastery...
             db.ExerciseMasteries.Add(new ExerciseMastery
             {
                 TenantId = ctx.TenantId, MemberId = ctx.MemberId, ExerciseId = ctx.ExerciseId,
                 Sessions = 1, TotalVolume = 500m, BestWeightKg = 50m, LastTrainedAt = now, UpdatedAt = now
             });
-            // ...while Legs gets a much deeper, well-trained mastery.
-            db.ExerciseMasteries.Add(new ExerciseMastery
-            {
-                TenantId = ctx.TenantId, MemberId = ctx.MemberId, ExerciseId = strongExercise.Id,
-                Sessions = 5, TotalVolume = 5000m, BestWeightKg = 100m, LastTrainedAt = now, UpdatedAt = now
-            });
+
             await db.SaveChangesAsync();
         }
 
         var recommendations = await SendAsync(new GetMyRecommendationsQuery());
 
-        recommendations.ShouldContain(r => r.Type == "WeeklyFocus" && r.Title.Contains("Chest"));
+        recommendations.ShouldNotContain(r => r.Type == "PlateauAlert");
+        recommendations.ShouldNotContain(r => r.Type == "WeeklyFocus");
     }
 
     [Fact]
