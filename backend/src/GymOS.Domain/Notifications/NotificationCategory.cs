@@ -18,5 +18,9 @@ public enum NotificationCategory
     ClassReminder,
 
     /// <summary>An automated nurture nudge to a cold lead nobody has followed up with yet.</summary>
-    LeadDrip
+    LeadDrip,
+
+    /// <summary>Their coach has written to them. The one notification in this list a member asked for
+    /// by starting a conversation, rather than one the gym decided to send.</summary>
+    CoachReply
 }

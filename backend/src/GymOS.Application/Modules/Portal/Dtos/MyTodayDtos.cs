@@ -35,7 +35,8 @@ public record MyTodayDto(
     MyClassBookingDto? NextClassToday,
     IReadOnlyList<MyInsightDto> Insights,
     MyVisitDto Visit,
-    MyAnticipationDto? Coming);
+    MyAnticipationDto? Coming,
+    int UnreadCoachMessages);
 
 /// <summary>
 /// Today's gym visit. Always present; <paramref name="State"/> is "None" when the member has not

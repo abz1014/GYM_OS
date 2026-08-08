@@ -423,6 +423,8 @@ export interface MyToday {
   visit: MyVisit
   /** The nearest thing the member has ahead of them, or null when there honestly isn't one. */
   coming: MyAnticipation | null
+  /** Messages from their coach they haven't opened. Drives the tab-bar dot — see MemberTabBar. */
+  unreadCoachMessages: number
 }
 
 export interface MyAnticipation {

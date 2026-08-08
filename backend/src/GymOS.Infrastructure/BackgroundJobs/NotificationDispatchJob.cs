@@ -13,6 +13,7 @@ namespace GymOS.Infrastructure.BackgroundJobs;
 /// <summary>Recurring job (registered every few minutes via Hangfire in Program.cs) that sends due ScheduledNotifications through the demo channel senders.</summary>
 public class NotificationDispatchJob(
     GymOsDbContext db, IEmailSender emailSender, ISmsSender smsSender, IWhatsAppSender whatsAppSender,
+    IInAppSender inAppSender,
     IDateTimeProvider dateTimeProvider, ILogger<NotificationDispatchJob> logger)
 {
     public async Task<int> RunAsync(CancellationToken cancellationToken = default)
@@ -53,8 +54,15 @@ public class NotificationDispatchJob(
                 case NotificationChannel.WhatsApp:
                     await whatsAppSender.SendAsync(recipientAddress, subject, cancellationToken);
                     break;
-                case NotificationChannel.Email:
                 case NotificationChannel.InApp:
+                    // Not the email sender. An in-app notification routed through it was written to
+                    // NotificationLog as Channel = Email, so the Notification Center reported a
+                    // delivery method that never happened — and the one channel in this system that
+                    // needs no external provider looked like the one that does. It is recorded as
+                    // what it is; the member reads it in the app.
+                    await inAppSender.SendAsync(recipientAddress, subject, body, cancellationToken);
+                    break;
+                case NotificationChannel.Email:
                 default:
                     await emailSender.SendAsync(recipientAddress, subject, body, cancellationToken);
                     break;

@@ -4,6 +4,7 @@ using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Coaching.Dtos;
 using GymOS.Domain.Common;
+using GymOS.Domain.Notifications;
 using GymOS.Domain.Trainers;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -66,8 +67,58 @@ public class MessageMyClientCommandHandler(
         };
 
         db.CoachMessages.Add(message);
+        await ScheduleReplyNotificationAsync(request.MemberId, message.Id, cancellationToken);
+
         await db.SaveChangesAsync(cancellationToken);
         return message.Id;
+    }
+
+    /// <summary>
+    /// Tells the member their coach has written, through the same ScheduledNotification pipeline
+    /// every other alert in this system uses rather than a side channel of its own.
+    ///
+    /// **What this does and does not do.** The template is InApp, so dispatch records it and the
+    /// member sees it inside the product; it is not a push notification and this system has no way
+    /// to send one — there is no native app, and email/SMS remain no-op stubs until a provider is
+    /// configured. The member still finds out by opening GymOS. What changed is that they no longer
+    /// have to go looking: the unread count rides on their home screen (GetMyTodayQuery).
+    ///
+    /// Failure to schedule must never lose the message. The notification is a courtesy; the message
+    /// is the thing the trainer wrote, and a missing template is not a reason to reject it. So a
+    /// missing template is skipped silently rather than thrown — the conversation is already
+    /// readable without it.
+    /// </summary>
+    private async Task ScheduleReplyNotificationAsync(Guid memberId, Guid messageId, CancellationToken cancellationToken)
+    {
+        var template = await db.NotificationTemplates
+            .FirstOrDefaultAsync(t => t.Category == NotificationCategory.CoachReply && t.IsActive, cancellationToken);
+
+        if (template is null)
+        {
+            return;
+        }
+
+        var member = await db.Members.AsNoTracking()
+            .Where(m => m.Id == memberId)
+            .Select(m => new { m.TenantId, m.BranchId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (member is null)
+        {
+            return;
+        }
+
+        db.ScheduledNotifications.Add(new ScheduledNotification
+        {
+            TenantId = member.TenantId,
+            BranchId = member.BranchId,
+            NotificationTemplateId = template.Id,
+            RecipientMemberId = memberId,
+            ScheduledFor = dateTimeProvider.UtcNow,
+            Status = ScheduledNotificationStatus.Pending,
+            RelatedEntityType = nameof(CoachMessage),
+            RelatedEntityId = messageId
+        });
     }
 }
 

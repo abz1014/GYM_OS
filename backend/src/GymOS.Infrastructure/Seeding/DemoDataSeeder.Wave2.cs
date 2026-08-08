@@ -385,6 +385,15 @@ public partial class DemoDataSeeder
             },
             new NotificationTemplate
             {
+                // InApp, not Email, and deliberately so: the member is already in the product and the
+                // reply is waiting there. Nothing about a coach's note needs to arrive by email, and
+                // the in-app channel is the only one that works without an external provider.
+                TenantId = tenantId, Code = "coach-reply", Category = NotificationCategory.CoachReply,
+                Channel = NotificationChannel.InApp, Subject = "{{TrainerName}} replied",
+                BodyTemplate = "Hi {{FirstName}}, your coach has written to you. Open Coach to read it."
+            },
+            new NotificationTemplate
+            {
                 TenantId = tenantId, Code = "low-stock", Category = NotificationCategory.LowStock,
                 Channel = NotificationChannel.Email, Subject = "Low stock alert",
                 BodyTemplate = "{{ItemName}} is running low ({{QuantityOnHand}} remaining)."

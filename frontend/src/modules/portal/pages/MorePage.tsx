@@ -3,7 +3,7 @@ import { ChevronRight, LogOut, QrCode } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useLogout } from '@/modules/auth/api/authApi'
-import { useMyProfile } from '@/modules/portal/api/portalApi'
+import { useMyToday, useMyProfile } from '@/modules/portal/api/portalApi'
 import { useAuthStore } from '@/stores/authStore'
 import { MEMBER_MORE_LINKS, type MemberMoreLink } from '@/shared/nav/memberNav'
 
@@ -26,6 +26,9 @@ export default function MorePage() {
   // Without this the same person is greeted as "Noah" on Home and "Member Demo" here, because the
   // two names come from different rows and nothing forces them to agree.
   const profile = useMyProfile()
+  // Same source as the tab-bar dot, so the two can never disagree about whether the coach has written.
+  const today = useMyToday()
+  const unreadCoachMessages = today.data?.unreadCoachMessages ?? 0
   const refreshToken = useAuthStore((s) => s.refreshToken)
   const clearSession = useAuthStore((s) => s.clearSession)
   const logout = useLogout()
@@ -130,6 +133,13 @@ export default function MorePage() {
                     <span className="block font-medium">{link.label}</span>
                     <span className="block truncate text-sm text-muted-foreground">{link.description}</span>
                   </span>
+                  {/* The count belongs here rather than on the tab dot: this row is one tap from the
+                      thread, so a number is worth reading. See MemberTabBar for why the dot has none. */}
+                  {link.path === '/my-coach' && unreadCoachMessages > 0 && (
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground tabular-nums">
+                      {unreadCoachMessages}
+                    </span>
+                  )}
                   <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
                 </Link>
               ))}

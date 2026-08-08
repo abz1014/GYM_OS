@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailSender, NoOpEmailSender>();
         services.AddScoped<ISmsSender, NoOpSmsSender>();
         services.AddScoped<IWhatsAppSender, NoOpWhatsAppSender>();
+        services.AddScoped<IInAppSender, InAppSender>();
 
         var storageProvider = configuration.GetSection(StorageSettings.SectionName)[nameof(StorageSettings.Provider)];
         if (string.Equals(storageProvider, "S3", StringComparison.OrdinalIgnoreCase))

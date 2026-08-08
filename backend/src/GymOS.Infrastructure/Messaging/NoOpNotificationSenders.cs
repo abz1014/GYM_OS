@@ -84,3 +84,26 @@ public class NoOpWhatsAppSender(IApplicationDbContext db, ICurrentUserService cu
         await db.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// The in-app channel. Unlike its neighbours in this file this is not a no-op standing in for a
+/// provider — an in-app notification is delivered by being recorded, and the staff Notification
+/// Center reads these back. It exists separately so the log says InApp rather than Email, which is
+/// what the dispatch job used to write for in-app templates.
+/// </summary>
+public class InAppSender(IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider) : IInAppSender
+{
+    public async Task SendAsync(string recipientReference, string subject, string body, CancellationToken cancellationToken = default)
+    {
+        db.NotificationLogs.Add(new NotificationLog
+        {
+            TenantId = await TenantResolution.ResolveAsync(db, currentUser, cancellationToken),
+            Channel = NotificationChannel.InApp,
+            RecipientAddress = recipientReference,
+            Subject = subject,
+            Body = body,
+            SentAt = dateTimeProvider.UtcNow,
+            Success = true
+        });
+    }
+}

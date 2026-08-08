@@ -4,6 +4,7 @@ using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Challenges.Queries;
 using GymOS.Application.Modules.Experience.Queries;
 using GymOS.Domain.Experience;
+using GymOS.Domain.Trainers;
 using GymOS.Domain.Workouts;
 using GymOS.Application.Modules.Portal.Dtos;
 using GymOS.Domain.Classes;
@@ -159,6 +160,19 @@ public class GetMyTodayQueryHandler(
                 XpPolicy.AwardFor(XpReason.WorkoutCompleted)),
             now);
 
+        /*
+         * Whether the member's coach has said something they have not opened.
+         *
+         * It rides on this query rather than getting its own because the home screen is the first
+         * thing a member sees and the badge has to be right there — a notification the member has to
+         * navigate to find is the exact problem it exists to solve. Only the trainer's own messages
+         * count: a member's unread outbound message means the coach hasn't opened it, which is not
+         * something to badge the member about.
+         */
+        var unreadFromCoach = await db.CoachMessages
+            .CountAsync(c => c.MemberId == memberId && c.Author == CoachMessageAuthor.Trainer && c.ReadAt == null,
+                cancellationToken);
+
         return new MyTodayDto(
             firstName,
             sessionsThisWeek,
@@ -170,6 +184,7 @@ public class GetMyTodayQueryHandler(
             nextClassToday,
             insights.Select(i => new MyInsightDto(i.Kind.ToString(), i.Title, i.Detail)).ToList(),
             new MyVisitDto(visit.State.ToString(), visit.CheckedInAt, visit.SessionRecorded, visit.NeedsRecording),
-            coming is null ? null : new MyAnticipationDto(coming.Value.Kind.ToString(), coming.Value.Title, coming.Value.Detail));
+            coming is null ? null : new MyAnticipationDto(coming.Value.Kind.ToString(), coming.Value.Title, coming.Value.Detail),
+            unreadFromCoach);
     }
 }

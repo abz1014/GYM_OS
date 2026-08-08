@@ -1,11 +1,14 @@
 using GymOS.Application.Common.Exceptions;
+using GymOS.Application.Modules.Coaching.Commands;
 using GymOS.Application.Modules.Coaching.Queries;
 using GymOS.Application.Tests.TestSupport;
 using GymOS.Domain.Identity;
 using GymOS.Domain.Members;
+using GymOS.Domain.Notifications;
 using GymOS.Domain.Tenancy;
 using GymOS.Domain.Trainers;
 using GymOS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 
@@ -120,6 +123,59 @@ public class MyClientsQueryTests : ApplicationTestBase
         // Two assignment rows, one person, one conversation — and the latest assignment decides.
         clients.Count.ShouldBe(1);
         clients[0].IsActivePairing.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Replying_schedules_a_notification_so_the_member_learns_of_it()
+    {
+        var ctx = await SeedAsync();
+        var memberId = await AddMemberAsync(ctx, "Reachable");
+        await AssignAsync(ctx.TrainerId, memberId);
+        await AddCoachReplyTemplateAsync(ctx);
+        AsTrainer(ctx);
+
+        await SendAsync(new MessageMyClientCommand(memberId, "Nice work on Tuesday."));
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var scheduled = await db.ScheduledNotifications.IgnoreQueryFilters()
+            .SingleAsync(n => n.RecipientMemberId == memberId);
+
+        scheduled.Status.ShouldBe(ScheduledNotificationStatus.Pending);
+        scheduled.RelatedEntityType.ShouldBe(nameof(CoachMessage));
+    }
+
+    [Fact]
+    public async Task A_missing_template_does_not_cost_the_member_the_message()
+    {
+        var ctx = await SeedAsync();
+        var memberId = await AddMemberAsync(ctx, "Reachable");
+        await AssignAsync(ctx.TrainerId, memberId);
+        // No coach-reply template seeded — a gym that deleted it, or an older tenant.
+        AsTrainer(ctx);
+
+        await SendAsync(new MessageMyClientCommand(memberId, "Nice work on Tuesday."));
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        // The notification is a courtesy; the message is the thing the trainer wrote. Losing the
+        // second because the first could not be arranged would be the wrong trade every time.
+        (await db.CoachMessages.IgnoreQueryFilters().CountAsync(c => c.MemberId == memberId)).ShouldBe(1);
+        (await db.ScheduledNotifications.IgnoreQueryFilters().AnyAsync(n => n.RecipientMemberId == memberId)).ShouldBeFalse();
+    }
+
+    private async Task AddCoachReplyTemplateAsync(SeedContext ctx)
+    {
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        db.NotificationTemplates.Add(new NotificationTemplate
+        {
+            TenantId = ctx.TenantId, Code = "coach-reply", Category = NotificationCategory.CoachReply,
+            Channel = NotificationChannel.InApp, Subject = "Your coach replied",
+            BodyTemplate = "Open Coach to read it.",
+        });
+        await db.SaveChangesAsync();
     }
 
     private void AsTrainer(SeedContext ctx)
