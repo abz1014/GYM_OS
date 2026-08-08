@@ -60,8 +60,25 @@ public class RecordPaymentCommandHandler(
 
         db.Payments.Add(payment);
 
-        var totalPaid = invoice.Payments.Where(p => p.Status == PaymentStatus.Completed).Sum(p => p.Amount) + request.Amount;
-        invoice.Status = totalPaid >= invoice.TotalAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
+        /*
+         * Same derivation the refund path uses, for two reasons.
+         *
+         * Refunds were invisible here: paying $40 against an invoice whose earlier $40 payment had
+         * been refunded produced Paid, because the sum ignored the money that went back. And the old
+         * line could not produce Overdue at all, so a part-payment on a long-overdue invoice quietly
+         * moved it to PartiallyPaid and out of the collections queue — the same disappearing act the
+         * refund bug performed, by a different route.
+         */
+        var completedPayments = invoice.Payments.Where(p => p.Status == PaymentStatus.Completed).Sum(p => p.Amount)
+            + request.Amount;
+
+        var completedRefunds = await db.Refunds
+            .Where(r => r.Payment != null && r.Payment.InvoiceId == invoice.Id && r.Status == RefundStatus.Completed)
+            .SumAsync(r => r.Amount, cancellationToken);
+
+        invoice.Status = InvoiceStatusPolicy.Derive(
+            invoice.TotalAmount, completedPayments, completedRefunds,
+            invoice.DueDate, DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime));
 
         await db.SaveChangesAsync(cancellationToken);
 

@@ -24,8 +24,21 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
     {
         var (statusCode, title, errors) = exception switch
         {
+            /*
+             * Two shapes of ValidationException reach here and they need different titles.
+             *
+             * FluentValidation's own failures arrive with a populated `Errors` collection and a
+             * generic Message, so "Validation failed" plus the per-field dictionary is right.
+             *
+             * A handler that throws `new ValidationException("This plan allows at most 7 freeze
+             * day(s)")` puts that sentence in `Message` and leaves `Errors` EMPTY — and the old code
+             * mapped it to `{"title":"Validation failed","errors":{}}`, dropping the only part the
+             * user needed. Every hand-thrown business rule in the app was surfacing as an
+             * unexplained 400, which the frontend then rendered as "Could not do X".
+             */
             ValidationException validationEx => (
-                HttpStatusCode.BadRequest, "Validation failed",
+                HttpStatusCode.BadRequest,
+                validationEx.Errors.Any() ? "Validation failed" : validationEx.Message,
                 validationEx.Errors.GroupBy(e => e.PropertyName).ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray())),
             NotFoundException notFoundEx => (HttpStatusCode.NotFound, notFoundEx.Message, null),
             UnauthorizedAccessException unauthorizedEx => (HttpStatusCode.Unauthorized, unauthorizedEx.Message, null),

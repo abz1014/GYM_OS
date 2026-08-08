@@ -21,4 +21,11 @@ public class Payment : BaseEntity
     public string? GatewayTransactionId { get; set; }
 
     public PaymentStatus Status { get; set; } = PaymentStatus.Completed;
+
+    /// <summary>
+    /// Refunds issued against this payment. The inverse of the FK Refund already carried — adding it
+    /// changes no schema, and it is what lets the invoice LIST subtract refunds in a single
+    /// translated query instead of disagreeing with the detail view about how much is owed.
+    /// </summary>
+    public ICollection<Refund> Refunds { get; set; } = [];
 }
