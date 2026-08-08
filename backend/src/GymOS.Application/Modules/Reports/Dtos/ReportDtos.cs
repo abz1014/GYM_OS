@@ -60,4 +60,22 @@ public record LoggingCaptureReportDto(
     int MembersWhoVisited,
     int MembersWhoLogged,
     int MembersVisitingWithoutLogging,
-    IReadOnlyList<CaptureRatePointDto> Weekly);
+    IReadOnlyList<CaptureRatePointDto> Weekly,
+    int? MedianMinutesToLog,
+    IReadOnlyList<LogLatencyBucketDto> LatencyBuckets,
+    double? SessionsPerMemberPerWeek);
+
+/// <summary>How many timed records fell into one latency bucket. See TimeToLogPolicy.</summary>
+/// <param name="Bucket">Machine name of the bucket, e.g. "WithinTheHour".</param>
+public record LogLatencyBucketDto(string Bucket, int Sessions);
+
+/// <summary>One week-N return figure.</summary>
+/// <param name="EligibleMembers">Members who joined long enough ago for this week to have finished.
+/// Members still inside their week N are in neither this nor <paramref name="ReturnedMembers"/> —
+/// they have not failed to return, their answer is not in yet. See ReturnRatePolicy.</param>
+public record ReturnRatePointDto(int WeekNumber, int EligibleMembers, int ReturnedMembers, int RatePercent);
+
+/// <summary>
+/// Week-N return: the outcome the other gate metrics are proxies for. See GetReturnRateReportQuery.
+/// </summary>
+public record ReturnRateReportDto(DateOnly AsOf, IReadOnlyList<ReturnRatePointDto> Weeks);

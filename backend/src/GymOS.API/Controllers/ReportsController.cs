@@ -58,6 +58,12 @@ public class ReportsController(ISender mediator) : ControllerBase
     public async Task<ActionResult<LoggingCaptureReportDto>> LoggingCapture(int weeksBack = 12, CancellationToken cancellationToken = default)
         => Ok(await mediator.Send(new GetLoggingCaptureReportQuery(weeksBack), cancellationToken));
 
+    /// <summary>Share of members who came back in week 2 / 4 / 12 — see GetReturnRateReportQuery.</summary>
+    [HttpGet("return-rate")]
+    [RequirePermission(PermissionCodes.Reports.View)]
+    public async Task<ActionResult<ReturnRateReportDto>> ReturnRate(CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetReturnRateReportQuery(), cancellationToken));
+
     [HttpGet("trainer-commissions")]
     [RequirePermission(PermissionCodes.Reports.View)]
     public async Task<ActionResult<List<TrainerCommissionReportRowDto>>> TrainerCommissions(int monthsBack = 6, CancellationToken cancellationToken = default)

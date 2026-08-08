@@ -25,6 +25,7 @@ import {
   exportWorkoutActivityReport,
   useAtRiskMembersReport,
   useLoggingCaptureReport,
+  useReturnRateReport,
   useAttendanceReport,
   useCohortRetentionReport,
   useCrmPipelineConversionReport,
@@ -551,6 +552,128 @@ function AnalyticsTab() {
   )
 }
 
+const LATENCY_LABELS: Record<string, string> = {
+  WithinTheHour: 'Before leaving',
+  SameDay: 'Later that day',
+  NextDay: 'The next day',
+  Later: 'Two days or more',
+}
+
+/**
+ * The four numbers every roadmap gate is judged on, in one place: capture rate, time-to-log,
+ * week-N return and sessions per member per week.
+ *
+ * They are shown together deliberately. Capture rate alone is gameable — make confirmation
+ * frictionless enough and it climbs while training falls — so the volume figure beside it is the
+ * control, and a rising rate next to a falling volume is the signal the ratio has stopped meaning
+ * what it says.
+ */
+function GateMetricsCard() {
+  const capture = useLoggingCaptureReport(12)
+  const returns = useReturnRateReport()
+
+  return (
+    <ReportCard title="Gate metrics">
+      {capture.isLoading || returns.isLoading ? (
+        <Skeleton className="h-40 w-full rounded-2xl" />
+      ) : (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+            <ReportFigure
+              value={capture.data ? `${capture.data.captureRatePercent}%` : '—'}
+              label="Capture rate"
+            />
+            {/* Null median renders an em dash rather than "0 min", which would claim instant logging
+                on a gym where nothing could be timed at all. */}
+            <ReportFigure
+              value={
+                capture.data?.medianMinutesToLog !== null && capture.data?.medianMinutesToLog !== undefined
+                  ? `${capture.data.medianMinutesToLog} min`
+                  : '—'
+              }
+              label="Median time to log"
+            />
+            <ReportFigure
+              value={
+                capture.data?.sessionsPerMemberPerWeek !== null && capture.data?.sessionsPerMemberPerWeek !== undefined
+                  ? capture.data.sessionsPerMemberPerWeek.toFixed(2)
+                  : '—'
+              }
+              label="Sessions / member / week"
+            />
+            <ReportFigure
+              value={
+                returns.data?.weeks.find((w) => w.weekNumber === 4)?.eligibleMembers
+                  ? `${returns.data.weeks.find((w) => w.weekNumber === 4)!.ratePercent}%`
+                  : '—'
+              }
+              label="Week 4 return"
+            />
+          </div>
+
+          {/*
+            Time-to-log measures arrival to record, not the tap itself. The roadmap's "under five
+            seconds" is an interaction latency and nothing in this system observes one — there is no
+            app-open event and no client telemetry — so the honest version is the lag from the door.
+          */}
+          {capture.data && (
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+                When sessions get recorded
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {capture.data.latencyBuckets.map((b) => (
+                  <span
+                    key={b.bucket}
+                    className="rounded-xl border border-border bg-background px-3 py-1.5 text-sm tabular-nums"
+                  >
+                    {LATENCY_LABELS[b.bucket] ?? b.bucket}: <span className="font-medium">{b.sessions.toLocaleString()}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+              Return rate after joining
+            </p>
+            {!returns.data ? (
+              <p className="mt-2 text-sm text-muted-foreground">Return figures aren't available right now.</p>
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {returns.data.weeks.map((w) => (
+                  <span
+                    key={w.weekNumber}
+                    className="rounded-xl border border-border bg-background px-3 py-1.5 text-sm tabular-nums"
+                  >
+                    Week {w.weekNumber}:{' '}
+                    {/*
+                      The count is never dropped. A percentage with no denominator cannot distinguish
+                      "nobody came back" from "nobody has been a member long enough to have an answer
+                      yet", and those two mean opposite things about the business.
+                    */}
+                    {w.eligibleMembers === 0 ? (
+                      <span className="text-muted-foreground">no cohort yet</span>
+                    ) : (
+                      <>
+                        <span className="font-medium">{w.ratePercent}%</span>{' '}
+                        <span className="text-muted-foreground">
+                          ({w.returnedMembers} of {w.eligibleMembers})
+                        </span>
+                      </>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </ReportCard>
+  )
+}
+
 function LoggingCaptureCard() {
   const { data, isLoading } = useLoggingCaptureReport(12)
 
@@ -603,6 +726,7 @@ function EngagementTab() {
 
   return (
     <div className="space-y-4">
+      <GateMetricsCard />
       <LoggingCaptureCard />
       <ReportCard title="Engagement Overview">
         {isLoading ? (

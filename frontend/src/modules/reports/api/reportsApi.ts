@@ -190,6 +190,40 @@ export interface LoggingCaptureReport {
   membersWhoLogged: number
   membersVisitingWithoutLogging: number
   weekly: CaptureRatePoint[]
+  /** Median minutes from arriving to the session being recorded. Null when nothing could be timed —
+   *  never 0, which would read as "instant". */
+  medianMinutesToLog: number | null
+  latencyBuckets: LogLatencyBucket[]
+  /** Null when nobody visited. Guards the capture rate: a ratio that climbs while this falls means
+   *  confirmation got easier, not that anyone trained more. */
+  sessionsPerMemberPerWeek: number | null
+}
+
+export interface LogLatencyBucket {
+  bucket: 'WithinTheHour' | 'SameDay' | 'NextDay' | 'Later'
+  sessions: number
+}
+
+export interface ReturnRatePoint {
+  weekNumber: number
+  /** Members who joined long enough ago for this week to have finished. Members still inside their
+   *  week N are in neither this nor returnedMembers — they have not failed to return, their answer
+   *  is not in yet. Always show this alongside the percentage. */
+  eligibleMembers: number
+  returnedMembers: number
+  ratePercent: number
+}
+
+export interface ReturnRateReport {
+  asOf: string
+  weeks: ReturnRatePoint[]
+}
+
+export function useReturnRateReport() {
+  return useQuery({
+    queryKey: ['reports', 'return-rate'],
+    queryFn: async () => (await apiClient.get<ReturnRateReport>('/api/reports/return-rate')).data,
+  })
 }
 
 export function useLoggingCaptureReport(weeksBack = 12) {

@@ -54,6 +54,56 @@ public class GetLoggingCaptureReportQueryHandler(IApplicationDbContext db, IDate
 
         var visitSet = visitDays.ToHashSet();
 
+        /*
+         * Time-to-log needs the clock, not just the calendar, so it reloads both sides with their
+         * timestamps rather than reusing the distinct (member, day) sets above — those deliberately
+         * collapse a day's rows to one and the earliest arrival is exactly what got collapsed away.
+         * Earliest check-in and earliest log per member-day: a member who scans twice is measured
+         * from when they first arrived, and one who logs three exercises separately is measured to
+         * the first record rather than to whenever they finished typing.
+         */
+        var firstCheckInPerDay = (await db.AttendanceRecords.AsNoTracking()
+                .Select(a => new { a.MemberId, a.CheckInAt })
+                .ToListAsync(cancellationToken))
+            .Select(a => new { a.MemberId, Day = DateOnly.FromDateTime(a.CheckInAt.UtcDateTime), a.CheckInAt })
+            .Where(a => a.Day >= firstWeekStart && a.Day <= lastWeekEnd)
+            .GroupBy(a => (a.MemberId, a.Day))
+            .ToDictionary(g => g.Key, g => g.Min(a => a.CheckInAt));
+
+        var firstLogPerDay = (await db.WorkoutLogs.AsNoTracking()
+                .Select(w => new { w.MemberId, w.LoggedAt })
+                .ToListAsync(cancellationToken))
+            .Select(w => new { w.MemberId, Day = DateOnly.FromDateTime(w.LoggedAt.UtcDateTime), w.LoggedAt })
+            .Where(w => w.Day >= firstWeekStart && w.Day <= lastWeekEnd)
+            .GroupBy(w => (w.MemberId, w.Day))
+            .ToDictionary(g => g.Key, g => g.Min(w => w.LoggedAt));
+
+        var latencies = new List<int>();
+        var buckets = new Dictionary<LogLatencyBucket, int>();
+
+        foreach (var (key, checkInAt) in firstCheckInPerDay)
+        {
+            // A visit is timed against that member's earliest log on the SAME day. Pairing across
+            // days would mean guessing which visit a later record belonged to, and a wrong guess
+            // silently invents a latency.
+            if (!firstLogPerDay.TryGetValue(key, out var loggedAt) || !TimeToLogPolicy.IsMeasurable(checkInAt, loggedAt))
+            {
+                continue;
+            }
+
+            var minutes = (int)Math.Round((loggedAt - checkInAt).TotalMinutes, MidpointRounding.AwayFromZero);
+            latencies.Add(minutes);
+
+            var bucket = TimeToLogPolicy.Bucket(key.Day, DateOnly.FromDateTime(loggedAt.UtcDateTime), minutes);
+            buckets[bucket] = buckets.GetValueOrDefault(bucket) + 1;
+        }
+
+        // Every bucket is emitted, including empty ones: "no sessions were recorded two days late"
+        // is a result worth seeing, and a bucket that vanishes reads as a rendering bug.
+        var latencyBuckets = Enum.GetValues<LogLatencyBucket>()
+            .Select(b => new LogLatencyBucketDto(b.ToString(), buckets.GetValueOrDefault(b)))
+            .ToList();
+
         var points = new List<CaptureRatePointDto>();
         for (var i = 0; i < weeks; i++)
         {
@@ -88,6 +138,11 @@ public class GetLoggingCaptureReportQueryHandler(IApplicationDbContext db, IDate
             membersWhoVisited.Count,
             membersWhoLogged.Count,
             membersWhoVisited.Except(membersWhoLogged).Count(),
-            points);
+            points,
+            TimeToLogPolicy.MedianMinutes(latencies),
+            latencyBuckets,
+            // Guards the capture rate above it: a ratio that climbs while this falls means
+            // confirmation got easier, not that anyone trained more. See ReturnRatePolicy.
+            ReturnRatePolicy.SessionsPerMemberPerWeek(totalLogged, membersWhoVisited.Count, weeks));
     }
 }
