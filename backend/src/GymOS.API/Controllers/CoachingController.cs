@@ -20,6 +20,12 @@ namespace GymOS.API.Controllers;
 [Route("api/coaching")]
 public class CoachingController(ISender mediator) : ControllerBase
 {
+    /// <summary>The acting trainer's own clients, ordered by who is waiting — see GetMyClientsQuery.</summary>
+    [HttpGet("clients")]
+    [RequirePermission(PermissionCodes.Trainers.View)]
+    public async Task<ActionResult<IReadOnlyList<MyClientRowDto>>> MyClients(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyClientsQuery(), cancellationToken));
+
     // The trainer's half of the member conversation. A memberId is accepted here — unlike anywhere
     // on /api/me — and is safe only because every handler checks the pairing between the ACTING
     // trainer (resolved from the JWT) and that member before reading or writing a word.

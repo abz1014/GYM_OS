@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Apple, BarChart3, Bell, CalendarDays, CreditCard, Dumbbell, Flag, Hammer, LayoutDashboard, Package, QrCode, Receipt, Settings, Target, UploadCloud, Users, Wrench } from 'lucide-react'
+import {
+  MessageSquare, Activity, Apple, BarChart3, Bell, CalendarDays, CreditCard, Dumbbell, Flag, Hammer, LayoutDashboard, Package, QrCode, Receipt, Settings, Target, UploadCloud, Users, Wrench } from 'lucide-react'
 
 /**
  * Which cluster a module belongs to in the sidebar. Named after the JOB the person doing it is on
@@ -18,6 +19,15 @@ export interface NavModule {
   icon: LucideIcon
   permission: string
   section: NavSection
+  /**
+   * A role the account must actually HOLD, on top of the permission.
+   *
+   * Only "My clients" needs this so far, and it needs it because permission and identity come apart
+   * there: an owner has trainers.view so they can manage the trainer roster, but they are not
+   * anybody's coach, and /api/coaching/clients resolves the acting trainer from the JWT and refuses
+   * an account with no Trainer row. Showing them the entry would offer a screen that can only fail.
+   */
+  requiresRole?: string
 }
 
 /**
@@ -38,6 +48,7 @@ export const NAV_MODULES: NavModule[] = [
   { key: 'attendance', label: 'Front desk', path: '/attendance', icon: QrCode, permission: 'attendance.view', section: 'Operate' },
   { key: 'classes', label: 'Classes', path: '/classes', icon: CalendarDays, permission: 'classes.view', section: 'Operate' },
   { key: 'trainers', label: 'Trainers', path: '/trainers', icon: Dumbbell, permission: 'trainers.view', section: 'Operate' },
+  { key: 'my-clients', label: 'My clients', path: '/my-clients', icon: MessageSquare, permission: 'trainers.view', section: 'Operate', requiresRole: 'Trainer' },
 
   { key: 'billing', label: 'Billing', path: '/billing', icon: Receipt, permission: 'billing.view', section: 'Revenue' },
   { key: 'memberships', label: 'Memberships', path: '/memberships', icon: CreditCard, permission: 'memberships.view', section: 'Revenue' },

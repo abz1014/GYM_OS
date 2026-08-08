@@ -42,9 +42,13 @@ function ModuleLink({ module, onNavigate }: { module: NavModule; onNavigate?: ()
  */
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const permissions = useAuthStore((s) => s.user?.permissions ?? [])
+  const roles = useAuthStore((s) => s.user?.roles ?? [])
   const [showMore, setShowMore] = useState(false)
 
-  const allowed = NAV_MODULES.filter((m) => permissions.includes(m.permission))
+  // Permission AND, where the entry demands it, actually being that thing — see NavModule.requiresRole.
+  const allowed = NAV_MODULES.filter(
+    (m) => permissions.includes(m.permission) && (!m.requiresRole || roles.includes(m.requiresRole)),
+  )
   const more = allowed.filter((m) => m.section === 'More')
 
   return (

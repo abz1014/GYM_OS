@@ -33,6 +33,24 @@ public record RiskRowDto(
     string RiskType,
     string Reason);
 
+/// <summary>
+/// One client on the trainer's roster, as the inbox lists them.
+/// </summary>
+/// <param name="IsActivePairing">False once the assignment has ended. The history stays readable —
+/// a coach should be able to look back at what they told someone — but nothing new can be sent, and
+/// CoachMessagePolicy is what enforces that rather than this flag.</param>
+/// <param name="UnreadFromMember">Messages this member sent that the trainer has not opened. The
+/// count that decides who is waiting, and the only reason this query exists.</param>
+/// <param name="LastMessageAt">Null when the two have never exchanged anything.</param>
+public record MyClientRowDto(
+    Guid MemberId,
+    string MemberName,
+    string MemberCode,
+    bool IsActivePairing,
+    int UnreadFromMember,
+    DateTimeOffset? LastMessageAt,
+    string? LastMessagePreview);
+
 /// <summary>One client's conversation as their trainer sees it. Mirrors MyCoachDto on the member side.</summary>
 public record CoachConversationDto(
     Guid MemberId,

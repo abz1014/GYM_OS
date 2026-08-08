@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
 
@@ -29,6 +29,78 @@ export interface RiskRow {
   memberCode: string
   riskType: 'OvertrainingRisk' | 'StreakBreakImminent'
   reason: string
+}
+
+export interface MyClientRow {
+  memberId: string
+  memberName: string
+  memberCode: string
+  /** False once the assignment has ended: history stays readable, nothing new can be sent. */
+  isActivePairing: boolean
+  unreadFromMember: number
+  lastMessageAt: string | null
+  lastMessagePreview: string | null
+}
+
+export interface CoachMessage {
+  id: string
+  author: 'Member' | 'Trainer'
+  body: string
+  sentAt: string
+  read: boolean
+  workoutLogId: string | null
+}
+
+export interface CoachConversation {
+  memberId: string
+  memberName: string
+  /** The server's answer, not ours to infer — an ended pairing can be read but not written to. */
+  canSend: boolean
+  unreadCount: number
+  hasOlder: boolean
+  messages: CoachMessage[]
+}
+
+/** The acting trainer's own clients, ordered by who is waiting. See GetMyClientsQuery. */
+export function useMyClients() {
+  return useQuery({
+    queryKey: ['coaching', 'my-clients'],
+    queryFn: async () => (await apiClient.get<MyClientRow[]>('/api/coaching/clients')).data,
+  })
+}
+
+export function useClientConversation(memberId: string | null) {
+  return useQuery({
+    queryKey: ['coaching', 'conversation', memberId],
+    queryFn: async () =>
+      (await apiClient.get<CoachConversation>(`/api/coaching/clients/${memberId}/messages`)).data,
+    enabled: !!memberId,
+  })
+}
+
+export function useMessageClient(memberId: string | null) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: string) =>
+      (await apiClient.post<string>(`/api/coaching/clients/${memberId}/messages`, { body, workoutLogId: null })).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['coaching', 'conversation', memberId] })
+      // The roster carries the last message and its preview, so it is stale the moment one is sent.
+      queryClient.invalidateQueries({ queryKey: ['coaching', 'my-clients'] })
+    },
+  })
+}
+
+/** Marks the member's messages read. Fired on opening a thread — see MyClientsPage. */
+export function useMarkClientMessagesRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (memberId: string) => apiClient.post(`/api/coaching/clients/${memberId}/messages/read`),
+    onSuccess: (_r, memberId) => {
+      queryClient.invalidateQueries({ queryKey: ['coaching', 'conversation', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['coaching', 'my-clients'] })
+    },
+  })
 }
 
 export function useCoachingPlateaus() {

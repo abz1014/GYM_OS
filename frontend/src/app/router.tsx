@@ -33,6 +33,7 @@ const CrmPage = lazy(() => import('@/modules/crm/pages/CrmPage'))
 const LeadDetailPage = lazy(() => import('@/modules/crm/pages/LeadDetailPage'))
 const TrainersListPage = lazy(() => import('@/modules/trainers/pages/TrainersListPage'))
 const TrainerDetailPage = lazy(() => import('@/modules/trainers/pages/TrainerDetailPage'))
+const MyClientsPage = lazy(() => import('@/modules/coaching/pages/MyClientsPage'))
 const ClassesPage = lazy(() => import('@/modules/classes/pages/ClassesPage'))
 const EquipmentPage = lazy(() => import('@/modules/equipment/pages/EquipmentPage'))
 const MaintenancePage = lazy(() => import('@/modules/maintenance/pages/MaintenancePage'))
@@ -93,6 +94,7 @@ export const router = createBrowserRouter([
           { path: 'crm/:id', element: withSuspense(<LeadDetailPage />) },
           { path: 'trainers', element: withSuspense(<TrainersListPage />) },
           { path: 'trainers/:id', element: withSuspense(<TrainerDetailPage />) },
+          { path: 'my-clients', element: withSuspense(<MyClientsPage />) },
           { path: 'classes', element: withSuspense(<ClassesPage />) },
           { path: 'equipment', element: withSuspense(<EquipmentPage />) },
           { path: 'maintenance', element: withSuspense(<MaintenancePage />) },
