@@ -1,3 +1,4 @@
+using GymOS.Application.Common.Coaching;
 namespace GymOS.Application.Modules.Portal.Dtos;
 
 /// <summary>
@@ -69,8 +70,11 @@ public record MyCoachDto(
 
 /// <param name="Author">"Member" or "Trainer".</param>
 /// <param name="WorkoutLogId">The session this message is about, when it is about one.</param>
+/// <param name="Session">The workout this message is about, when it is about one and that workout
+/// still exists. Null is the ordinary case — "see you Thursday" is about nothing.</param>
 public record MyCoachMessageDto(
-    Guid Id, string Author, string Body, DateTimeOffset SentAt, bool Read, Guid? WorkoutLogId);
+    Guid Id, string Author, string Body, DateTimeOffset SentAt, bool Read, Guid? WorkoutLogId,
+    CoachMessageSessionDto? Session);
 
 /// <summary>
 /// The member's map of their own gym — what they have used and what is still waiting.

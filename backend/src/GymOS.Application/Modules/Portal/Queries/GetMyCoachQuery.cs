@@ -1,3 +1,4 @@
+using GymOS.Application.Common.Coaching;
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
 using GymOS.Application.Modules.Portal.Dtos;
@@ -70,6 +71,10 @@ public class GetMyCoachQueryHandler(
         var take = Math.Clamp(request.Take, 1, MaxWindow);
         var messages = all.Skip(Math.Max(0, all.Count - take)).ToList();
 
+        // Only the window's referenced sessions, resolved in one go — see CoachMessageSessions.
+        var sessions = await CoachMessageSessions.ResolveAsync(
+            db, messages.Where(m => m.WorkoutLogId is not null).Select(m => m.WorkoutLogId!.Value), cancellationToken);
+
         return new MyCoachDto(
             assignment.TrainerId,
             assignment.TrainerName,
@@ -80,7 +85,8 @@ public class GetMyCoachQueryHandler(
             all.Count > messages.Count,
             messages
                 .Select(m => new MyCoachMessageDto(
-                    m.Id, m.Author.ToString(), m.Body, m.SentAt, m.ReadAt is not null, m.WorkoutLogId))
+                    m.Id, m.Author.ToString(), m.Body, m.SentAt, m.ReadAt is not null, m.WorkoutLogId,
+                    m.WorkoutLogId is Guid logId ? sessions.GetValueOrDefault(logId) : null))
                 .ToList());
     }
 }

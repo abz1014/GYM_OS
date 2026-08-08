@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { SessionChip, SessionPicker, toAttachable } from '@/shared/components/coaching/SessionAttachment'
 import { useCoachingHub } from '@/shared/hooks/useCoachingHub'
 import {
   useMessageMyCoach,
   useMyCoach,
+  useMyWorkoutLogs,
   useReadMyCoachMessages,
   type MyCoachMessage,
 } from '@/modules/portal/api/portalApi'
@@ -30,6 +32,7 @@ function Bubble({ message }: { message: MyCoachMessage }) {
               : 'rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm'
           }
         >
+          {message.session && <SessionChip session={message.session} onOwnMessage={mine} />}
           {message.body}
         </div>
         <p className={mine ? 'text-right text-xs text-muted-foreground' : 'text-xs text-muted-foreground'}>
@@ -59,6 +62,10 @@ export default function MyCoachPage() {
   const send = useMessageMyCoach()
   const markRead = useReadMyCoachMessages()
   const [body, setBody] = useState('')
+  // Their own recent sessions — "this is the one my shoulder went on" is the member's half of the
+  // same idea the trainer uses when replying about a workout.
+  const logs = useMyWorkoutLogs()
+  const [attachedLogId, setAttachedLogId] = useState<string | null>(null)
   const marked = useRef(false)
 
   useEffect(() => {
@@ -71,9 +78,13 @@ export default function MyCoachPage() {
   const submit = () => {
     if (!body.trim()) return
     send.mutate(
-      { body },
+      { body, workoutLogId: attachedLogId },
       {
-        onSuccess: () => setBody(''),
+        onSuccess: () => {
+          setBody('')
+          // Cleared with the draft — the next message is rarely about the same session.
+          setAttachedLogId(null)
+        },
         onError: () => toast.error("Couldn't send that message."),
       },
     )
@@ -124,6 +135,12 @@ export default function MyCoachPage() {
             {/* A pairing that has ended keeps its history — there is just nobody on the other end. */}
             {data!.canSend ? (
               <div className="space-y-2 border-t pt-4">
+                <SessionPicker
+                  sessions={(logs.data ?? []).slice(0, 5).map(toAttachable)}
+                  selectedId={attachedLogId}
+                  onSelect={setAttachedLogId}
+                  label="About:"
+                />
                 <Textarea
                   value={body}
                   onChange={(e) => setBody(e.target.value)}

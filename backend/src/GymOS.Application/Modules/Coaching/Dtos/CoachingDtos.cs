@@ -1,3 +1,4 @@
+using GymOS.Application.Common.Coaching;
 namespace GymOS.Application.Modules.Coaching.Dtos;
 
 /// <summary>One member's plateaued exercise — held identical weight/reps for two sessions running,
@@ -62,4 +63,5 @@ public record CoachConversationDto(
 
 /// <param name="Author">"Member" or "Trainer".</param>
 public record CoachMessageDto(
-    Guid Id, string Author, string Body, DateTimeOffset SentAt, bool Read, Guid? WorkoutLogId);
+    Guid Id, string Author, string Body, DateTimeOffset SentAt, bool Read, Guid? WorkoutLogId,
+    CoachMessageSessionDto? Session);

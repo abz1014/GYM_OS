@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
 import { useCoachingHub } from '@/shared/hooks/useCoachingHub'
+import { SessionChip, SessionPicker, toAttachable } from '@/shared/components/coaching/SessionAttachment'
+import { useMemberWorkoutLogs } from '@/modules/workouts/api/workoutsApi'
 import {
   useClientConversation,
   useMarkClientMessagesRead,
@@ -75,7 +77,10 @@ function Thread({ memberId }: { memberId: string }) {
   const conversation = useClientConversation(memberId)
   const send = useMessageClient(memberId)
   const markRead = useMarkClientMessagesRead()
+  // The client's own recent sessions, so a note can be attached to the one it is about.
+  const logs = useMemberWorkoutLogs(memberId)
   const [draft, setDraft] = useState('')
+  const [attachedLogId, setAttachedLogId] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
   const unread = conversation.data?.unreadCount ?? 0
@@ -116,10 +121,18 @@ function Thread({ memberId }: { memberId: string }) {
   const submit = () => {
     const body = draft.trim()
     if (!body) return
-    send.mutate(body, {
-      onSuccess: () => setDraft(''),
-      onError: () => toast.error('Could not send that message.'),
-    })
+    send.mutate(
+      { body, workoutLogId: attachedLogId },
+      {
+        onSuccess: () => {
+          setDraft('')
+          // Cleared with the draft: the next message is rarely about the same session, and a sticky
+          // attachment would quietly mislabel it.
+          setAttachedLogId(null)
+        },
+        onError: () => toast.error('Could not send that message.'),
+      },
+    )
   }
 
   return (
@@ -156,6 +169,7 @@ function Thread({ memberId }: { memberId: string }) {
                     mine ? 'bg-primary text-primary-foreground' : 'bg-muted',
                   )}
                 >
+                  {m.session && <SessionChip session={m.session} onOwnMessage={mine} />}
                   <p className="text-sm whitespace-pre-wrap">{m.body}</p>
                   <p
                     className={cn(
@@ -178,6 +192,12 @@ function Thread({ memberId }: { memberId: string }) {
 
       {canSend && (
         <div className="border-t border-border p-4">
+          <SessionPicker
+            sessions={(logs.data ?? []).slice(0, 5).map(toAttachable)}
+            selectedId={attachedLogId}
+            onSelect={setAttachedLogId}
+            label="About:"
+          />
           <div className="flex items-end gap-2">
             <Textarea
               value={draft}

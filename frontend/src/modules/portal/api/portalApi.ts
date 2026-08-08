@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { apiClient } from '@/lib/apiClient'
+import type { CoachMessageSession } from '@/shared/components/coaching/SessionAttachment'
 import type { MemberDetail } from '@/modules/members/api/membersApi'
 import type { AttendanceRecord } from '@/modules/attendance/api/attendanceApi'
 import type { ClassBookingStatus } from '@/modules/classes/api/classesApi'
@@ -812,6 +813,8 @@ export interface MyCoachMessage {
   read: boolean
   /** The session this message is about, when it is about one. */
   workoutLogId: string | null
+  /** Resolved server-side; null when about nothing, or the workout was since deleted. */
+  session: CoachMessageSession | null
 }
 
 export interface MyCoach {

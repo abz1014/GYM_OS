@@ -1,3 +1,4 @@
+using GymOS.Application.Common.Coaching;
 using FluentValidation;
 using GymOS.Application.Common.Exceptions;
 using GymOS.Application.Common.Interfaces;
@@ -244,6 +245,10 @@ public class GetMyClientConversationQueryHandler(
         var take = Math.Clamp(request.Take, 1, 200);
         var window = all.Skip(Math.Max(0, all.Count - take)).ToList();
 
+        // Only the window's referenced sessions, resolved in one go — see CoachMessageSessions.
+        var sessions = await CoachMessageSessions.ResolveAsync(
+            db, window.Where(m => m.WorkoutLogId is not null).Select(m => m.WorkoutLogId!.Value), cancellationToken);
+
         return new CoachConversationDto(
             request.MemberId,
             memberName,
@@ -252,7 +257,8 @@ public class GetMyClientConversationQueryHandler(
             all.Count > window.Count,
             window
                 .Select(m => new CoachMessageDto(
-                    m.Id, m.Author.ToString(), m.Body, m.SentAt, m.ReadAt is not null, m.WorkoutLogId))
+                    m.Id, m.Author.ToString(), m.Body, m.SentAt, m.ReadAt is not null, m.WorkoutLogId,
+                    m.WorkoutLogId is Guid logId ? sessions.GetValueOrDefault(logId) : null))
                 .ToList());
     }
 }

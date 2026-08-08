@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
+import type { CoachMessageSession } from '@/shared/components/coaching/SessionAttachment'
 
 export interface PlateauRow {
   memberId: string
@@ -49,6 +50,8 @@ export interface CoachMessage {
   sentAt: string
   read: boolean
   workoutLogId: string | null
+  /** Resolved server-side; null when the message is about nothing, or the workout was since deleted. */
+  session: CoachMessageSession | null
 }
 
 export interface CoachConversation {
@@ -81,8 +84,8 @@ export function useClientConversation(memberId: string | null) {
 export function useMessageClient(memberId: string | null) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (body: string) =>
-      (await apiClient.post<string>(`/api/coaching/clients/${memberId}/messages`, { body, workoutLogId: null })).data,
+    mutationFn: async ({ body, workoutLogId }: { body: string; workoutLogId: string | null }) =>
+      (await apiClient.post<string>(`/api/coaching/clients/${memberId}/messages`, { body, workoutLogId })).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coaching', 'conversation', memberId] })
       // The roster carries the last message and its preview, so it is stale the moment one is sent.
