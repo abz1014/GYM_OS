@@ -56,6 +56,19 @@ public static class InvoiceStatusPolicy
     }
 
     /// <summary>
+    /// What is still owed: the invoice total less what has been paid and not given back.
+    ///
+    /// Lives beside <see cref="Derive"/> because it is the same three inputs answering the same
+    /// question, and the two disagreeing is precisely the class of bug that let a refunded invoice
+    /// report different money on the list and the detail screen.
+    ///
+    /// Can go negative on invoices that were overpaid before the ceiling existed. Left signed rather
+    /// than clamped to zero: a negative balance is real, wrong, and worth being visible.
+    /// </summary>
+    public static decimal Outstanding(decimal totalAmount, decimal completedPayments, decimal completedRefunds)
+        => totalAmount - (completedPayments - completedRefunds);
+
+    /// <summary>
     /// Statuses this policy owns. Draft and Cancelled are deliberately excluded: nothing in the
     /// system sets either, and a derivation that could silently overwrite a manual cancellation
     /// would be a worse bug than the one this class fixes.
