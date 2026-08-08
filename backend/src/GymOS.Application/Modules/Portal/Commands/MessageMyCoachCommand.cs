@@ -30,7 +30,8 @@ public class MessageMyCoachCommandValidator : AbstractValidator<MessageMyCoachCo
 }
 
 public class MessageMyCoachCommandHandler(
-    IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
+    IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider,
+    ICoachingNotifier coachingNotifier)
     : IRequestHandler<MessageMyCoachCommand, Guid>
 {
     public async Task<Guid> Handle(MessageMyCoachCommand request, CancellationToken cancellationToken)
@@ -93,6 +94,22 @@ public class MessageMyCoachCommandHandler(
 
         db.CoachMessages.Add(message);
         await db.SaveChangesAsync(cancellationToken);
+
+        /*
+         * Nudge the coach's own screen, after the save so the push can never arrive ahead of the row
+         * it describes. Silent on failure: a dropped socket must not fail a message that already
+         * committed, and the trainer's roster still shows it on the next load either way.
+         */
+        var trainerUserId = await db.Trainers.AsNoTracking()
+            .Where(t => t.Id == assignment.TrainerId)
+            .Select(t => (Guid?)t.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (trainerUserId is Guid recipient)
+        {
+            await coachingNotifier.NotifyConversationChangedAsync(recipient, cancellationToken);
+        }
+
         return message.Id;
     }
 }

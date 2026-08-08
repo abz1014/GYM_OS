@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { useCoachingHub } from '@/shared/hooks/useCoachingHub'
 import {
   useMessageMyCoach,
   useMyCoach,
@@ -51,6 +52,9 @@ function Bubble({ message }: { message: MyCoachMessage }) {
  * message is how an app teaches people to ignore its badges.
  */
 export default function MyCoachPage() {
+  // Live delivery: the coach's reply lands in the open thread without a refresh. Non-fatal on
+  // failure — see useCoachingHub.
+  useCoachingHub()
   const coach = useMyCoach()
   const send = useMessageMyCoach()
   const markRead = useReadMyCoachMessages()

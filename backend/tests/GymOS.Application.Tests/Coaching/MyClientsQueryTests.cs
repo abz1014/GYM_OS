@@ -233,6 +233,68 @@ public class MyClientsQueryTests : ApplicationTestBase
             .CountAsync(c => c.MemberId == memberId && c.Author == CoachMessageAuthor.Trainer)).ShouldBe(1);
     }
 
+    [Fact]
+    public async Task Sending_nudges_the_member_and_not_the_sender()
+    {
+        var ctx = await SeedAsync();
+        var memberId = await AddMemberWithLoginAsync(ctx, "Reachable");
+        await AssignAsync(ctx.TrainerId, memberId);
+        AsTrainer(ctx);
+
+        await SendAsync(new MessageMyClientCommand(memberId, "Good session."));
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var memberUserId = await db.Members.IgnoreQueryFilters()
+            .Where(m => m.Id == memberId).Select(m => m.UserId).SingleAsync();
+
+        // Exactly one nudge, to the member's own login. Pushing to the trainer would light up the
+        // screen of the person who just typed it.
+        CoachingNotifier.Notified.ShouldBe([memberUserId!.Value]);
+    }
+
+    [Fact]
+    public async Task A_member_with_no_login_account_is_simply_not_pushed_to()
+    {
+        var ctx = await SeedAsync();
+        // Plenty of gym members are records rather than users. That is not an error, and the message
+        // must still send.
+        var memberId = await AddMemberAsync(ctx, "NoLogin");
+        await AssignAsync(ctx.TrainerId, memberId);
+        AsTrainer(ctx);
+
+        await SendAsync(new MessageMyClientCommand(memberId, "Good session."));
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        CoachingNotifier.Notified.ShouldBeEmpty();
+        (await db.CoachMessages.IgnoreQueryFilters().CountAsync(c => c.MemberId == memberId)).ShouldBe(1);
+    }
+
+    private async Task<Guid> AddMemberWithLoginAsync(SeedContext ctx, string firstName)
+    {
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var user = new User
+        {
+            TenantId = ctx.TenantId, Email = $"{Guid.NewGuid():N}@example.com", PasswordHash = "unused-in-this-test",
+            FirstName = firstName, LastName = "Client",
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var member = new Member
+        {
+            TenantId = ctx.TenantId, BranchId = ctx.BranchId, UserId = user.Id,
+            MemberCode = $"MBR-{Guid.NewGuid():N}"[..12], FirstName = firstName, LastName = "Client",
+            Email = $"{Guid.NewGuid():N}@example.com", JoinDate = new DateOnly(2025, 1, 1),
+        };
+        db.Members.Add(member);
+        await db.SaveChangesAsync();
+        return member.Id;
+    }
+
     private async Task AddCoachReplyTemplateAsync(SeedContext ctx)
     {
         using var scope = CreateScope();

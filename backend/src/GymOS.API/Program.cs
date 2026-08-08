@@ -137,8 +137,14 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
-app.MapHub<NotificationHub>("/hubs/notifications");
-app.MapHub<DashboardHub>("/hubs/dashboard");
+// RequireAuthorization on all three. The JWT was already being read off the query string for /hubs
+// paths (see OnMessageReceived above) but nothing insisted on it, so any anonymous client could
+// open a socket and — since the older two hubs take a group id from the caller — subscribe to a
+// branch or tenant it had no claim to. The frontend already sends the token, so nothing client-side
+// changes.
+app.MapHub<NotificationHub>("/hubs/notifications").RequireAuthorization();
+app.MapHub<DashboardHub>("/hubs/dashboard").RequireAuthorization();
+app.MapHub<CoachingHub>("/hubs/coaching").RequireAuthorization();
 
 app.UseHangfireDashboard("/hangfire");
 RecurringJob.AddOrUpdate<MembershipExpiryCheckJob>("membership-expiry-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);

@@ -33,7 +33,8 @@ public class MessageMyClientCommandValidator : AbstractValidator<MessageMyClient
 }
 
 public class MessageMyClientCommandHandler(
-    IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
+    IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider,
+    ICoachingNotifier coachingNotifier)
     : IRequestHandler<MessageMyClientCommand, Guid>
 {
     public async Task<Guid> Handle(MessageMyClientCommand request, CancellationToken cancellationToken)
@@ -72,7 +73,31 @@ public class MessageMyClientCommandHandler(
         await ScheduleReplyNotificationAsync(request.MemberId, message.Id, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
+
+        // After the save, never before: a push that arrives ahead of the row it describes sends the
+        // client to refetch a conversation that does not yet contain the message.
+        await NotifyRecipientAsync(request.MemberId, cancellationToken);
+
         return message.Id;
+    }
+
+    /// <summary>
+    /// Nudges the member's own screen. Silent on failure — a dropped socket must not fail a send that
+    /// already committed, and the member's next poll or page open still shows the message.
+    /// </summary>
+    private async Task NotifyRecipientAsync(Guid memberId, CancellationToken cancellationToken)
+    {
+        var userId = await db.Members.AsNoTracking()
+            .Where(m => m.Id == memberId)
+            .Select(m => m.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // A member with no login account cannot be pushed to, which is normal — plenty of gym members
+        // are records rather than users.
+        if (userId is Guid recipient)
+        {
+            await coachingNotifier.NotifyConversationChangedAsync(recipient, cancellationToken);
+        }
     }
 
     /// <summary>

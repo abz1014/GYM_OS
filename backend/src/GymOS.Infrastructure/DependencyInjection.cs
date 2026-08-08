@@ -58,6 +58,7 @@ public static class DependencyInjection
 
         services.AddSignalR();
         services.AddScoped<IDashboardNotifier, DashboardNotifier>();
+        services.AddScoped<ICoachingNotifier, CoachingNotifier>();
 
         services.AddScoped<DemoDataSeeder>();
         services.AddScoped<BackgroundJobs.MembershipExpiryCheckJob>();

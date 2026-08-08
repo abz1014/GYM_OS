@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
+import { useCoachingHub } from '@/shared/hooks/useCoachingHub'
 import {
   useClientConversation,
   useMarkClientMessagesRead,
@@ -219,6 +220,9 @@ function Thread({ memberId }: { memberId: string }) {
  * A manager who reaches the URL anyway gets the explanation below rather than a raw 403.
  */
 export default function MyClientsPage() {
+  // Live delivery: a client writing in reorders the roster and lands in the open thread without a
+  // refresh. Failure is non-fatal — see useCoachingHub.
+  useCoachingHub()
   const clients = useMyClients()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 

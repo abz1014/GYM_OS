@@ -34,6 +34,8 @@ public abstract class ApplicationTestBase : IDisposable
     /// activity (CheckInCommand) are exercisable here instead of only through the API tests.</summary>
     protected FakeDashboardNotifier DashboardNotifier { get; }
 
+    protected FakeCoachingNotifier CoachingNotifier { get; }
+
     protected ApplicationTestBase()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
@@ -42,6 +44,7 @@ public abstract class ApplicationTestBase : IDisposable
         CurrentUser = new FakeCurrentUserService();
         DateTimeProvider = new FakeDateTimeProvider();
         DashboardNotifier = new FakeDashboardNotifier();
+        CoachingNotifier = new FakeCoachingNotifier();
 
         var services = new ServiceCollection();
 
@@ -51,6 +54,7 @@ public abstract class ApplicationTestBase : IDisposable
         services.AddSingleton<ITenantProvider>(CurrentUser);
         services.AddSingleton<IDateTimeProvider>(DateTimeProvider);
         services.AddSingleton<IDashboardNotifier>(DashboardNotifier);
+        services.AddSingleton<ICoachingNotifier>(CoachingNotifier);
 
         services.AddDbContext<GymOsDbContext>(o => o.UseSqlite(_connection));
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<GymOsDbContext>());
