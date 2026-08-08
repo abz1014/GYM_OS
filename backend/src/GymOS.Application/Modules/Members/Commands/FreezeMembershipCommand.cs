@@ -29,12 +29,14 @@ public class FreezeMembershipCommandHandler(IApplicationDbContext db) : IRequest
             .FirstOrDefaultAsync(m => m.Id == request.MemberMembershipId, cancellationToken)
             ?? throw new NotFoundException(nameof(MemberMembership), request.MemberMembershipId);
 
-        var maxFreezeDays = membership.MembershipPlan?.MaxFreezeDays ?? 0;
-        var requestedDays = request.FreezeEndDate.DayNumber - request.FreezeStartDate.DayNumber;
+        // The rule itself lives in MembershipFreezePolicy so the batch endpoint applies exactly the
+        // same one — a selection of members spans several plans, and this rule is per plan.
+        var maxFreezeDays = membership.MembershipPlan?.MaxFreezeDays ?? MembershipFreezePolicy.NoFreezeAllowance;
+        var (allowed, reason) = MembershipFreezePolicy.Evaluate(maxFreezeDays, request.FreezeStartDate, request.FreezeEndDate);
 
-        if (maxFreezeDays <= 0 || requestedDays > maxFreezeDays)
+        if (!allowed)
         {
-            throw new ValidationException($"This plan allows at most {maxFreezeDays} freeze day(s).");
+            throw new ValidationException(reason!);
         }
 
         membership.FreezeStartDate = request.FreezeStartDate;

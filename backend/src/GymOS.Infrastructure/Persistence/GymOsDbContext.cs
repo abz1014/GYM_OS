@@ -55,6 +55,8 @@ public class GymOsDbContext(
     public DbSet<Member> Members => Set<Member>();
     public DbSet<EmergencyContact> EmergencyContacts => Set<EmergencyContact>();
     public DbSet<MedicalNote> MedicalNotes => Set<MedicalNote>();
+
+    public DbSet<MemberNote> MemberNotes => Set<MemberNote>();
     public DbSet<MemberMeasurement> MemberMeasurements => Set<MemberMeasurement>();
     public DbSet<ProgressPhoto> ProgressPhotos => Set<ProgressPhoto>();
     public DbSet<MemberMembership> MemberMemberships => Set<MemberMembership>();

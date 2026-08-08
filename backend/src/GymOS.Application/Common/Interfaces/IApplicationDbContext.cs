@@ -57,6 +57,8 @@ public interface IApplicationDbContext
 
     DbSet<MedicalNote> MedicalNotes { get; }
 
+    DbSet<MemberNote> MemberNotes { get; }
+
     DbSet<MemberMeasurement> MemberMeasurements { get; }
 
     DbSet<ProgressPhoto> ProgressPhotos { get; }

@@ -64,6 +64,9 @@ public class Member : BaseEntity, IBranchScoped, IAuditable, ISoftDelete
 
     public ICollection<MedicalNote> MedicalNotes { get; set; } = [];
 
+    /// <summary>Operational staff notes. Distinct from MedicalNotes — see <see cref="MemberNote"/>.</summary>
+    public ICollection<MemberNote> Notes { get; set; } = [];
+
     public ICollection<MemberMeasurement> Measurements { get; set; } = [];
 
     public ICollection<ProgressPhoto> ProgressPhotos { get; set; } = [];

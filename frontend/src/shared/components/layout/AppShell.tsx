@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 
+import { CommandPalette } from '@/shared/components/CommandPalette'
+import { useCommandPalette } from '@/shared/hooks/useCommandPalette'
 import { MemberTabBar } from '@/shared/components/layout/MemberTabBar'
 import { Sidebar } from '@/shared/components/layout/Sidebar'
 import { Topbar } from '@/shared/components/layout/Topbar'
@@ -16,6 +18,14 @@ import { useIsMemberOnly } from '@/shared/nav/memberNav'
  */
 export function AppShell() {
   const isMember = useIsMemberOnly()
+
+  /*
+   * The palette is staff-only, and mounting it here is what makes ⌘K work from every screen without
+   * any page knowing it exists. Members are excluded deliberately: the whole registry is built from
+   * the staff sidebar, so a member would open a palette listing screens they cannot reach, and the
+   * member surface is a thumb-driven phone app where a keyboard shortcut has nothing to bind to.
+   */
+  const palette = useCommandPalette()
 
   /**
    * The member app is the dark surface (see index.css's file header) — `.dark` lives on <body>, not
@@ -37,7 +47,7 @@ export function AppShell() {
 
   return (
     <div className="flex h-svh w-full overflow-hidden">
-      {!isMember && <Sidebar />}
+      {!isMember && <Sidebar onOpenSearch={() => palette.setOpen(true)} />}
       <div className="flex min-w-0 flex-1 flex-col">
         {/*
           No app bar on the member surface. Every member screen opens with its own header — the date,
@@ -60,6 +70,7 @@ export function AppShell() {
         </main>
       </div>
       {isMember && <MemberTabBar />}
+      {!isMember && <CommandPalette open={palette.open} onOpenChange={palette.setOpen} />}
     </div>
   )
 }

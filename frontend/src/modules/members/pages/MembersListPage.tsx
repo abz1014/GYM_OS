@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight } from 'lucide-react'
 
+import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Pagination } from '@/shared/components/Pagination'
 import { FilterTabs, ListEmpty, ListError, ListSkeleton, PageHeader, SearchField, type FilterTab } from '@/shared/components/console'
@@ -9,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { MEMBER_STATUSES, useMemberStatusCounts, useMembersList, type MemberStatus } from '@/modules/members/api/membersApi'
 import { CreateMemberDialog } from '@/modules/members/components/CreateMemberDialog'
 import { MemberDetailPanel } from '@/modules/members/components/MemberDetailPanel'
+import { MembersActionBar } from '@/modules/members/components/MembersActionBar'
 import { MemberStatusPill } from '@/modules/members/components/MemberStatusPill'
 
 const joinedFormat = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -78,6 +80,15 @@ export default function MembersListPage() {
   const [status, setStatus] = useState<MemberStatus | 'all'>('all')
   const [page, setPage] = useState(1)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
+  /*
+   * Batch selection, deliberately separate from `selectedMemberId`.
+   *
+   * They answer different questions — "whose record am I reading" versus "who am I about to act on"
+   * — and merging them would mean opening a member's detail silently enlisted them in the next bulk
+   * freeze. Keeping them apart is also why the checkbox stops propagation: ticking a box must never
+   * also swap the rail to that member.
+   */
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const navigate = useNavigate()
 
   const hasRoomForRail = useHasRoomForRail()
@@ -91,6 +102,28 @@ export default function MembersListPage() {
   })
   const data = membersQuery.data
   const { counts } = useMemberStatusCounts(debouncedSearch || undefined)
+
+  const pageIds = data?.items.map((m) => m.id) ?? []
+  // "All" means all on THIS page, never the whole filtered set: the endpoint pages at 50 and the
+  // batch endpoints cap at 100, so a header box that silently meant "all 300 matches" would promise
+  // an action the server would refuse.
+  const allOnPageChecked = pageIds.length > 0 && pageIds.every((id) => checkedIds.has(id))
+
+  const toggleOne = (id: string) =>
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  const togglePage = () =>
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      if (allOnPageChecked) pageIds.forEach((id) => next.delete(id))
+      else pageIds.forEach((id) => next.add(id))
+      return next
+    })
 
   const openMember = (id: string) => {
     // Below xl there is no room for a rail, so a row click has to do what it always did.
@@ -187,6 +220,13 @@ export default function MembersListPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allOnPageChecked}
+                        onCheckedChange={togglePage}
+                        aria-label="Select all members on this page"
+                      />
+                    </TableHead>
                     <TableHead className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
                       Member
                     </TableHead>
@@ -220,6 +260,17 @@ export default function MembersListPage() {
                           isSelected && 'bg-primary/10 shadow-[inset_3px_0_0_var(--primary)] hover:bg-primary/10',
                         )}
                       >
+                        <TableCell
+                          // The cell, not just the box, swallows the click: a checkbox is a small
+                          // target and the misses would otherwise open the rail instead of ticking.
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={checkedIds.has(member.id)}
+                            onCheckedChange={() => toggleOne(member.id)}
+                            aria-label={`Select ${member.fullName}`}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2.5">
                             <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-secondary font-display text-xs font-black">
@@ -261,6 +312,11 @@ export default function MembersListPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Below the table, above the pager, and sticky — so it stays reachable while the person
+                scrolls a long list ticking boxes, which is exactly when they need it. Renders nothing
+                without a selection, and nothing for a role holding neither batch permission. */}
+            <MembersActionBar selectedIds={[...checkedIds]} onClear={() => setCheckedIds(new Set())} />
 
             <Pagination
               page={data.page}

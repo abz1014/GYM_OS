@@ -329,3 +329,48 @@ export function useAddProgressPhoto(memberId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
   })
 }
+
+/** One member's outcome in a batch action. `reason` is present only on failure. */
+export interface BatchMemberOutcome {
+  memberId: string
+  memberName: string | null
+  succeeded: boolean
+  reason: string | null
+}
+
+export interface BatchResult {
+  requested: number
+  succeeded: number
+  failed: number
+  outcomes: BatchMemberOutcome[]
+}
+
+/**
+ * Batch freeze and batch note.
+ *
+ * Both resolve rather than throw on a partial result, because a partial result is the expected
+ * outcome, not an error: `MaxFreezeDays` belongs to the plan, so any selection spanning two plans
+ * will contain members the freeze is legal for and members it is not. The caller reads
+ * `succeeded`/`failed` and shows the split — see the action bar.
+ *
+ * They invalidate the whole `['members']` list rather than patching rows: a freeze changes a
+ * member's status, and guessing the resulting row state client-side is how a list ends up disagreeing
+ * with the server about who is frozen.
+ */
+export function useBatchFreezeMemberships() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { memberIds: string[]; freezeStartDate: string; freezeEndDate: string }) =>
+      (await apiClient.post<BatchResult>('/api/members/batch/freeze', input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }),
+  })
+}
+
+export function useBatchAddMemberNote() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { memberIds: string[]; note: string }) =>
+      (await apiClient.post<BatchResult>('/api/members/batch/notes', input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }),
+  })
+}

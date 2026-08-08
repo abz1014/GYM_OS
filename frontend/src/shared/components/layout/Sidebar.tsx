@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { ChevronDown, Dumbbell, LogOut } from 'lucide-react'
+import { ChevronDown, Dumbbell, LogOut, Search } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -31,6 +31,13 @@ function ModuleLink({ module, onNavigate }: { module: NavModule; onNavigate?: ()
 }
 
 /**
+ * Mac reads ⌘K, everything else Ctrl K. Detected rather than hardcoded because a shortcut hint that
+ * names the wrong key is worse than none — it teaches a keystroke that does nothing.
+ */
+const shortcutHint =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? '') ? '⌘K' : 'Ctrl K'
+
+/**
  * The brand header + module nav, shared by the desktop sidebar and the mobile drawer (MobileNav) so
  * there is exactly one definition of what navigation looks like.
  *
@@ -39,8 +46,11 @@ function ModuleLink({ module, onNavigate }: { module: NavModule; onNavigate?: ()
  * at this console, and an alphabet-soup column of every module gave equal weight to "Dashboard" and
  * "Migration Center". Everything outside those three collapses behind one row, so the list a person
  * reads every day is short and the long tail is still one click away.
+ *
+ * `onOpenSearch` is optional so the mobile drawer can omit the search row: the palette is a keyboard
+ * affordance, and a phone has no keyboard to press ⌘K on.
  */
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({ onNavigate, onOpenSearch }: { onNavigate?: () => void; onOpenSearch?: () => void }) {
   const permissions = useAuthStore((s) => s.user?.permissions ?? [])
   const roles = useAuthStore((s) => s.user?.roles ?? [])
   const [showMore, setShowMore] = useState(false)
@@ -63,6 +73,29 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       <div className="px-3 pb-2">
         <BranchSwitcher />
       </div>
+
+      {/*
+        The palette's only entry point. It lives here because there is no desktop top bar to put it
+        in, and because a keyboard shortcut nobody is told about is a feature only its author uses —
+        this row is what teaches the shortcut, which is why it shows the key rather than an icon.
+        It is a button, not an input: the real input is inside the dialog, and two boxes that both
+        look typeable would leave people typing into the wrong one.
+      */}
+      {onOpenSearch && (
+      <div className="px-3 pb-3">
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          className="press flex w-full items-center gap-2 rounded-xl border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-left text-sm text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent"
+        >
+          <Search className="size-4 shrink-0" aria-hidden />
+          <span className="flex-1 truncate">Search</span>
+          <kbd className="shrink-0 rounded border border-sidebar-border px-1.5 py-0.5 font-sans text-[10px] font-semibold">
+            {shortcutHint}
+          </kbd>
+        </button>
+      </div>
+      )}
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-3">
         {NAV_SECTIONS.map((section) => {
@@ -156,11 +189,11 @@ export function SidebarAccount() {
   )
 }
 
-export function Sidebar() {
+export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   return (
     // Fixed dark chrome, in both themes — see index.css. 246px per the redesign's shell.
     <aside className="hidden w-[246px] shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex">
-      <SidebarNav />
+      <SidebarNav onOpenSearch={onOpenSearch} />
       <SidebarAccount />
     </aside>
   )

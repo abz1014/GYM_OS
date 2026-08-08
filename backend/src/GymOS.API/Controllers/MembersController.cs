@@ -81,6 +81,30 @@ public class MembersController(ISender mediator) : ControllerBase
         return NoContent();
     }
 
+    /*
+     * The two batch actions behind the members list's selection bar.
+     *
+     * Both return 200 with a per-member result rather than 204, and both return 200 even when every
+     * member failed. That is deliberate: "freeze these twenty" is twenty independent decisions, and
+     * the HTTP status describes whether the batch RAN, not whether every row inside it succeeded.
+     * Collapsing a mixed result into 400 would leave the caller unable to tell which members were
+     * changed — the exact ambiguity that makes bulk actions dangerous. See BatchResultDto.
+     *
+     * They carry the same permissions as their single-record equivalents, because a bulk action is
+     * not a different capability from doing the same thing repeatedly by hand.
+     */
+    [HttpPost("batch/freeze")]
+    [RequirePermission(PermissionCodes.Members.ManageMembership)]
+    public async Task<ActionResult<BatchResultDto>> BatchFreeze(
+        BatchFreezeMembershipsCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpPost("batch/notes")]
+    [RequirePermission(PermissionCodes.Members.Update)]
+    public async Task<ActionResult<BatchResultDto>> BatchAddNote(
+        BatchAddMemberNoteCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
     [HttpPost("memberships/{memberMembershipId:guid}/resume")]
     [RequirePermission(PermissionCodes.Members.ManageMembership)]
     public async Task<IActionResult> Resume(Guid memberMembershipId, CancellationToken cancellationToken)

@@ -49,3 +49,26 @@ public record MemberDetailDto(
     IReadOnlyList<MemberMeasurementDto> Measurements,
     IReadOnlyList<ProgressPhotoDto> ProgressPhotos,
     IReadOnlyList<MemberMembershipDto> MemberMemberships);
+
+/// <summary>
+/// What happened to one member in a batch action. <c>Reason</c> is populated only on failure and is
+/// written for the person reading it — "This plan allows at most 7 freeze day(s); 14 requested."
+/// </summary>
+public record BatchMemberOutcomeDto(Guid MemberId, string? MemberName, bool Succeeded, string? Reason);
+
+/// <summary>
+/// The result of a batch action, reported per member.
+///
+/// The counts exist so the caller can say "14 of 20 frozen" without walking the list, and the list
+/// exists so it can say WHICH six and why. A batch that returned only a count would leave staff
+/// believing an action applied to a selection it partly skipped — which is the failure mode this
+/// whole shape is designed to prevent. See BatchFreezeMembershipsCommand.
+/// </summary>
+public record BatchResultDto(int Requested, int Succeeded, int Failed, IReadOnlyList<BatchMemberOutcomeDto> Outcomes)
+{
+    public static BatchResultDto From(IReadOnlyList<BatchMemberOutcomeDto> outcomes)
+    {
+        var succeeded = outcomes.Count(o => o.Succeeded);
+        return new BatchResultDto(outcomes.Count, succeeded, outcomes.Count - succeeded, outcomes);
+    }
+}

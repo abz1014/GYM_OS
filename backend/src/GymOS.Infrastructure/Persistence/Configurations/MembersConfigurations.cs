@@ -25,6 +25,9 @@ public class MemberConfiguration : IEntityTypeConfiguration<Member>
 
         builder.HasMany(m => m.EmergencyContacts).WithOne(c => c.Member).HasForeignKey(c => c.MemberId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(m => m.MedicalNotes).WithOne(n => n.Member).HasForeignKey(n => n.MemberId).OnDelete(DeleteBehavior.Cascade);
+        // Cascade matches every other member-owned record: a deleted member takes their notes with
+        // them rather than leaving orphans nothing can reach.
+        builder.HasMany(m => m.Notes).WithOne(n => n.Member).HasForeignKey(n => n.MemberId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(m => m.Measurements).WithOne(x => x.Member).HasForeignKey(x => x.MemberId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(m => m.ProgressPhotos).WithOne(p => p.Member).HasForeignKey(p => p.MemberId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(m => m.MemberMemberships).WithOne(mm => mm.Member).HasForeignKey(mm => mm.MemberId).OnDelete(DeleteBehavior.Cascade);
