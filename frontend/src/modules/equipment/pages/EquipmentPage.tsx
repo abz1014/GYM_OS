@@ -9,6 +9,7 @@ import { ListEmpty, ListError, ListSkeleton, PageHeader, SEVERITY_ROW } from '@/
 import { useAssetsList, useUpdateAssetStatus, type AssetStatus } from '@/modules/equipment/api/equipmentApi'
 import { CreateAssetDialog } from '@/modules/equipment/components/CreateAssetDialog'
 import { CreateSupplierDialog } from '@/modules/equipment/components/CreateSupplierDialog'
+import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 
 const STATUSES: AssetStatus[] = ['Active', 'UnderMaintenance', 'OutOfService', 'Retired']
@@ -66,8 +67,22 @@ function AssetStatusPill({ status }: { status: AssetStatus }) {
   )
 }
 
+/**
+ * The status of one asset — a dropdown for whoever can change it, the pill alone for everyone else.
+ *
+ * Maintenance holds equipment.view but not equipment.manage, so for them this cell used to be a live
+ * control over PUT /api/equipment/{id}/status that 403'd on every use. It failed in the quietest way
+ * this console can fail: the Select is controlled by server data, so the value snapped back and
+ * nothing was said. The pill is what the row was always for — the status is still on screen, it just
+ * isn't offered as something to change by someone who can't.
+ */
 function AssetStatusCell({ assetId, status }: { assetId: string; status: AssetStatus }) {
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const updateStatus = useUpdateAssetStatus(assetId)
+
+  if (!hasPermission('equipment.manage')) {
+    return <AssetStatusPill status={status} />
+  }
 
   return (
     <Select value={status} onValueChange={(v) => updateStatus.mutate(v as AssetStatus)}>
@@ -90,9 +105,15 @@ function AssetStatusCell({ assetId, status }: { assetId: string; status: AssetSt
 export default function EquipmentPage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
   const [page, setPage] = useState(1)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const assetsQuery = useAssetsList({ branchId, page, pageSize: 25 })
   const data = assetsQuery.data
   const assets = data?.items
+
+  // Both dialogs post to endpoints behind equipment.manage. Absent rather than disabled, so the
+  // header simply carries no actions for a role that has none — the same thing the sidebar does
+  // with a module somebody can't open.
+  const canManage = hasPermission('equipment.manage')
 
   return (
     <div className="space-y-4">
@@ -100,10 +121,12 @@ export default function EquipmentPage() {
         title="Equipment"
         description={data ? `${data.totalCount.toLocaleString()} assets` : undefined}
         actions={
-          <>
-            <CreateSupplierDialog />
-            <CreateAssetDialog />
-          </>
+          canManage ? (
+            <>
+              <CreateSupplierDialog />
+              <CreateAssetDialog />
+            </>
+          ) : undefined
         }
       />
 

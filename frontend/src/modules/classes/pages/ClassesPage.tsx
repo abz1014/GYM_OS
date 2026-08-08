@@ -17,6 +17,7 @@ import {
 import { ClassRosterDialog } from '@/modules/classes/components/ClassRosterDialog'
 import { CreateClassScheduleDialog } from '@/modules/classes/components/CreateClassScheduleDialog'
 import { CreateClassTypeDialog } from '@/modules/classes/components/CreateClassTypeDialog'
+import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 
 const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -59,10 +60,14 @@ function GroupLabel({ children, count }: { children: string; count?: number }) {
 
 function ScheduleTab() {
   const branchId = useUiStore((s) => s.selectedBranchId)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const schedulesQuery = useClassSchedules({ branchId })
   const setActive = useSetClassScheduleActive()
 
   const schedules = schedulesQuery.data
+  // Every write under /api/classes is classes.manage; only the three GETs are classes.view. A
+  // Trainer reads this timetable and cannot change it, so they get the timetable and no controls.
+  const canManage = hasPermission('classes.manage')
 
   const toggle = (id: string, isActive: boolean) =>
     setActive.mutate(
@@ -76,7 +81,7 @@ function ScheduleTab() {
         {/* The count is the whole timetable for this branch — /api/classes/schedules is unpaginated
             — but it counts slots, not classes running: an inactive slot is still a row. */}
         <GroupLabel count={schedules?.length}>Recurring slots</GroupLabel>
-        <CreateClassScheduleDialog />
+        {canManage && <CreateClassScheduleDialog />}
       </div>
 
       {schedulesQuery.isError && (
@@ -92,7 +97,8 @@ function ScheduleTab() {
       {!schedulesQuery.isLoading && schedules?.length === 0 && (
         <ListEmpty
           message="No class slots yet."
-          hint="Add one and the sessions members can book are generated from it."
+          // The hint tells you what to do next, so it only shows to someone who can do it.
+          hint={canManage ? 'Add one and the sessions members can book are generated from it.' : undefined}
         />
       )}
 
@@ -125,15 +131,17 @@ function ScheduleTab() {
                       {s.location ? ` · ${s.location}` : ''}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0 rounded-xl"
-                    disabled={setActive.isPending}
-                    onClick={() => toggle(s.id, s.isActive)}
-                  >
-                    {s.isActive ? 'Deactivate' : 'Reactivate'}
-                  </Button>
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 rounded-xl"
+                      disabled={setActive.isPending}
+                      onClick={() => toggle(s.id, s.isActive)}
+                    >
+                      {s.isActive ? 'Deactivate' : 'Reactivate'}
+                    </Button>
+                  )}
                 </article>
               ))}
           </div>
@@ -143,14 +151,16 @@ function ScheduleTab() {
 }
 
 function ClassTypesTab() {
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const typesQuery = useClassTypes()
   const types = typesQuery.data
+  const canManage = hasPermission('classes.manage')
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <GroupLabel count={types?.length}>Class types</GroupLabel>
-        <CreateClassTypeDialog />
+        {canManage && <CreateClassTypeDialog />}
       </div>
 
       {typesQuery.isError && (
@@ -172,7 +182,10 @@ function ClassTypesTab() {
       )}
 
       {!typesQuery.isLoading && types?.length === 0 && (
-        <ListEmpty message="No class types yet." hint="A type is what a slot schedules — start here." />
+        <ListEmpty
+          message="No class types yet."
+          hint={canManage ? 'A type is what a slot schedules — start here.' : undefined}
+        />
       )}
 
       {/* The duration and capacity on a type are defaults for new slots, not what any class is
@@ -206,10 +219,12 @@ function ClassTypesTab() {
 
 function SessionsTab() {
   const branchId = useUiStore((s) => s.selectedBranchId)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const sessionsQuery = useClassSessions({ branchId })
   const cancelSession = useCancelClassSession()
 
   const sessions = sessionsQuery.data
+  const canManage = hasPermission('classes.manage')
 
   const cancel = (id: string) =>
     cancelSession.mutate(id, {
@@ -246,7 +261,7 @@ function SessionsTab() {
       {!sessionsQuery.isLoading && sessions?.length === 0 && (
         <ListEmpty
           message="No upcoming sessions."
-          hint="Add a class slot and sessions are generated from it automatically."
+          hint={canManage ? 'Add a class slot and sessions are generated from it automatically.' : undefined}
         />
       )}
 
@@ -294,17 +309,21 @@ function SessionsTab() {
                 <p className="text-xs text-muted-foreground">{s.trainerName ?? 'No instructor'}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
+                {/* The roster stays for everyone with classes.view — it is the register for the
+                    class, and reading it is a GET. Cancelling the session is not. */}
                 <ClassRosterDialog session={s} />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  title="Cancel session"
-                  className="rounded-xl text-muted-foreground hover:text-destructive"
-                  disabled={cancelSession.isPending}
-                  onClick={() => cancel(s.id)}
-                >
-                  <Ban className="size-4" />
-                </Button>
+                {canManage && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Cancel session"
+                    className="rounded-xl text-muted-foreground hover:text-destructive"
+                    disabled={cancelSession.isPending}
+                    onClick={() => cancel(s.id)}
+                  >
+                    <Ban className="size-4" />
+                  </Button>
+                )}
               </div>
             </article>
           ))}

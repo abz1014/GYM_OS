@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 import { apiClient } from '@/lib/apiClient'
 import type { PagedList } from '@/types/paging'
@@ -101,6 +102,13 @@ export function useCreateSupplier() {
   })
 }
 
+/**
+ * The one mutation in this app that a person fires without pressing a button — it hangs off a
+ * `<Select>` whose value is server data, so a rejected write simply snaps the dropdown back to what
+ * it was. There is no MutationCache onError in lib/queryClient.ts, which means nothing else in the
+ * app would say a word: the toast below is the only thing standing between a failed write and
+ * someone walking away believing the asset is now out of service.
+ */
 export function useUpdateAssetStatus(assetId: string) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -109,5 +117,6 @@ export function useUpdateAssetStatus(assetId: string) {
       queryClient.invalidateQueries({ queryKey: ['asset', assetId] })
       queryClient.invalidateQueries({ queryKey: ['assets'] })
     },
+    onError: () => toast.error('Could not update the asset status.'),
   })
 }

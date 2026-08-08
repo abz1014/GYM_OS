@@ -7,6 +7,7 @@ import { CreateCouponDialog } from '@/modules/memberships/components/CreateCoupo
 import { CreateDiscountDialog } from '@/modules/memberships/components/CreateDiscountDialog'
 import { CreatePlanDialog } from '@/modules/memberships/components/CreatePlanDialog'
 import { discountValueLabel } from '@/modules/memberships/components/discountFormat'
+import { useAuthStore } from '@/stores/authStore'
 
 /**
  * The console's tab row is an underline strip; shadcn's Tabs ships a pill sitting in a grey tray.
@@ -49,14 +50,19 @@ function SectionLabel({ children, count }: { children: string; count?: number })
 }
 
 function PlansTab() {
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const plansQuery = useMembershipPlans(true)
   const plans = plansQuery.data
+
+  // The catalogue reads on memberships.view — which is why a Receptionist and an Accountant can
+  // open this screen at all — but creating a plan is memberships.manage_plans, which neither holds.
+  const canManagePlans = hasPermission('memberships.manage_plans')
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <SectionLabel count={plans?.length}>Plan catalogue</SectionLabel>
-        <CreatePlanDialog />
+        {canManagePlans && <CreatePlanDialog />}
       </div>
 
       {plansQuery.isError && (
@@ -78,7 +84,10 @@ function PlansTab() {
       )}
 
       {!plansQuery.isLoading && plans?.length === 0 && (
-        <ListEmpty message="No plans yet." hint="Create one and it becomes sellable at the front desk." />
+        <ListEmpty
+          message="No plans yet."
+          hint={canManagePlans ? 'Create one and it becomes sellable at the front desk.' : undefined}
+        />
       )}
 
       {/*
@@ -127,9 +136,18 @@ function PlansTab() {
 }
 
 function DiscountsAndCoupons() {
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const plansQuery = useMembershipPlans(true)
   const discountsQuery = useDiscounts(true)
   const couponsQuery = useCoupons(true)
+
+  /*
+   * One permission for both lists: POST /api/memberships/discounts and POST
+   * /api/memberships/coupons are each memberships.manage_discounts. A coupon is a code pointing at
+   * a discount, and the API treats minting either as the same authority — NOT manage_plans, which
+   * only covers the catalogue on the other tab.
+   */
+  const canManageDiscounts = hasPermission('memberships.manage_discounts')
 
   const plans = plansQuery.data
   const discounts = discountsQuery.data
@@ -150,7 +168,7 @@ function DiscountsAndCoupons() {
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <SectionLabel count={discounts?.length}>Discounts</SectionLabel>
-          <CreateDiscountDialog />
+          {canManageDiscounts && <CreateDiscountDialog />}
         </div>
 
         {discountsQuery.isError && (
@@ -196,7 +214,7 @@ function DiscountsAndCoupons() {
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <SectionLabel count={coupons?.length}>Coupons</SectionLabel>
-          <CreateCouponDialog />
+          {canManageDiscounts && <CreateCouponDialog />}
         </div>
 
         {couponsQuery.isError && (

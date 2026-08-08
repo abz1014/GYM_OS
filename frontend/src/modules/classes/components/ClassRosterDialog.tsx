@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { ListSkeleton, SearchField } from '@/shared/components/console'
+import { useAuthStore } from '@/stores/authStore'
 import { useMembersList } from '@/modules/members/api/membersApi'
 import {
   useBookClassSession,
@@ -87,11 +88,21 @@ function MemberSearch({ sessionId }: { sessionId: string }) {
 
 export function ClassRosterDialog({ session }: { session: ClassSession }) {
   const [open, setOpen] = useState(false)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const { data: roster, isLoading } = useClassSessionRoster(open ? session.id : undefined)
   const cancelBooking = useCancelClassBooking(session.id)
   const recordAttendance = useRecordClassBookingAttendance(session.id)
 
   const isCancelledSession = session.status === 'Cancelled'
+
+  /*
+   * Reading a roster is classes.view; changing one — booking someone in, checking them off, marking
+   * a no-show, cancelling a booking — is classes.manage on every endpoint. A Trainer holds the first
+   * and not the second, so for them this dialog is the register it always should have been: who is
+   * booked, and what state each booking is in. The buttons that 403'd are gone rather than greyed,
+   * because a greyed one is a support ticket asking why.
+   */
+  const canManage = hasPermission('classes.manage')
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -114,7 +125,7 @@ export function ClassRosterDialog({ session }: { session: ClassSession }) {
               ` · ${roster?.waitlistCount ?? session.waitlistCount} waitlisted`}
           </p>
 
-          {!isCancelledSession && <MemberSearch sessionId={session.id} />}
+          {canManage && !isCancelledSession && <MemberSearch sessionId={session.id} />}
 
           {isLoading && <ListSkeleton rows={4} className="h-12 w-full rounded-2xl" />}
 
@@ -134,7 +145,7 @@ export function ClassRosterDialog({ session }: { session: ClassSession }) {
                     </div>
                     <div className="flex items-center gap-1">
                       <Badge variant={STATUS_VARIANT[b.status]}>{STATUS_LABEL[b.status]}</Badge>
-                      {b.status === 'Booked' && (
+                      {canManage && b.status === 'Booked' && (
                         <>
                           <Button
                             size="icon"
@@ -158,7 +169,7 @@ export function ClassRosterDialog({ session }: { session: ClassSession }) {
                           </Button>
                         </>
                       )}
-                      {(b.status === 'Booked' || isWaitlisted) && (
+                      {canManage && (b.status === 'Booked' || isWaitlisted) && (
                         <Button
                           size="icon"
                           variant="ghost"

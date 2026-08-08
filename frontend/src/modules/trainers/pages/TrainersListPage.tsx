@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ListEmpty, ListError, PageHeader } from '@/shared/components/console'
 import { useTrainersList } from '@/modules/trainers/api/trainersApi'
 import { CreateTrainerDialog } from '@/modules/trainers/components/CreateTrainerDialog'
+import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useCoachingCompliance, useCoachingPlateaus, useCoachingRisks } from '@/modules/coaching/api/coachingApi'
 
@@ -40,9 +41,14 @@ function PanelHeading({ title, count }: { title: string; count?: number }) {
 
 function TrainersTab() {
   const branchId = useUiStore((s) => s.selectedBranchId)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const trainersQuery = useTrainersList(branchId)
   const trainers = trainersQuery.data
   const navigate = useNavigate()
+
+  // POST /api/trainers is trainers.manage; the roster itself is trainers.view. A Trainer can see
+  // the squad they're part of and cannot add to it.
+  const canManage = hasPermission('trainers.manage')
 
   return (
     <div className="space-y-4">
@@ -61,9 +67,11 @@ function TrainersTab() {
             {trainers.length} {trainers.length === 1 ? 'trainer' : 'trainers'}
           </p>
         )}
-        <div className="ml-auto">
-          <CreateTrainerDialog />
-        </div>
+        {canManage && (
+          <div className="ml-auto">
+            <CreateTrainerDialog />
+          </div>
+        )}
       </div>
 
       {trainersQuery.isError && (
@@ -83,7 +91,10 @@ function TrainersTab() {
       )}
 
       {trainers?.length === 0 && (
-        <ListEmpty message="No trainers on this branch yet." hint="Add one to start assigning clients." />
+        <ListEmpty
+          message="No trainers on this branch yet."
+          hint={canManage ? 'Add one to start assigning clients.' : undefined}
+        />
       )}
 
       {trainers && trainers.length > 0 && (

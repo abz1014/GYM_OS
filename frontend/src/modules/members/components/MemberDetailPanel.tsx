@@ -164,6 +164,15 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
   const canSeeVisits = hasPermission('attendance.view')
   const canSeeBilling = hasPermission('billing.view')
   const canCheckIn = hasPermission('attendance.check_in')
+  /*
+   * Two permissions cover every write this panel offers, and they split it cleanly:
+   * members.update owns the record — the profile, measurements, photos, medical notes, emergency
+   * contacts — and members.manage_membership owns the plan, which is renew, freeze, resume, cancel,
+   * reactivate and transfer. Trainer and Nutritionist read members and hold neither, so this panel
+   * was showing both of them a full set of controls that 403'd. Each one is now absent instead.
+   */
+  const canUpdate = hasPermission('members.update')
+  const canManageMembership = hasPermission('members.manage_membership')
 
   // Fixed 30-day window, expressed as a date so the query key is stable across a render rather
   // than a new timestamp each time.
@@ -518,17 +527,23 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
               <QrCode className="size-3.5 shrink-0" />
               <span className="font-mono text-xs">{member.qrCodeToken.slice(0, 12)}…</span>
             </p>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <EditMemberDialog member={member} />
-              <TransferMemberDialog memberId={member.id} currentBranchId={member.branchId} />
-            </div>
+            {(canUpdate || canManageMembership) && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {canUpdate && <EditMemberDialog member={member} />}
+                {/* A transfer moves the membership between branches, so it is manage_membership
+                    rather than update — see MembersController.Transfer. */}
+                {canManageMembership && (
+                  <TransferMemberDialog memberId={member.id} currentBranchId={member.branchId} />
+                )}
+              </div>
+            )}
           </div>
         </TabsContent>
 
         <TabsContent value="billing" className="space-y-4 p-5">
           <div className="flex items-center justify-between gap-2">
             <Eyebrow>Memberships</Eyebrow>
-            <RenewMembershipDialog memberId={member.id} />
+            {canManageMembership && <RenewMembershipDialog memberId={member.id} />}
           </div>
           {member.memberMemberships.length === 0 && <p className="text-sm text-muted-foreground">No membership history yet.</p>}
           <ul className="space-y-2">
@@ -549,19 +564,30 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
                     <p className="mt-1 text-sm text-muted-foreground tabular-nums">{money(mm.pricePaid, mm.currency)}</p>
                   </div>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-1">
-                  {mm.invoiceId && (
-                    <Link to={`/billing/${mm.invoiceId}`} className="px-2 text-sm text-primary hover:underline">
-                      Invoice
-                    </Link>
-                  )}
-                  {mm.status === 'Active' && <FreezeMembershipDialog memberId={member.id} memberMembershipId={mm.id} />}
-                  {mm.status === 'Frozen' && <ResumeMembershipButton memberId={member.id} memberMembershipId={mm.id} />}
-                  {(mm.status === 'Active' || mm.status === 'Frozen' || mm.status === 'PendingActivation') && (
-                    <CancelMembershipDialog memberId={member.id} memberMembershipId={mm.id} />
-                  )}
-                  {mm.status === 'Cancelled' && <ReactivateMembershipButton memberId={member.id} memberMembershipId={mm.id} />}
-                </div>
+                {/* The row only exists if it will hold something — without the guard, a role with
+                    neither the invoice link nor the membership actions got a bare 8px gap. */}
+                {(mm.invoiceId || canManageMembership) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1">
+                    {mm.invoiceId && (
+                      <Link to={`/billing/${mm.invoiceId}`} className="px-2 text-sm text-primary hover:underline">
+                        Invoice
+                      </Link>
+                    )}
+                    {canManageMembership && mm.status === 'Active' && (
+                      <FreezeMembershipDialog memberId={member.id} memberMembershipId={mm.id} />
+                    )}
+                    {canManageMembership && mm.status === 'Frozen' && (
+                      <ResumeMembershipButton memberId={member.id} memberMembershipId={mm.id} />
+                    )}
+                    {canManageMembership &&
+                      (mm.status === 'Active' || mm.status === 'Frozen' || mm.status === 'PendingActivation') && (
+                        <CancelMembershipDialog memberId={member.id} memberMembershipId={mm.id} />
+                      )}
+                    {canManageMembership && mm.status === 'Cancelled' && (
+                      <ReactivateMembershipButton memberId={member.id} memberMembershipId={mm.id} />
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -598,7 +624,7 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
         <TabsContent value="training" className="space-y-4 p-5">
           <div className="flex items-center justify-between gap-2">
             <Eyebrow>Measurements</Eyebrow>
-            <AddMeasurementDialog memberId={member.id} />
+            {canUpdate && <AddMeasurementDialog memberId={member.id} />}
           </div>
           {member.measurements.length === 0 && <p className="text-sm text-muted-foreground">No measurements logged.</p>}
           <ul className="space-y-1">
@@ -613,7 +639,7 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
 
           <div className="flex items-center justify-between gap-2 border-t border-border pt-4">
             <Eyebrow>Progress photos</Eyebrow>
-            <AddProgressPhotoDialog memberId={member.id} />
+            {canUpdate && <AddProgressPhotoDialog memberId={member.id} />}
           </div>
           {member.progressPhotos.length === 0 ? (
             <p className="text-sm text-muted-foreground">No progress photos yet.</p>
@@ -632,7 +658,7 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
         <TabsContent value="notes" className="space-y-4 p-5">
           <div className="flex items-center justify-between gap-2">
             <Eyebrow>Medical notes</Eyebrow>
-            <AddMedicalNoteDialog memberId={member.id} />
+            {canUpdate && <AddMedicalNoteDialog memberId={member.id} />}
           </div>
           {member.medicalNotes.length === 0 && <p className="text-sm text-muted-foreground">No medical notes on file.</p>}
           <ul className="space-y-2">
@@ -646,7 +672,7 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
 
           <div className="flex items-center justify-between gap-2 border-t border-border pt-4">
             <Eyebrow>Emergency contacts</Eyebrow>
-            <AddEmergencyContactDialog memberId={member.id} />
+            {canUpdate && <AddEmergencyContactDialog memberId={member.id} />}
           </div>
           {member.emergencyContacts.length === 0 && (
             <p className="text-sm text-muted-foreground">No emergency contacts on file.</p>

@@ -15,6 +15,7 @@ import { AssignClientDialog } from '@/modules/trainers/components/AssignClientDi
 import { EndAssignmentButton } from '@/modules/trainers/components/EndAssignmentButton'
 import { ScheduleSessionDialog } from '@/modules/trainers/components/ScheduleSessionDialog'
 import { SessionActionButtons } from '@/modules/trainers/components/SessionActionButtons'
+import { useAuthStore } from '@/stores/authStore'
 
 // USD because TrainerDetail carries no currency code — only a branchId, which this page does not
 // resolve to a branch. Same assumption the page has always made, kept in one place.
@@ -32,6 +33,11 @@ function initials(fullName: string): string {
     .join('')
 }
 
+/**
+ * Paid/Pending — a dropdown for whoever can settle commission, the badge alone otherwise. Same
+ * shape as the equipment status cell, and for the same reason: a `<Select>` bound to server data
+ * that 403s just snaps back, so it has to be absent rather than merely ineffective.
+ */
 function CommissionStatusCell({
   trainerId,
   commissionRecordId,
@@ -41,7 +47,12 @@ function CommissionStatusCell({
   commissionRecordId: string
   status: string
 }) {
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const updateStatus = useUpdateCommissionStatus(trainerId)
+
+  if (!hasPermission('trainers.manage')) {
+    return <Badge variant={status === 'Paid' ? 'success' : 'outline'}>{status}</Badge>
+  }
 
   return (
     <Select
@@ -82,8 +93,17 @@ function Row({ children }: { children: ReactNode }) {
 
 export default function TrainerDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const hasPermission = useAuthStore((s) => s.hasPermission)
   const trainerQuery = useTrainer(id)
   const trainer = trainerQuery.data
+
+  /*
+   * Every mutation this page can fire — assigning a client, ending an assignment, booking or
+   * completing a session, adding a slot, a rating or a commission record, settling one — sits behind
+   * trainers.manage. Only the two GETs are trainers.view. A Trainer holds the second and not the
+   * first, so this page reads as a profile for them and as a console for a manager.
+   */
+  const canManage = hasPermission('trainers.manage')
 
   // Without this branch a failed request left the skeleton on screen for good, since `isLoading ||
   // !trainer` cannot tell a request still in flight from one that has already given up.
@@ -187,11 +207,16 @@ export default function TrainerDetailPage() {
         </TabsList>
 
         <TabsContent value="clients" className="space-y-3">
-          <div className="flex justify-end">
-            <AssignClientDialog trainerId={trainer.id} />
-          </div>
+          {canManage && (
+            <div className="flex justify-end">
+              <AssignClientDialog trainerId={trainer.id} />
+            </div>
+          )}
           {trainer.assignments.length === 0 && (
-            <ListEmpty message="No clients assigned yet." hint="Assign a member to start booking sessions." />
+            <ListEmpty
+              message="No clients assigned yet."
+              hint={canManage ? 'Assign a member to start booking sessions.' : undefined}
+            />
           )}
           {trainer.assignments.map((a) => (
             <Row key={a.id}>
@@ -209,20 +234,25 @@ export default function TrainerDetailPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={a.isActive ? 'success' : 'outline'}>{a.isActive ? 'Active' : 'Ended'}</Badge>
-                {a.isActive && <EndAssignmentButton trainerId={trainer.id} assignmentId={a.id} />}
+                {canManage && a.isActive && <EndAssignmentButton trainerId={trainer.id} assignmentId={a.id} />}
               </div>
             </Row>
           ))}
         </TabsContent>
 
         <TabsContent value="sessions" className="space-y-3">
-          <div className="flex justify-end">
-            <ScheduleSessionDialog trainerId={trainer.id} assignments={trainer.assignments} />
-          </div>
+          {canManage && (
+            <div className="flex justify-end">
+              <ScheduleSessionDialog trainerId={trainer.id} assignments={trainer.assignments} />
+            </div>
+          )}
           {/* Empty on a fresh install and correct: nothing seeds PT sessions, so this panel is the
               honest picture of a trainer nobody has booked yet. */}
           {trainer.sessions.length === 0 && (
-            <ListEmpty message="No sessions scheduled yet." hint="Book one against an active client assignment." />
+            <ListEmpty
+              message="No sessions scheduled yet."
+              hint={canManage ? 'Book one against an active client assignment.' : undefined}
+            />
           )}
           {trainer.sessions.map((s) => (
             <Row key={s.id}>
@@ -239,18 +269,25 @@ export default function TrainerDetailPage() {
                 >
                   {s.status}
                 </Badge>
-                {s.status === 'Scheduled' && <SessionActionButtons trainerId={trainer.id} sessionId={s.id} />}
+                {canManage && s.status === 'Scheduled' && (
+                  <SessionActionButtons trainerId={trainer.id} sessionId={s.id} />
+                )}
               </div>
             </Row>
           ))}
         </TabsContent>
 
         <TabsContent value="schedule" className="space-y-3">
-          <div className="flex justify-end">
-            <AddTrainerScheduleDialog trainerId={trainer.id} />
-          </div>
+          {canManage && (
+            <div className="flex justify-end">
+              <AddTrainerScheduleDialog trainerId={trainer.id} />
+            </div>
+          )}
           {trainer.schedules.length === 0 && (
-            <ListEmpty message="No schedule set." hint="Add the weekly slots this trainer works." />
+            <ListEmpty
+              message="No schedule set."
+              hint={canManage ? 'Add the weekly slots this trainer works.' : undefined}
+            />
           )}
           {trainer.schedules.map((s) => (
             <Row key={s.id}>
@@ -266,11 +303,20 @@ export default function TrainerDetailPage() {
         </TabsContent>
 
         <TabsContent value="ratings" className="space-y-3">
-          <div className="flex justify-end">
-            <AddTrainerRatingDialog trainerId={trainer.id} assignments={trainer.assignments} sessions={trainer.sessions} />
-          </div>
+          {canManage && (
+            <div className="flex justify-end">
+              <AddTrainerRatingDialog
+                trainerId={trainer.id}
+                assignments={trainer.assignments}
+                sessions={trainer.sessions}
+              />
+            </div>
+          )}
           {trainer.ratings.length === 0 && (
-            <ListEmpty message="No ratings yet." hint="Clients can be rated against a completed session, or in general." />
+            <ListEmpty
+              message="No ratings yet."
+              hint={canManage ? 'Clients can be rated against a completed session, or in general.' : undefined}
+            />
           )}
           {trainer.ratings.map((r) => (
             <div key={r.id} className="space-y-1.5 rounded-panel border border-border bg-card p-4 edge-light-soft">
@@ -287,13 +333,18 @@ export default function TrainerDetailPage() {
         </TabsContent>
 
         <TabsContent value="commissions" className="space-y-3">
-          <div className="flex justify-end">
-            <AddCommissionRecordDialog trainerId={trainer.id} />
-          </div>
+          {canManage && (
+            <div className="flex justify-end">
+              <AddCommissionRecordDialog trainerId={trainer.id} />
+            </div>
+          )}
           {/* Also empty on a fresh install: no commission record is ever seeded, and one only exists
               once somebody records a period by hand. */}
           {trainer.commissionRecords.length === 0 && (
-            <ListEmpty message="No commission records yet." hint="Record a period to start tracking what is owed." />
+            <ListEmpty
+              message="No commission records yet."
+              hint={canManage ? 'Record a period to start tracking what is owed.' : undefined}
+            />
           )}
           {trainer.commissionRecords.map((c) => (
             <Row key={c.id}>

@@ -12,6 +12,7 @@ import { CreateMemberDialog } from '@/modules/members/components/CreateMemberDia
 import { MemberDetailPanel } from '@/modules/members/components/MemberDetailPanel'
 import { MembersActionBar } from '@/modules/members/components/MembersActionBar'
 import { MemberStatusPill } from '@/modules/members/components/MemberStatusPill'
+import { useAuthStore } from '@/stores/authStore'
 
 const joinedFormat = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -90,6 +91,7 @@ export default function MembersListPage() {
    */
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const navigate = useNavigate()
+  const hasPermission = useAuthStore((s) => s.hasPermission)
 
   const hasRoomForRail = useHasRoomForRail()
   const debouncedSearch = useDebounced(searchTerm.trim(), 250)
@@ -157,7 +159,9 @@ export default function MembersListPage() {
         {/* The design's "Export" sits beside the create button. Nothing in the API exports a member
             list — the export endpoints under /api/reports cover revenue, attendance, cohorts and
             at-risk members, never the directory itself. */}
-        <PageHeader title="Members" actions={<CreateMemberDialog />} />
+        {/* POST /api/members is members.create, which Trainer and Nutritionist do not hold though
+            both read this directory. Absent rather than disabled, matching the action bar below. */}
+        <PageHeader title="Members" actions={hasPermission('members.create') ? <CreateMemberDialog /> : undefined} />
 
         <SearchField
           placeholder="Name, code, phone or email"
