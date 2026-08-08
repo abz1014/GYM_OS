@@ -19,6 +19,16 @@ import { useUiStore } from '@/stores/uiStore'
 
 const SOURCES: LeadSource[] = ['WalkIn', 'Referral', 'SocialMedia', 'Website', 'Advertisement', 'Other']
 
+/** The values posted are still the enum names; only what the receptionist reads changes. */
+const SOURCE_LABELS: Record<LeadSource, string> = {
+  WalkIn: 'Walk-in',
+  Referral: 'Referral',
+  SocialMedia: 'Social media',
+  Website: 'Website',
+  Advertisement: 'Advertisement',
+  Other: 'Other',
+}
+
 export function CreateLeadDialog() {
   const [open, setOpen] = useState(false)
   const [firstName, setFirstName] = useState('')
@@ -56,7 +66,7 @@ export function CreateLeadDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="rounded-xl">
           <Plus />
           New Lead
         </Button>
@@ -93,7 +103,7 @@ export function CreateLeadDialog() {
               <SelectContent>
                 {SOURCES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {s}
+                    {SOURCE_LABELS[s]}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -30,7 +30,7 @@ export function CommitImportPanel({ job }: { job: ImportJobDetail }) {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border p-4">
+    <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
       <p className="text-sm">
         <span className="font-medium">{importableCount}</span> of {job.totalRows} row(s) will be created.{' '}
         {job.duplicateRows > 0 && `${job.duplicateRows} duplicate(s) and `}

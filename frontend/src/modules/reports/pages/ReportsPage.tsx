@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAssetsList } from '@/modules/equipment/api/equipmentApi'
@@ -77,13 +76,27 @@ function ReportCard({
   children: React.ReactNode
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
-        <p className="font-medium">{title}</p>
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="flex flex-row items-center justify-between gap-3">
+        <h2 className="font-display text-xl font-bold tracking-tight">{title}</h2>
         {action}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+      </div>
+      <div className="mt-4">{children}</div>
+    </section>
+  )
+}
+
+/**
+ * One figure in a report's summary row. Takes the value already formatted, and takes it as a string
+ * rather than a number so the caller has to have decided what to do about a missing one — see the
+ * capture-rate and engagement rows, where a failed request used to render "0%".
+ */
+function ReportFigure({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <p className="font-display text-3xl leading-none font-black tracking-tight tabular-nums">{value}</p>
+      <p className="mt-1 text-muted-foreground">{label}</p>
+    </div>
   )
 }
 
@@ -344,11 +357,15 @@ function CrmTab() {
         {isLoading ? (
           <Skeleton className="h-48 w-full" />
         ) : (
-          <div className="flex flex-col gap-2 text-sm">
-            <p>Total leads: <span className="font-medium">{data?.totalLeads ?? 0}</span></p>
-            <p>Converted to members: <span className="font-medium">{data?.convertedCount ?? 0}</span></p>
-            <p>Conversion rate: <span className="font-medium">{data?.conversionRatePercent ?? 0}%</span></p>
-          </div>
+          !data ? (
+            <p className="text-sm text-muted-foreground">Conversion figures aren't available right now.</p>
+          ) : (
+            <div className="flex flex-col gap-2 text-sm">
+              <p>Total leads: <span className="font-medium tabular-nums">{data.totalLeads.toLocaleString()}</span></p>
+              <p>Converted to members: <span className="font-medium tabular-nums">{data.convertedCount.toLocaleString()}</span></p>
+              <p>Conversion rate: <span className="font-medium tabular-nums">{data.conversionRatePercent}%</span></p>
+            </div>
+          )
         )}
       </ReportCard>
     </div>
@@ -433,10 +450,10 @@ function NutritionTab() {
             <Skeleton className="h-48 w-full" />
           ) : (
             <div className="flex flex-col gap-2 text-sm">
-              <p>Meal entries logged: <span className="font-medium">{data?.totalMealEntriesLogged ?? 0}</span></p>
-              <p>Total calories logged: <span className="font-medium">{(data?.totalCaloriesLogged ?? 0).toLocaleString()}</span></p>
-              <p>Water logs: <span className="font-medium">{data?.totalWaterLogsLogged ?? 0}</span></p>
-              <p>Total water logged: <span className="font-medium">{((data?.totalWaterMlLogged ?? 0) / 1000).toFixed(1)} L</span></p>
+              <p>Meal entries logged: <span className="font-medium tabular-nums">{(data?.totalMealEntriesLogged ?? 0).toLocaleString()}</span></p>
+              <p>Total calories logged: <span className="font-medium tabular-nums">{(data?.totalCaloriesLogged ?? 0).toLocaleString()}</span></p>
+              <p>Water logs: <span className="font-medium tabular-nums">{(data?.totalWaterLogsLogged ?? 0).toLocaleString()}</span></p>
+              <p>Total water logged: <span className="font-medium tabular-nums">{((data?.totalWaterMlLogged ?? 0) / 1000).toFixed(1)} L</span></p>
             </div>
           )}
         </ReportCard>
@@ -543,29 +560,24 @@ function LoggingCaptureCard() {
         <Skeleton className="h-48 w-full" />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-            <div>
-              <p className="text-2xl font-semibold">{data?.captureRatePercent ?? 0}%</p>
-              <p className="text-muted-foreground">Visits that were logged</p>
+          {/* No `?? 0` here on purpose. A request that failed used to render "0% of visits were
+              logged", which is not a neutral placeholder — it is a specific, alarming, false claim
+              about the gym. If the figures are missing the row says so instead. */}
+          {!data ? (
+            <p className="text-sm text-muted-foreground">Capture figures aren't available right now.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+              <ReportFigure value={`${data.captureRatePercent}%`} label="Visits that were logged" />
+              <ReportFigure value={data.totalVisitDays.toLocaleString()} label="Gym visits" />
+              <ReportFigure value={data.totalLoggedVisitDays.toLocaleString()} label="Recorded sessions" />
+              <ReportFigure value={data.membersVisitingWithoutLogging.toLocaleString()} label="Members who never log" />
             </div>
-            <div>
-              <p className="text-2xl font-semibold">{(data?.totalVisitDays ?? 0).toLocaleString()}</p>
-              <p className="text-muted-foreground">Gym visits</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold">{(data?.totalLoggedVisitDays ?? 0).toLocaleString()}</p>
-              <p className="text-muted-foreground">Recorded sessions</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold">{data?.membersVisitingWithoutLogging ?? 0}</p>
-              <p className="text-muted-foreground">Members who never log</p>
-            </div>
-          </div>
+          )}
 
           {/* The rate is gameable — workouts logged on days with no visit are the tell. Say so on the
               report rather than letting a climbing number be read as progress. */}
           {data && !data.isReliable && (
-            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <p className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">
               {data.totalOrphanLogDays.toLocaleString()} sessions were logged on days with no recorded
               visit, so this rate may not reflect what happens in the gym.
             </p>
@@ -596,27 +608,19 @@ function EngagementTab() {
         {isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : (
-          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-            <div>
-              <p className="text-2xl font-semibold">{data?.totalActiveMembers ?? 0}</p>
-              <p className="text-muted-foreground">Active members</p>
+          !data ? (
+            <p className="text-sm text-muted-foreground">Engagement figures aren't available right now.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+              <ReportFigure value={data.totalActiveMembers.toLocaleString()} label="Active members" />
+              <ReportFigure value={data.xpEarnedLast30Days.toLocaleString()} label="XP earned (30d)" />
+              <ReportFigure value={data.membersWithActiveStreak.toLocaleString()} label="Members mid-streak" />
+              <ReportFigure
+                value={`${data.challengeCompletions.toLocaleString()} / ${data.challengeParticipants.toLocaleString()}`}
+                label="Challenges completed / joined"
+              />
             </div>
-            <div>
-              <p className="text-2xl font-semibold">{(data?.xpEarnedLast30Days ?? 0).toLocaleString()}</p>
-              <p className="text-muted-foreground">XP earned (30d)</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold">{data?.membersWithActiveStreak ?? 0}</p>
-              <p className="text-muted-foreground">Members mid-streak</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold">
-                {data?.challengeCompletions ?? 0}
-                <span className="text-base text-muted-foreground"> / {data?.challengeParticipants ?? 0}</span>
-              </p>
-              <p className="text-muted-foreground">Challenges completed / joined</p>
-            </div>
-          </div>
+          )
         )}
       </ReportCard>
 
@@ -636,12 +640,12 @@ function EngagementTab() {
         ) : (
           <div className="flex flex-col gap-2 text-sm">
             <p>
-              At-risk members ({data?.retention.atRiskMemberCount ?? 0}): average level{' '}
-              <span className="font-medium">{(data?.retention.atRiskAverageLevel ?? 0).toFixed(1)}</span>
+              At-risk members (<span className="tabular-nums">{data?.retention.atRiskMemberCount ?? 0}</span>): average level{' '}
+              <span className="font-medium tabular-nums">{(data?.retention.atRiskAverageLevel ?? 0).toFixed(1)}</span>
             </p>
             <p>
-              Active members ({data?.retention.activeMemberCount ?? 0}): average level{' '}
-              <span className="font-medium">{(data?.retention.activeAverageLevel ?? 0).toFixed(1)}</span>
+              Active members (<span className="tabular-nums">{data?.retention.activeMemberCount ?? 0}</span>): average level{' '}
+              <span className="font-medium tabular-nums">{(data?.retention.activeAverageLevel ?? 0).toFixed(1)}</span>
             </p>
             <p className="text-muted-foreground">
               {data && data.retention.atRiskMemberCount > 0 && data.retention.activeAverageLevel > data.retention.atRiskAverageLevel
@@ -659,7 +663,7 @@ export default function ReportsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
+        <h1 className="font-display text-3xl leading-tight font-black tracking-tight">Reports</h1>
         <p className="text-sm text-muted-foreground">Operational insights across the gym, with Excel export.</p>
       </div>
 

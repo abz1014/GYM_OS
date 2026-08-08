@@ -13,6 +13,7 @@ export function SessionActionButtons({ trainerId, sessionId }: { trainerId: stri
       <Button
         size="sm"
         variant="outline"
+        className="rounded-xl"
         disabled={completeSession.isPending || cancelSession.isPending}
         onClick={() =>
           completeSession.mutate(
@@ -30,6 +31,7 @@ export function SessionActionButtons({ trainerId, sessionId }: { trainerId: stri
       <Button
         size="sm"
         variant="ghost"
+        className="rounded-xl"
         disabled={completeSession.isPending || cancelSession.isPending}
         onClick={() =>
           cancelSession.mutate(sessionId, {

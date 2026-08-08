@@ -29,7 +29,7 @@ export function AssignClientDialog({ trainerId }: { trainerId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="rounded-xl">
           <UserPlus />
           Assign Client
         </Button>
@@ -40,7 +40,7 @@ export function AssignClientDialog({ trainerId }: { trainerId: string }) {
         </DialogHeader>
         <Input placeholder="Search member..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         {searchTerm && (
-          <div className="divide-y rounded-md border">
+          <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border">
             {members?.items.length === 0 && <p className="p-3 text-sm text-muted-foreground">No members match.</p>}
             {members?.items.map((m) => (
               <button
@@ -48,10 +48,10 @@ export function AssignClientDialog({ trainerId }: { trainerId: string }) {
                 type="button"
                 disabled={assignClient.isPending}
                 onClick={() => handleAssign(m.id, m.fullName)}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent"
+                className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-accent"
               >
                 {m.fullName}
-                <span className="text-xs text-muted-foreground">{m.memberCode}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{m.memberCode}</span>
               </button>
             ))}
           </div>

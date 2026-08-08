@@ -45,7 +45,7 @@ export function AddTrainerScheduleDialog({ trainerId }: { trainerId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="rounded-xl">
           <CalendarClock />
           Add Schedule Slot
         </Button>

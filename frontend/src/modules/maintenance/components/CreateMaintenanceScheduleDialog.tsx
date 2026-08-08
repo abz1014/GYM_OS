@@ -62,9 +62,9 @@ export function CreateMaintenanceScheduleDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="rounded-xl">
           <CalendarClock />
-          New Schedule
+          New schedule
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -103,12 +103,13 @@ export function CreateMaintenanceScheduleDialog() {
               id="nextDueDate"
               type="date"
               required
+              className="tabular-nums"
               value={nextDueDate}
               onChange={(e) => setNextDueDate(e.target.value)}
             />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createSchedule.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createSchedule.isPending}>
               {createSchedule.isPending && <Loader2 className="size-4 animate-spin" />}
               Create
             </Button>

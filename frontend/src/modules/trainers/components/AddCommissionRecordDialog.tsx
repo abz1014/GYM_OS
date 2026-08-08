@@ -46,7 +46,7 @@ export function AddCommissionRecordDialog({ trainerId }: { trainerId: string }) 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="rounded-xl">
           <Plus />
           Record Commission
         </Button>

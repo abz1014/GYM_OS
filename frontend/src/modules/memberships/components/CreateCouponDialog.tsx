@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCreateCoupon, useDiscounts } from '@/modules/memberships/api/membershipsApi'
+import { discountValueLabel } from '@/modules/memberships/components/discountFormat'
 
 export function CreateCouponDialog() {
   const [open, setOpen] = useState(false)
@@ -65,9 +66,9 @@ export function CreateCouponDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="rounded-xl">
           <Ticket />
-          New Coupon
+          New coupon
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -80,6 +81,9 @@ export function CreateCouponDialog() {
             <Input
               id="couponCode"
               required
+              // Typed in the same face the code is read back in, so a typed O and a typed 0 are
+              // distinguishable at the point where the mistake is still cheap to fix.
+              className="font-mono tracking-wide tabular-nums"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="e.g. SUMMER20"
@@ -94,7 +98,9 @@ export function CreateCouponDialog() {
               <SelectContent>
                 {discounts?.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
-                    {d.name} ({d.type === 'Percentage' ? `${d.value}%` : `$${d.value}`})
+                    <span className="tabular-nums">
+                      {d.name} · {discountValueLabel(d)}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -122,7 +128,7 @@ export function CreateCouponDialog() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createCoupon.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createCoupon.isPending}>
               {createCoupon.isPending && <Loader2 className="size-4 animate-spin" />}
               Create
             </Button>

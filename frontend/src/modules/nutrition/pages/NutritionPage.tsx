@@ -1,7 +1,6 @@
 import { useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -34,7 +33,7 @@ function DietPlanCard({
       <button
         type="button"
         onClick={onSelect}
-        className="flex w-full items-center justify-between rounded-md border p-3 text-left text-sm hover:bg-accent"
+        className="flex w-full items-center justify-between rounded-xl border border-border p-3 text-left text-sm hover:bg-accent"
       >
         <span className="font-medium">{planListItem.name}</span>
       </button>
@@ -88,7 +87,7 @@ function MemberNutrition() {
         }}
       />
       {!memberId && searchTerm && (
-        <div className="divide-y rounded-md border">
+        <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
           {members?.items.length === 0 && <p className="p-3 text-sm text-muted-foreground">No members match.</p>}
           {members?.items.map((m) => (
             <button
@@ -112,10 +111,10 @@ function MemberNutrition() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">{memberName}'s diet plans</p>
+              <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">{memberName}'s diet plans</p>
               <CreateDietPlanDialog memberId={memberId} />
             </div>
-            {plansLoading && <Skeleton className="h-16 w-full" />}
+            {plansLoading && <Skeleton className="h-16 w-full rounded-2xl" />}
             {plans?.length === 0 && <p className="text-sm text-muted-foreground">No diet plans yet.</p>}
             <div className="space-y-2">
               {plans?.map((p) => (
@@ -131,14 +130,14 @@ function MemberNutrition() {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">{memberName}'s water intake</p>
+              <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">{memberName}'s water intake</p>
               <LogWaterDialog memberId={memberId} />
             </div>
-            {waterLoading && <Skeleton className="h-16 w-full" />}
+            {waterLoading && <Skeleton className="h-16 w-full rounded-2xl" />}
             {waterLogs?.length === 0 && <p className="text-sm text-muted-foreground">No water logged yet.</p>}
             <div className="space-y-1">
               {waterLogs?.map((w) => (
-                <div key={w.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                <div key={w.id} className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-sm">
                   <span>{w.amountMl} ml</span>
                   <span className="text-xs text-muted-foreground">{new Date(w.loggedAt).toLocaleString()}</span>
                 </div>
@@ -157,7 +156,7 @@ export default function NutritionPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Nutrition</h1>
+        <h1 className="font-display text-3xl leading-tight font-black tracking-tight">Nutrition</h1>
         <p className="text-sm text-muted-foreground">Food library, diet plans, and hydration tracking.</p>
       </div>
 
@@ -180,8 +179,7 @@ export default function NutritionPage() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {foodItems?.map((food) => (
-                <Card key={food.id}>
-                  <CardContent className="space-y-2 p-3">
+                <div key={food.id} className="space-y-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
                     <div className="flex items-center justify-between">
                       <p className="font-medium">{food.name}</p>
                       <span className="text-sm text-muted-foreground">{food.servingSizeDescription}</span>
@@ -192,8 +190,7 @@ export default function NutritionPage() {
                       <Badge variant="outline">C {food.carbsG}g</Badge>
                       <Badge variant="outline">F {food.fatG}g</Badge>
                     </div>
-                  </CardContent>
-                </Card>
+                </div>
               ))}
             </div>
           )}

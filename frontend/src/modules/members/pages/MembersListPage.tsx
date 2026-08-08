@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, CloudOff, RotateCw, Search } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Pagination } from '@/shared/components/Pagination'
+import { FilterTabs, ListEmpty, ListError, ListSkeleton, PageHeader, SearchField, type FilterTab } from '@/shared/components/console'
 import { cn } from '@/lib/utils'
 import { MEMBER_STATUSES, useMemberStatusCounts, useMembersList, type MemberStatus } from '@/modules/members/api/membersApi'
 import { CreateMemberDialog } from '@/modules/members/components/CreateMemberDialog'
@@ -115,90 +113,48 @@ export default function MembersListPage() {
     ? statusCounts.reduce<number>((sum, count) => sum + (count ?? 0), 0)
     : undefined
 
-  const tabs: { key: MemberStatus | 'all'; label: string; count: number | undefined }[] = [
+  const tabs: FilterTab<MemberStatus | 'all'>[] = [
     { key: 'all', label: 'All', count: allCount },
-    ...MEMBER_STATUSES.map((s) => ({ key: s, label: s, count: counts[s] })),
+    ...MEMBER_STATUSES.map((s) => ({ key: s, label: s, count: counts[s], countClassName: COUNT_TONE[s] })),
   ]
 
   return (
     <div className="flex gap-5">
       <div className="min-w-0 flex-1 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-display text-3xl leading-tight font-black tracking-tight">Members</h1>
-          {/* The design's "Export" sits beside this. Nothing in the API exports a member list — the
-              export endpoints under /api/reports cover revenue, attendance, cohorts and at-risk
-              members, never the directory itself. */}
-          <CreateMemberDialog />
-        </div>
+        {/* The design's "Export" sits beside the create button. Nothing in the API exports a member
+            list — the export endpoints under /api/reports cover revenue, attendance, cohorts and
+            at-risk members, never the directory itself. */}
+        <PageHeader title="Members" actions={<CreateMemberDialog />} />
 
-        <div className="relative">
-          <Search className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Name, code, phone or email"
-            className="h-12 rounded-2xl bg-card pl-10"
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value)
-              setPage(1)
-            }}
-          />
-        </div>
+        <SearchField
+          placeholder="Name, code, phone or email"
+          value={searchTerm}
+          onChange={(value) => {
+            setSearchTerm(value)
+            setPage(1)
+          }}
+        />
 
-        <div className="flex flex-wrap items-center gap-5 border-b border-border">
-          {tabs.map((tab) => {
-            const isActive = status === tab.key
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => {
-                  setStatus(tab.key)
-                  setPage(1)
-                }}
-                className={cn(
-                  '-mb-px border-b-2 pb-2.5 text-sm font-medium transition-colors',
-                  isActive ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {tab.label}
-                {/* No count renders at all until its query answers — a blank beats a wrong zero. */}
-                {tab.count !== undefined && (
-                  <span className={cn('ml-1.5 tabular-nums', tab.key === 'all' ? 'text-muted-foreground' : COUNT_TONE[tab.key])}>
-                    {tab.count.toLocaleString()}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+        <FilterTabs
+          tabs={tabs}
+          active={status}
+          onChange={(key) => {
+            setStatus(key)
+            setPage(1)
+          }}
+        />
 
         {membersQuery.isError && (
-          <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card px-4 py-12 text-center">
-            <CloudOff className="size-8 text-muted-foreground" />
-            <p className="font-medium">We couldn't load the member list</p>
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={() => membersQuery.refetch()}
-              disabled={membersQuery.isFetching}
-            >
-              <RotateCw className={membersQuery.isFetching ? 'size-4 animate-spin' : 'size-4'} />
-              {membersQuery.isFetching ? 'Trying…' : 'Try again'}
-            </Button>
-          </div>
+          <ListError
+            message="We couldn't load the member list"
+            onRetry={() => membersQuery.refetch()}
+            isRetrying={membersQuery.isFetching}
+          />
         )}
 
-        {membersQuery.isLoading && (
-          <div className="space-y-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-2xl md:h-12" />
-            ))}
-          </div>
-        )}
+        {membersQuery.isLoading && <ListSkeleton />}
 
-        {!membersQuery.isLoading && data?.items.length === 0 && (
-          <p className="py-12 text-center text-sm text-muted-foreground">No members found.</p>
-        )}
+        {!membersQuery.isLoading && data?.items.length === 0 && <ListEmpty message="No members found." />}
 
         {!membersQuery.isLoading && data && data.items.length > 0 && (
           <>

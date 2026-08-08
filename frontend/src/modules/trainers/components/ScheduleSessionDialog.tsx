@@ -58,7 +58,7 @@ export function ScheduleSessionDialog({ trainerId, assignments }: { trainerId: s
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="rounded-xl">
           <CalendarPlus />
           Schedule Session
         </Button>

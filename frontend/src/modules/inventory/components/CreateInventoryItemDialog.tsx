@@ -14,10 +14,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useCreateInventoryItem, type InventoryCategory } from '@/modules/inventory/api/inventoryApi'
+import {
+  INVENTORY_CATEGORIES,
+  inventoryCategoryLabel,
+  useCreateInventoryItem,
+  type InventoryCategory,
+} from '@/modules/inventory/api/inventoryApi'
 import { useUiStore } from '@/stores/uiStore'
-
-const CATEGORIES: InventoryCategory[] = ['Supplement', 'Merchandise', 'CleaningSupply', 'SparePart']
 
 export function CreateInventoryItemDialog() {
   const [open, setOpen] = useState(false)
@@ -54,9 +57,9 @@ export function CreateInventoryItemDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="rounded-xl">
           <Plus />
-          Add Item
+          Add item
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -67,7 +70,7 @@ export function CreateInventoryItemDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="sku">SKU</Label>
-              <Input id="sku" required value={sku} onChange={(e) => setSku(e.target.value)} />
+              <Input id="sku" required className="tabular-nums" value={sku} onChange={(e) => setSku(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>Category</Label>
@@ -76,9 +79,9 @@ export function CreateInventoryItemDialog() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => (
+                  {INVENTORY_CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>
-                      {c}
+                      {inventoryCategoryLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -96,6 +99,7 @@ export function CreateInventoryItemDialog() {
                 id="quantityOnHand"
                 type="number"
                 min={0}
+                className="tabular-nums"
                 value={quantityOnHand}
                 onChange={(e) => setQuantityOnHand(Number(e.target.value))}
               />
@@ -106,15 +110,16 @@ export function CreateInventoryItemDialog() {
                 id="reorderLevel"
                 type="number"
                 min={0}
+                className="tabular-nums"
                 value={reorderLevel}
                 onChange={(e) => setReorderLevel(Number(e.target.value))}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createItem.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createItem.isPending}>
               {createItem.isPending && <Loader2 className="size-4 animate-spin" />}
-              Add Item
+              Add item
             </Button>
           </DialogFooter>
         </form>

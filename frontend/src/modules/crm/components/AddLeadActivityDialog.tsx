@@ -19,6 +19,15 @@ import { useAddLeadActivity, type LeadActivityType } from '@/modules/crm/api/crm
 
 const TYPES: LeadActivityType[] = ['Call', 'Email', 'Meeting', 'Note', 'TrialScheduled']
 
+/** "TrialScheduled" is an enum name; the posted value is unchanged, only the reading of it. */
+const TYPE_LABELS: Record<LeadActivityType, string> = {
+  Call: 'Call',
+  Email: 'Email',
+  Meeting: 'Meeting',
+  Note: 'Note',
+  TrialScheduled: 'Trial scheduled',
+}
+
 export function AddLeadActivityDialog({ leadId }: { leadId: string }) {
   const [open, setOpen] = useState(false)
   const [type, setType] = useState<LeadActivityType>('Call')
@@ -51,7 +60,7 @@ export function AddLeadActivityDialog({ leadId }: { leadId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="rounded-xl">
           <Plus />
           Log Activity
         </Button>
@@ -70,7 +79,7 @@ export function AddLeadActivityDialog({ leadId }: { leadId: string }) {
               <SelectContent>
                 {TYPES.map((t) => (
                   <SelectItem key={t} value={t}>
-                    {t}
+                    {TYPE_LABELS[t]}
                   </SelectItem>
                 ))}
               </SelectContent>

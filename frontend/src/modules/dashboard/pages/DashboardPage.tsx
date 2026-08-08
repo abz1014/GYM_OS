@@ -14,8 +14,8 @@ import {
   useOverdueInvoices,
   useStillCheckedInCount,
 } from '@/modules/dashboard/api/dashboardApi'
+import { StatTile } from '@/shared/components/console'
 import { CheckInsByHourPanel } from '@/modules/dashboard/components/CheckInsByHourPanel'
-import { KpiCard } from '@/modules/dashboard/components/KpiCard'
 import { NeedsYouPanel } from '@/modules/dashboard/components/NeedsYouPanel'
 
 const dateHeadingFormat = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -71,7 +71,7 @@ function plural(count: number, singular: string, pluralForm = `${singular}s`) {
  *    is realised payments by month, which is a different number, and the summary's revenue figure is
  *    today's takings. Today's revenue is what this shows, under its own name.
  *  - The trend-delta chips on every KPI, and the Active-members sparkline. Both need a previous
- *    period, and the summary is a single snapshot. See KpiCard.
+ *    period, and the summary is a single snapshot. See StatTile.
  *  - The top bar's search box, ⌘K hint, date-range chip and notification bell. No command palette
  *    exists (nothing in the app binds a global shortcut), the summary takes no date range, and
  *    search/notifications belong to the shell's Topbar, not to this page.
@@ -177,7 +177,7 @@ export default function DashboardPage() {
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[132px] w-full rounded-2xl" />)
         ) : (
           <>
-            <KpiCard
+            <StatTile
               label="Active members"
               value={summary.activeMembersCount.toLocaleString()}
               caption={
@@ -188,7 +188,7 @@ export default function DashboardPage() {
               captionTone="success"
             />
 
-            <KpiCard
+            <StatTile
               label="Revenue today"
               value={money(summary.todayRevenue, branch.currency)}
               caption={
@@ -213,7 +213,7 @@ export default function DashboardPage() {
               (atRisk.isLoading ? (
                 <Skeleton className="h-[132px] w-full rounded-2xl" />
               ) : (
-                <KpiCard
+                <StatTile
                   label="At risk"
                   value={(atRisk.data?.length ?? 0).toLocaleString()}
                   caption={quietDays !== null ? `No visit in ${quietDays}+ days${allBranchesNote}` : undefined}
@@ -225,7 +225,7 @@ export default function DashboardPage() {
               (overdue.isLoading ? (
                 <Skeleton className="h-[132px] w-full rounded-2xl" />
               ) : (
-                <KpiCard
+                <StatTile
                   label="Overdue invoices"
                   value={(overdueSummary?.count ?? 0).toLocaleString()}
                   caption={

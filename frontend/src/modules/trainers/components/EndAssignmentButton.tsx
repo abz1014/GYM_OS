@@ -11,6 +11,7 @@ export function EndAssignmentButton({ trainerId, assignmentId }: { trainerId: st
     <Button
       size="sm"
       variant="ghost"
+      className="rounded-xl"
       disabled={endAssignment.isPending}
       onClick={() =>
         endAssignment.mutate(assignmentId, {

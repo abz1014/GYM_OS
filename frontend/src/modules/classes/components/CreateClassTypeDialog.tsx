@@ -60,9 +60,9 @@ export function CreateClassTypeDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="rounded-xl">
           <Plus />
-          New Class Type
+          New class type
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -87,6 +87,7 @@ export function CreateClassTypeDialog() {
                 min={5}
                 max={480}
                 required
+                className="tabular-nums"
                 value={duration}
                 onChange={(e) => setDuration(Number(e.target.value))}
               />
@@ -99,6 +100,7 @@ export function CreateClassTypeDialog() {
                 min={1}
                 max={1000}
                 required
+                className="tabular-nums"
                 value={capacity}
                 onChange={(e) => setCapacity(Number(e.target.value))}
               />
@@ -120,7 +122,7 @@ export function CreateClassTypeDialog() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createType.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createType.isPending}>
               {createType.isPending && <Loader2 className="size-4 animate-spin" />}
               Create
             </Button>

@@ -5,6 +5,29 @@ import type { PagedList } from '@/types/paging'
 
 export type InventoryCategory = 'Supplement' | 'Merchandise' | 'CleaningSupply' | 'SparePart'
 
+/** Every category the enum has, in the order the create form offers them. */
+export const INVENTORY_CATEGORIES: readonly InventoryCategory[] = [
+  'Supplement',
+  'Merchandise',
+  'CleaningSupply',
+  'SparePart',
+]
+
+/**
+ * These are C# enum names on the wire. "CleaningSupply" is not a shelf label, and the list and the
+ * create form were about to humanise it twice and drift; the mapping lives beside the type instead.
+ */
+const CATEGORY_LABEL: Record<InventoryCategory, string> = {
+  Supplement: 'Supplement',
+  Merchandise: 'Merchandise',
+  CleaningSupply: 'Cleaning supply',
+  SparePart: 'Spare part',
+}
+
+export function inventoryCategoryLabel(category: InventoryCategory): string {
+  return CATEGORY_LABEL[category]
+}
+
 export interface InventoryItemListItem {
   id: string
   sku: string

@@ -62,9 +62,9 @@ export function CreateAssetDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="rounded-xl">
           <Plus />
-          Add Asset
+          Add asset
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -113,14 +113,15 @@ export function CreateAssetDialog() {
               type="number"
               min={0}
               step="0.01"
+              className="tabular-nums"
               value={purchasePrice}
               onChange={(e) => setPurchasePrice(e.target.value)}
             />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createAsset.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createAsset.isPending}>
               {createAsset.isPending && <Loader2 className="size-4 animate-spin" />}
-              Add Asset
+              Add asset
             </Button>
           </DialogFooter>
         </form>

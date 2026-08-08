@@ -46,9 +46,9 @@ export function CreatePlanDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button size="sm" className="rounded-xl">
           <Plus />
-          New Plan
+          New plan
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -113,7 +113,7 @@ export function CreatePlanDialog() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createPlan.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createPlan.isPending}>
               {createPlan.isPending && <Loader2 className="size-4 animate-spin" />}
               Create
             </Button>

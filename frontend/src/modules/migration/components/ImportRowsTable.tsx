@@ -29,7 +29,7 @@ export function ImportRowsTable({ jobId }: { jobId: string }) {
 
   return (
     <div className="space-y-2">
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-2xl border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>

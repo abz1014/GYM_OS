@@ -79,7 +79,7 @@ export function AddTrainerRatingDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="rounded-xl">
           <Star />
           Add Rating
         </Button>

@@ -116,7 +116,7 @@ export function CreateWorkoutTemplateDialog() {
             </div>
 
             {draftExercises.length > 0 && (
-              <div className="divide-y rounded-md border">
+              <div className="divide-y divide-border rounded-xl border border-border">
                 {draftExercises.map((d, i) => (
                   <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                     <span className="flex-1">{d.exerciseName}</span>

@@ -6,11 +6,11 @@ import { toast } from 'sonner'
 import { apiClient } from '@/lib/apiClient'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ListEmpty, PageHeader } from '@/shared/components/console'
 import {
   Dialog,
   DialogContent,
@@ -149,54 +149,46 @@ export default function ChallengesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Community Challenges</h1>
-          <p className="text-sm text-muted-foreground">Create challenges members opt into from their portal.</p>
-        </div>
-        <CreateChallengeDialog />
-      </div>
+      <PageHeader
+        title="Community challenges"
+        description="Create challenges members opt into from their portal."
+        actions={<CreateChallengeDialog />}
+      />
 
       {isLoading && (
         <div className="grid gap-3 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 w-full" />
+            <Skeleton key={i} className="h-36 w-full rounded-2xl" />
           ))}
         </div>
       )}
 
       {challenges && challenges.length === 0 && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No challenges yet — create one to get members opting in.
-        </p>
+        <ListEmpty message="No challenges yet." hint="Create one to get members opting in." />
       )}
 
       {challenges && challenges.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
           {challenges.map((c) => (
-            <Card key={c.id}>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Flag className="size-4 text-amber-500" />
-                  {c.name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {c.description && <p className="text-sm text-muted-foreground">{c.description}</p>}
-                <p className="text-xs text-muted-foreground">
-                  {dateFmt.format(new Date(`${c.startDate}T00:00:00Z`))} – {dateFmt.format(new Date(`${c.endDate}T00:00:00Z`))}
-                  {' · '}Target: {c.targetWorkoutCount} workouts
-                  {' · '}{c.branchId ? 'Branch-specific' : 'All branches'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="gap-1">
-                    <Users className="size-3" />
-                    {c.participantCount} joined
-                  </Badge>
-                  <Badge variant="secondary">{c.completedCount} completed</Badge>
-                </div>
-              </CardContent>
-            </Card>
+            <div key={c.id} className="space-y-2 rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <h2 className="flex items-center gap-2 font-display text-xl font-bold tracking-tight">
+                <Flag className="size-4 shrink-0 text-warning" />
+                {c.name}
+              </h2>
+              {c.description && <p className="text-sm text-muted-foreground">{c.description}</p>}
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {dateFmt.format(new Date(`${c.startDate}T00:00:00Z`))} – {dateFmt.format(new Date(`${c.endDate}T00:00:00Z`))}
+                {' · '}Target: {c.targetWorkoutCount} workouts
+                {' · '}{c.branchId ? 'Branch-specific' : 'All branches'}
+              </p>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="gap-1 tabular-nums">
+                  <Users className="size-3" />
+                  {c.participantCount} joined
+                </Badge>
+                <Badge variant="secondary" className="tabular-nums">{c.completedCount} completed</Badge>
+              </div>
+            </div>
           ))}
         </div>
       )}

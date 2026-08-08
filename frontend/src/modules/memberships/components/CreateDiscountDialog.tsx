@@ -63,9 +63,9 @@ export function CreateDiscountDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant="outline" className="rounded-xl">
           <Percent />
-          New Discount
+          New discount
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -133,7 +133,7 @@ export function CreateDiscountDialog() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createDiscount.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createDiscount.isPending}>
               {createDiscount.isPending && <Loader2 className="size-4 animate-spin" />}
               Create
             </Button>

@@ -139,7 +139,7 @@ export function LogWorkoutDialog({ memberId }: { memberId: string }) {
           <div className="space-y-2">
             <Label>Exercises</Label>
             {rows.map((row, i) => (
-              <div key={i} className="flex items-end gap-2 rounded-md border p-2">
+              <div key={i} className="flex items-end gap-2 rounded-xl border border-border p-2">
                 <div className="flex-1 space-y-1">
                   <Select value={row.exerciseId} onValueChange={(v) => updateRow(i, { exerciseId: v })}>
                     <SelectTrigger className="w-full">

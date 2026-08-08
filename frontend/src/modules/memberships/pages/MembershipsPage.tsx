@@ -1,145 +1,276 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
+import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
 import { useCoupons, useDiscounts, useMembershipPlans } from '@/modules/memberships/api/membershipsApi'
 import { CreateCouponDialog } from '@/modules/memberships/components/CreateCouponDialog'
 import { CreateDiscountDialog } from '@/modules/memberships/components/CreateDiscountDialog'
 import { CreatePlanDialog } from '@/modules/memberships/components/CreatePlanDialog'
+import { discountValueLabel } from '@/modules/memberships/components/discountFormat'
+
+/**
+ * The console's tab row is an underline strip; shadcn's Tabs ships a pill sitting in a grey tray.
+ * These two strings flatten it into the same shape `FilterTabs` draws.
+ *
+ * Radix stays underneath rather than being swapped for `FilterTabs` because these tabs genuinely
+ * switch panels — plans and discounts are different content, not two filters over one list — and
+ * that is exactly the case FilterTabs' own doc comment says it is not for.
+ */
+const TAB_LIST_CLASS =
+  'h-auto w-full flex-wrap justify-start gap-5 rounded-none border-b border-border bg-transparent p-0'
+const TAB_TRIGGER_CLASS =
+  '-mb-px h-auto flex-none rounded-none border-0 border-b-2 border-transparent px-0 py-0 pb-2.5 text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
+
+const money = (amount: number, code: string) => amount.toLocaleString('en-US', { style: 'currency', currency: code })
+
+/** Both dates are optional on discounts and coupons alike, and "no window at all" is the common case. */
+function validityLabel(validFrom: string | null, validTo: string | null) {
+  if (!validFrom && !validTo) {
+    return null
+  }
+  const start = validFrom ? new Date(validFrom).toLocaleDateString() : '—'
+  const end = validTo ? new Date(validTo).toLocaleDateString() : 'no end date'
+  return `${start} → ${end}`
+}
+
+/** The small-caps line that heads each list, with the real size of that list beside it. */
+function SectionLabel({ children, count }: { children: string; count?: number }) {
+  return (
+    <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+      {children}
+      {/*
+        Counting the array is honest here in a way it would not be on a paginated screen: all three
+        membership endpoints return the whole set — no page size, no server-side Take — so its
+        length is the total rather than the size of one page.
+      */}
+      {count !== undefined && <span className="ml-2 tabular-nums">{count.toLocaleString()}</span>}
+    </p>
+  )
+}
+
+function PlansTab() {
+  const plansQuery = useMembershipPlans(true)
+  const plans = plansQuery.data
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SectionLabel count={plans?.length}>Plan catalogue</SectionLabel>
+        <CreatePlanDialog />
+      </div>
+
+      {plansQuery.isError && (
+        <ListError
+          message="We couldn't load the plan catalogue"
+          onRetry={() => plansQuery.refetch()}
+          isRetrying={plansQuery.isFetching}
+        />
+      )}
+
+      {/* One ListSkeleton per grid column rather than one tall stack, so the placeholders land in
+          the same three columns the cards will occupy and nothing shifts sideways on arrival. */}
+      {plansQuery.isLoading && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <ListSkeleton key={i} rows={2} className="h-52 w-full rounded-2xl" />
+          ))}
+        </div>
+      )}
+
+      {!plansQuery.isLoading && plans?.length === 0 && (
+        <ListEmpty message="No plans yet." hint="Create one and it becomes sellable at the front desk." />
+      )}
+
+      {/*
+        The cards carry no "N members on this plan" and there is no revenue-per-plan tile above
+        them, though a pricing screen is exactly where a manager wants both. MembershipPlanDto is
+        the catalogue row and nothing else — no subscriber count — and no endpoint anywhere
+        aggregates memberships or payments by plan, so either figure would mean one request per
+        card and a number that still wouldn't say which period it covered.
+      */}
+      {plans && plans.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {plans.map((plan) => (
+            <article
+              key={plan.id}
+              className={cn('rounded-2xl border border-border bg-card p-5 shadow-sm', !plan.isActive && 'opacity-60')}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="min-w-0 font-display text-lg font-bold tracking-tight">{plan.name}</h3>
+                <Badge variant="outline" className="shrink-0">
+                  {plan.type}
+                </Badge>
+              </div>
+
+              <p className="mt-4 font-display text-3xl leading-none font-black tracking-tight tabular-nums">
+                {money(plan.price, plan.currency)}
+              </p>
+              <p className="mt-1.5 text-sm text-muted-foreground tabular-nums">for {plan.durationDays} days</p>
+
+              {plan.description && <p className="mt-3 text-sm text-muted-foreground">{plan.description}</p>}
+
+              <p className="mt-3 text-xs text-muted-foreground tabular-nums">
+                Freeze allowance: {plan.maxFreezeDays > 0 ? `${plan.maxFreezeDays} days` : 'not allowed'}
+              </p>
+
+              {!plan.isActive && (
+                <Badge variant="secondary" className="mt-3">
+                  Inactive
+                </Badge>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function DiscountsAndCoupons() {
-  const { data: plans } = useMembershipPlans(true)
-  const { data: discounts, isLoading: discountsLoading } = useDiscounts(true)
-  const { data: coupons, isLoading: couponsLoading } = useCoupons(true)
+  const plansQuery = useMembershipPlans(true)
+  const discountsQuery = useDiscounts(true)
+  const couponsQuery = useCoupons(true)
+
+  const plans = plansQuery.data
+  const discounts = discountsQuery.data
+  const coupons = couponsQuery.data
 
   const planName = (id: string | null) => (id ? plans?.find((p) => p.id === id)?.name : undefined)
 
+  /*
+   * A coupon is a code pointing at a discount, and the code on its own says nothing about what it
+   * takes off. Both lists are already loaded here and both ask for inactive rows, so the discount
+   * behind a coupon is always in hand — including an archived one, which is precisely the coupon a
+   * receptionist is most likely to be querying.
+   */
+  const discountFor = (id: string) => discounts?.find((d) => d.id === id)
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium">Discounts</h2>
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SectionLabel count={discounts?.length}>Discounts</SectionLabel>
           <CreateDiscountDialog />
         </div>
-        {discountsLoading && <Skeleton className="h-24 w-full" />}
-        {discounts?.length === 0 && !discountsLoading && <p className="text-sm text-muted-foreground">No discounts yet.</p>}
-        <div className="space-y-2">
-          {discounts?.map((d) => (
-            <Card key={d.id} className={!d.isActive ? 'opacity-60' : undefined}>
-              <CardContent className="space-y-1 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium">{d.name}</p>
-                  <span className="text-sm font-semibold">{d.type === 'Percentage' ? `${d.value}%` : `$${d.value}`}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                  <Badge variant="outline">{planName(d.membershipPlanId) ?? 'All plans'}</Badge>
-                  {(d.validFrom || d.validTo) && (
-                    <span>
-                      {d.validFrom ? new Date(d.validFrom).toLocaleDateString() : '—'} →{' '}
-                      {d.validTo ? new Date(d.validTo).toLocaleDateString() : 'no end date'}
-                    </span>
-                  )}
-                  {!d.isActive && <Badge variant="secondary">Inactive</Badge>}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium">Coupons</h2>
-          <CreateCouponDialog />
-        </div>
-        {couponsLoading && <Skeleton className="h-24 w-full" />}
-        {coupons?.length === 0 && !couponsLoading && <p className="text-sm text-muted-foreground">No coupons yet.</p>}
+        {discountsQuery.isError && (
+          <ListError
+            message="We couldn't load the discounts"
+            onRetry={() => discountsQuery.refetch()}
+            isRetrying={discountsQuery.isFetching}
+          />
+        )}
+
+        {discountsQuery.isLoading && <ListSkeleton rows={3} className="h-20 w-full rounded-2xl" />}
+
+        {!discountsQuery.isLoading && discounts?.length === 0 && <ListEmpty message="No discounts yet." />}
+
         <div className="space-y-2">
-          {coupons?.map((c) => (
-            <Card key={c.id} className={!c.isActive ? 'opacity-60' : undefined}>
-              <CardContent className="space-y-1 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="font-mono font-medium">{c.code}</p>
-                  <span className="text-sm text-muted-foreground">
-                    {c.timesRedeemed}
-                    {c.maxRedemptions ? ` / ${c.maxRedemptions}` : ''} redeemed
+          {discounts?.map((discount) => {
+            const validity = validityLabel(discount.validFrom, discount.validTo)
+            return (
+              <article
+                key={discount.id}
+                className={cn(
+                  'rounded-2xl border border-border bg-card p-4 shadow-sm',
+                  !discount.isActive && 'opacity-60',
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 truncate font-medium">{discount.name}</p>
+                  <span className="shrink-0 font-display text-base font-bold tracking-tight tabular-nums">
+                    {discountValueLabel(discount)}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                  {(c.validFrom || c.validTo) && (
-                    <span>
-                      {c.validFrom ? new Date(c.validFrom).toLocaleDateString() : '—'} →{' '}
-                      {c.validTo ? new Date(c.validTo).toLocaleDateString() : 'no end date'}
-                    </span>
-                  )}
-                  {!c.isActive && <Badge variant="secondary">Inactive</Badge>}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  <Badge variant="outline">{planName(discount.membershipPlanId) ?? 'All plans'}</Badge>
+                  {validity && <span className="tabular-nums">{validity}</span>}
+                  {!discount.isActive && <Badge variant="secondary">Inactive</Badge>}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </article>
+            )
+          })}
         </div>
-      </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SectionLabel count={coupons?.length}>Coupons</SectionLabel>
+          <CreateCouponDialog />
+        </div>
+
+        {couponsQuery.isError && (
+          <ListError
+            message="We couldn't load the coupons"
+            onRetry={() => couponsQuery.refetch()}
+            isRetrying={couponsQuery.isFetching}
+          />
+        )}
+
+        {couponsQuery.isLoading && <ListSkeleton rows={3} className="h-20 w-full rounded-2xl" />}
+
+        {!couponsQuery.isLoading && coupons?.length === 0 && <ListEmpty message="No coupons yet." />}
+
+        <div className="space-y-2">
+          {coupons?.map((coupon) => {
+            const validity = validityLabel(coupon.validFrom, coupon.validTo)
+            const discount = discountFor(coupon.discountId)
+            return (
+              <article
+                key={coupon.id}
+                className={cn(
+                  'rounded-2xl border border-border bg-card p-4 shadow-sm',
+                  !coupon.isActive && 'opacity-60',
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 truncate font-mono font-medium tracking-wide tabular-nums">{coupon.code}</p>
+                  <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
+                    {/*
+                      With no redemption cap set there is no denominator to show — "12 / ∞" and
+                      "12 / 0" are both lies about a coupon that simply never runs out.
+                    */}
+                    {coupon.maxRedemptions
+                      ? `${coupon.timesRedeemed} / ${coupon.maxRedemptions} used`
+                      : `${coupon.timesRedeemed} used`}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  {discount && (
+                    <Badge variant="outline">
+                      {discount.name} · {discountValueLabel(discount)}
+                    </Badge>
+                  )}
+                  {validity && <span className="tabular-nums">{validity}</span>}
+                  {!coupon.isActive && <Badge variant="secondary">Inactive</Badge>}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }
 
 export default function MembershipsPage() {
-  const { data: plans, isLoading } = useMembershipPlans(true)
-
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Memberships</h1>
-        <p className="text-sm text-muted-foreground">Manage plans, discounts, and coupons.</p>
-      </div>
+      <PageHeader title="Memberships" description="What the gym sells, and what comes off the price." />
 
-      <Tabs defaultValue="plans">
-        <TabsList className="h-auto flex-wrap">
-          <TabsTrigger value="plans">Plans</TabsTrigger>
-          <TabsTrigger value="discounts">Discounts &amp; Coupons</TabsTrigger>
+      <Tabs defaultValue="plans" className="gap-4">
+        <TabsList className={TAB_LIST_CLASS}>
+          <TabsTrigger className={TAB_TRIGGER_CLASS} value="plans">
+            Plans
+          </TabsTrigger>
+          <TabsTrigger className={TAB_TRIGGER_CLASS} value="discounts">
+            Discounts &amp; coupons
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="plans" className="space-y-4">
-          <div className="flex justify-end">
-            <CreatePlanDialog />
-          </div>
-          {isLoading ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-40 w-full" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {plans?.map((plan) => (
-                <Card key={plan.id} className={!plan.isActive ? 'opacity-60' : undefined}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>{plan.name}</CardTitle>
-                      <Badge variant="outline">{plan.type}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="text-2xl font-semibold">
-                      {plan.price.toLocaleString('en-US', { style: 'currency', currency: plan.currency })}
-                      <span className="text-sm font-normal text-muted-foreground"> / {plan.durationDays} days</span>
-                    </p>
-                    {plan.description && <p className="text-sm text-muted-foreground">{plan.description}</p>}
-                    <p className="text-xs text-muted-foreground">
-                      Freeze allowance: {plan.maxFreezeDays > 0 ? `${plan.maxFreezeDays} days` : 'Not allowed'}
-                    </p>
-                    {!plan.isActive && (
-                      <Badge variant="secondary" className="mt-1">
-                        Inactive
-                      </Badge>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+        <TabsContent value="plans">
+          <PlansTab />
         </TabsContent>
-
         <TabsContent value="discounts">
           <DiscountsAndCoupons />
         </TabsContent>

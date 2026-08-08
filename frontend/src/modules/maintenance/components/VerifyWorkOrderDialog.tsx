@@ -59,7 +59,7 @@ export function VerifyWorkOrderDialog({ workOrderId, isScheduleLinked }: { workO
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">
+        <Button className="rounded-xl">
           <CheckCircle2 />
           Verify
         </Button>
@@ -71,7 +71,17 @@ export function VerifyWorkOrderDialog({ workOrderId, isScheduleLinked }: { workO
         <form onSubmit={handleApprove} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="cost">Cost (optional)</Label>
-            <Input id="cost" type="number" min={0} step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} />
+            <Input
+              id="cost"
+              type="number"
+              min={0}
+              step="0.01"
+              className="tabular-nums"
+              value={cost}
+              onChange={(e) => setCost(e.target.value)}
+            />
+            {/* No currency symbol or code beside this field: the work order endpoint neither takes
+                nor returns one, so anything shown here would be a guess about how the gym bills. */}
           </div>
           {isScheduleLinked && (
             <div className="space-y-1.5">
@@ -93,12 +103,18 @@ export function VerifyWorkOrderDialog({ workOrderId, isScheduleLinked }: { workO
             <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
-            <Button type="button" variant="outline" disabled={verifyWorkOrder.isPending} onClick={handleReject}>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              disabled={verifyWorkOrder.isPending}
+              onClick={handleReject}
+            >
               Send back for more repair
             </Button>
-            <Button type="submit" disabled={verifyWorkOrder.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={verifyWorkOrder.isPending}>
               {verifyWorkOrder.isPending && <Loader2 className="size-4 animate-spin" />}
-              Approve &amp; Close
+              Approve &amp; close
             </Button>
           </DialogFooter>
         </form>

@@ -1,8 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
 import { useImportJobs, type ImportStatus } from '@/modules/migration/api/migrationApi'
 import { UploadImportDialog } from '@/modules/migration/components/UploadImportDialog'
 
@@ -13,52 +12,63 @@ function statusVariant(status: ImportStatus) {
   return 'outline' as const
 }
 
+/** "RolledBack" is an enum name; a person reading a list of their own imports should see English. */
+const statusLabel = (status: ImportStatus) => (status === 'RolledBack' ? 'Rolled back' : status)
+
 export default function MigrationListPage() {
-  const { data: jobs, isLoading } = useImportJobs()
+  const jobsQuery = useImportJobs()
+  const jobs = jobsQuery.data
   const navigate = useNavigate()
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Migration Center</h1>
-          <p className="text-sm text-muted-foreground">
-            Bulk-import Members, Trainers, Memberships, Equipment, Attendance, Inventory, Payments, and Leads from CSV.
-          </p>
-        </div>
-        <UploadImportDialog />
-      </div>
+      <PageHeader
+        title="Migration Center"
+        description="Bulk-import Members, Trainers, Memberships, Equipment, Attendance, Inventory, Payments, and Leads from CSV."
+        actions={<UploadImportDialog />}
+      />
 
-      {isLoading && (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
-        </div>
+      {jobsQuery.isError && (
+        <ListError
+          message="We couldn't load your imports"
+          onRetry={() => jobsQuery.refetch()}
+          isRetrying={jobsQuery.isFetching}
+        />
       )}
 
-      {jobs?.length === 0 && !isLoading && <p className="text-sm text-muted-foreground">No imports yet.</p>}
+      {jobsQuery.isLoading && <ListSkeleton rows={4} className="h-20 w-full rounded-2xl" />}
+
+      {jobs?.length === 0 && !jobsQuery.isLoading && (
+        <ListEmpty message="No imports yet." hint="Upload a CSV to bring existing records into GymOS." />
+      )}
 
       <div className="space-y-2">
         {jobs?.map((job) => (
-          <Card key={job.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/migration/${job.id}`)}>
-            <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4">
-              <div>
-                <p className="font-medium">{job.fileName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {job.entityType} · {job.totalRows} row(s) · {new Date(job.createdAt).toLocaleString()}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {job.status !== 'Uploaded' && (
-                  <span className="text-sm text-muted-foreground">
-                    {job.validRows} valid, {job.duplicateRows} dup, {job.errorRows} error
-                  </span>
-                )}
-                <Badge variant={statusVariant(job.status)}>{job.status}</Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <button
+            key={job.id}
+            type="button"
+            onClick={() => navigate(`/migration/${job.id}`)}
+            className="flex w-full flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-medium">{job.fileName}</p>
+              <p className="text-sm text-muted-foreground">
+                {job.entityType} · <span className="tabular-nums">{job.totalRows.toLocaleString()}</span> row(s) ·{' '}
+                <span className="tabular-nums">{new Date(job.createdAt).toLocaleString()}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* An unparsed upload has no row breakdown yet — every one of these counts would be a
+                  zero standing in for "not counted", which reads as a clean file rather than an
+                  unread one. */}
+              {job.status !== 'Uploaded' && (
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {job.validRows} valid, {job.duplicateRows} dup, {job.errorRows} error
+                </span>
+              )}
+              <Badge variant={statusVariant(job.status)}>{statusLabel(job.status)}</Badge>
+            </div>
+          </button>
         ))}
       </div>
     </div>

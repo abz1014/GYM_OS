@@ -70,7 +70,7 @@ export function FieldMappingPanel({ job }: { job: ImportJobDetail }) {
 
       <div className="space-y-2">
         {job.detectedColumns.map((col) => (
-          <div key={col} className="flex items-center gap-3 rounded-md border p-2">
+          <div key={col} className="flex items-center gap-3 rounded-xl border border-border p-2">
             <span className="w-48 truncate font-mono text-sm">{col}</span>
             <span className="text-muted-foreground">→</span>
             <Select value={mapping[col]} onValueChange={(v) => setMapping((prev) => ({ ...prev, [col]: v }))}>

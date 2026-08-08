@@ -146,7 +146,7 @@ export function CreateMemberDialog() {
                   onChange={(e) => setReferrerSearch(e.target.value)}
                 />
                 {referrerMatches && referrerSearch.trim().length >= 2 && (
-                  <div className="divide-y rounded-md border">
+                  <div className="divide-y divide-border rounded-xl border border-border">
                     {referrerMatches.items.length === 0 && (
                       <p className="p-2 text-xs text-muted-foreground">No members match.</p>
                     )}

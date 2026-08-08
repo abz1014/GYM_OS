@@ -1,7 +1,6 @@
 import { useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -23,14 +22,13 @@ function MemberAssignedPlans({ memberId }: { memberId: string }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium">Assigned plans</p>
+        <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Assigned plans</p>
         <AssignWorkoutTemplateDialog memberId={memberId} />
       </div>
-      {isLoading && <Skeleton className="h-20 w-full" />}
+      {isLoading && <Skeleton className="h-20 w-full rounded-2xl" />}
       {assignments?.length === 0 && <p className="text-sm text-muted-foreground">No workout plan assigned yet.</p>}
       {assignments?.map((a) => (
-        <Card key={a.id}>
-          <CardContent className="space-y-2 p-3">
+        <div key={a.id} className="space-y-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">{a.workoutTemplateName}</span>
               <span className="text-muted-foreground">
@@ -46,8 +44,7 @@ function MemberAssignedPlans({ memberId }: { memberId: string }) {
                 </Badge>
               ))}
             </div>
-          </CardContent>
-        </Card>
+        </div>
       ))}
     </div>
   )
@@ -72,7 +69,7 @@ function MemberWorkoutLogs() {
         }}
       />
       {!memberId && searchTerm && (
-        <div className="divide-y rounded-md border">
+        <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
           {members?.items.length === 0 && <p className="p-3 text-sm text-muted-foreground">No members match.</p>}
           {members?.items.map((m) => (
             <button
@@ -94,17 +91,16 @@ function MemberWorkoutLogs() {
 
       {memberId && (
         <>
-          <p className="text-sm font-medium">{memberName}</p>
+          <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">{memberName}</p>
           <MemberAssignedPlans memberId={memberId} />
           <div className="flex items-center justify-between pt-2">
-            <p className="text-sm font-medium">Workout logs</p>
+            <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Workout logs</p>
             <LogWorkoutDialog memberId={memberId} />
           </div>
-          {isLoading && <Skeleton className="h-24 w-full" />}
+          {isLoading && <Skeleton className="h-24 w-full rounded-2xl" />}
           {logs?.length === 0 && <p className="text-sm text-muted-foreground">No workouts logged yet.</p>}
           {logs?.map((log) => (
-            <Card key={log.id}>
-              <CardContent className="space-y-2 p-3">
+            <div key={log.id} className="space-y-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">{log.workoutTemplateName ?? log.character}</span>
                   <span className="text-muted-foreground">{new Date(log.loggedAt).toLocaleString()}</span>
@@ -117,8 +113,7 @@ function MemberWorkoutLogs() {
                     </Badge>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+            </div>
           ))}
         </>
       )}
@@ -133,7 +128,7 @@ export default function WorkoutsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Workouts</h1>
+        <h1 className="font-display text-3xl leading-tight font-black tracking-tight">Workouts</h1>
         <p className="text-sm text-muted-foreground">Exercise library and workout templates.</p>
       </div>
 
@@ -151,21 +146,19 @@ export default function WorkoutsPage() {
           {exercisesLoading ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
+                <Skeleton key={i} className="h-20 w-full rounded-2xl" />
               ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {exercises?.map((ex) => (
-                <Card key={ex.id}>
-                  <CardContent className="space-y-1 p-3">
+                <div key={ex.id} className="space-y-1 rounded-2xl border border-border bg-card p-3 shadow-sm">
                     <p className="font-medium">{ex.name}</p>
                     <div className="flex flex-wrap gap-1">
                       {ex.muscleGroup && <Badge variant="outline">{ex.muscleGroup}</Badge>}
                       {ex.equipment && <Badge variant="secondary">{ex.equipment}</Badge>}
                     </div>
-                  </CardContent>
-                </Card>
+                </div>
               ))}
             </div>
           )}
@@ -178,7 +171,7 @@ export default function WorkoutsPage() {
           {templatesLoading ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
+                <Skeleton key={i} className="h-24 w-full rounded-2xl" />
               ))}
             </div>
           ) : templates?.length === 0 ? (
@@ -186,13 +179,11 @@ export default function WorkoutsPage() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {templates?.map((t) => (
-                <Card key={t.id}>
-                  <CardContent className="space-y-1 p-3">
+                <div key={t.id} className="space-y-1 rounded-2xl border border-border bg-card p-3 shadow-sm">
                     <p className="font-medium">{t.name}</p>
                     {t.description && <p className="text-sm text-muted-foreground">{t.description}</p>}
                     <Badge variant="outline">{t.exerciseCount} exercises</Badge>
-                  </CardContent>
-                </Card>
+                </div>
               ))}
             </div>
           )}

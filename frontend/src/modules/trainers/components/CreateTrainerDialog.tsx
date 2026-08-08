@@ -53,7 +53,7 @@ export function CreateTrainerDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="rounded-xl">
           <UserPlus />
           Add Trainer
         </Button>

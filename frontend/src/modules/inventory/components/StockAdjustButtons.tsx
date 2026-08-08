@@ -16,10 +16,24 @@ export function StockAdjustButtons({ itemId }: { itemId: string }) {
 
   return (
     <div className="flex items-center gap-1">
-      <Button size="icon" variant="outline" className="size-7" disabled={recordMovement.isPending} onClick={() => adjust('Out')}>
+      <Button
+        size="icon"
+        variant="outline"
+        className="size-8 rounded-xl"
+        aria-label="Take one out of stock"
+        disabled={recordMovement.isPending}
+        onClick={() => adjust('Out')}
+      >
         <Minus className="size-3.5" />
       </Button>
-      <Button size="icon" variant="outline" className="size-7" disabled={recordMovement.isPending} onClick={() => adjust('In')}>
+      <Button
+        size="icon"
+        variant="outline"
+        className="size-8 rounded-xl"
+        aria-label="Put one back into stock"
+        disabled={recordMovement.isPending}
+        onClick={() => adjust('In')}
+      >
         <Plus className="size-3.5" />
       </Button>
     </div>

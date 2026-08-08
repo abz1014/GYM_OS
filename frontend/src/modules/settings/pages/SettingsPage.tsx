@@ -4,11 +4,12 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Pagination } from '@/shared/components/Pagination'
+import { PageHeader } from '@/shared/components/console'
 import { useAdminBranchesList, useAuditLogs, useSystemPreferences } from '@/modules/settings/api/settingsApi'
 import { CreateBranchDialog } from '@/modules/settings/components/CreateBranchDialog'
 import { EditBranchDialog } from '@/modules/settings/components/EditBranchDialog'
@@ -28,9 +29,11 @@ function BranchesTab() {
       {isLoading && <Skeleton className="h-40 w-full" />}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {branches?.map((branch) => (
-          <Card key={branch.id} className={!branch.isActive ? 'opacity-60' : undefined}>
-            <CardContent className="space-y-1 p-3">
-              <div className="flex items-center justify-between">
+          <div
+            key={branch.id}
+            className={cn('rounded-2xl border border-border bg-card p-5 shadow-sm space-y-1', !branch.isActive && 'opacity-60')}
+          >
+              <div className="flex items-center justify-between gap-2">
                 <p className="font-medium">{branch.name}</p>
                 <EditBranchDialog branch={branch} />
               </div>
@@ -45,8 +48,7 @@ function BranchesTab() {
                 {branch.capacity !== null && <Badge variant="outline">Cap {branch.capacity}</Badge>}
                 {!branch.isActive && <Badge variant="secondary">Inactive</Badge>}
               </div>
-            </CardContent>
-          </Card>
+          </div>
         ))}
       </div>
     </div>
@@ -67,16 +69,14 @@ function SystemPreferencesTab() {
       )}
       <div className="space-y-2">
         {preferences?.map((pref) => (
-          <Card key={pref.id}>
-            <CardContent className="flex items-center justify-between p-3">
-              <div>
+          <div key={pref.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <p className="font-mono text-sm font-medium">{pref.key}</p>
                 <p className="text-sm text-muted-foreground">{pref.value}</p>
                 {pref.description && <p className="text-xs text-muted-foreground">{pref.description}</p>}
               </div>
               <UpsertSystemPreferenceDialog existing={pref} />
-            </CardContent>
-          </Card>
+          </div>
         ))}
       </div>
     </div>
@@ -104,7 +104,7 @@ function AuditLogTab() {
               {/* Mobile: card list */}
               <div className="space-y-2 md:hidden">
                 {data.items.map((entry) => (
-                  <div key={entry.id} className="space-y-1.5 rounded-lg border bg-card p-3">
+                  <div key={entry.id} className="space-y-1.5 rounded-2xl border border-border bg-card p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-mono text-xs">{entry.action}</span>
                       <Badge variant="outline" className="shrink-0">
@@ -112,14 +112,14 @@ function AuditLogTab() {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {entry.userName ?? 'System'} · {new Date(entry.occurredAt).toLocaleString()}
+                      {entry.userName ?? 'System'} · <span className="tabular-nums">{new Date(entry.occurredAt).toLocaleString()}</span>
                     </p>
                   </div>
                 ))}
               </div>
 
               {/* Desktop / tablet: full table */}
-              <div className="hidden rounded-lg border md:block">
+              <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -137,7 +137,7 @@ function AuditLogTab() {
                           <Badge variant="outline">{entry.entityType}</Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{entry.userName ?? '—'}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{new Date(entry.occurredAt).toLocaleString()}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground tabular-nums">{new Date(entry.occurredAt).toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -164,11 +164,8 @@ function DataMaintenanceTab() {
 
   return (
     <div className="space-y-3">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Rebuild member experience projections</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-3">
+        <h2 className="font-display text-xl font-bold tracking-tight">Rebuild member experience projections</h2>
           <p className="text-sm text-muted-foreground">
             Recomputes member level/XP totals and exercise mastery from their source history — the XP
             ledger and workout logs. Safe to run any time (never touches XP transactions, personal
@@ -177,6 +174,7 @@ function DataMaintenanceTab() {
           </p>
           <Button
             variant="outline"
+            className="rounded-xl"
             disabled={rebuild.isPending}
             onClick={() =>
               rebuild.mutate(undefined, {
@@ -194,8 +192,7 @@ function DataMaintenanceTab() {
             {rebuild.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
             Rebuild projections
           </Button>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   )
 }
@@ -203,10 +200,10 @@ function DataMaintenanceTab() {
 export default function SettingsPage() {
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Gym profile, branches, role permissions, and preferences.</p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description="Gym profile, branches, role permissions, and preferences."
+      />
 
       <Tabs defaultValue="profile">
         <TabsList className="h-auto flex-wrap">

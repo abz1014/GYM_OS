@@ -11,6 +11,7 @@ export function CompleteActivityButton({ leadId, activityId }: { leadId: string;
     <Button
       size="sm"
       variant="outline"
+      className="rounded-xl"
       disabled={completeActivity.isPending}
       onClick={() =>
         completeActivity.mutate(activityId, {

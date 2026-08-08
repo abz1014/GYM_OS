@@ -92,9 +92,9 @@ export function CreateClassScheduleDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">
+        <Button size="sm" className="rounded-xl">
           <CalendarPlus />
-          New Class Slot
+          New class slot
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -136,7 +136,14 @@ export function CreateClassScheduleDialog() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="classStartTime">Start time</Label>
-              <Input id="classStartTime" type="time" required value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+              <Input
+                id="classStartTime"
+                type="time"
+                required
+                className="tabular-nums"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
             </div>
           </div>
 
@@ -165,6 +172,7 @@ export function CreateClassScheduleDialog() {
                 type="number"
                 min={5}
                 max={480}
+                className="tabular-nums"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value === '' ? '' : Number(e.target.value))}
               />
@@ -176,6 +184,7 @@ export function CreateClassScheduleDialog() {
                 type="number"
                 min={1}
                 max={1000}
+                className="tabular-nums"
                 value={capacity}
                 onChange={(e) => setCapacity(e.target.value === '' ? '' : Number(e.target.value))}
               />
@@ -188,9 +197,9 @@ export function CreateClassScheduleDialog() {
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={createSchedule.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createSchedule.isPending}>
               {createSchedule.isPending && <Loader2 className="size-4 animate-spin" />}
-              Add Slot
+              Add slot
             </Button>
           </DialogFooter>
         </form>

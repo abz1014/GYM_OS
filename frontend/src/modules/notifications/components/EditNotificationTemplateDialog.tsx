@@ -52,13 +52,15 @@ export function EditNotificationTemplateDialog({ template }: { template: Notific
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" className="shrink-0 rounded-xl" aria-label={`Edit the ${template.code} template`}>
           <Pencil />
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit template — {template.code}</DialogTitle>
+          <DialogTitle className="font-display tracking-tight">
+            Edit template — <span className="font-mono text-base tabular-nums">{template.code}</span>
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
@@ -74,7 +76,7 @@ export function EditNotificationTemplateDialog({ template }: { template: Notific
             <Label htmlFor="isActive">Active</Label>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={updateTemplate.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={updateTemplate.isPending}>
               {updateTemplate.isPending && <Loader2 className="size-4 animate-spin" />}
               Save
             </Button>

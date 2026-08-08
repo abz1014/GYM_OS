@@ -1,102 +1,125 @@
 import { useState } from 'react'
-import { AlertTriangle, Wrench } from 'lucide-react'
+import { Wrench } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import { Pagination } from '@/shared/components/Pagination'
-import { useMaintenanceSchedulesList, useWorkOrdersList, type WorkOrderStatus } from '@/modules/maintenance/api/maintenanceApi'
+import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
+import { useMaintenanceSchedulesList, useWorkOrdersList } from '@/modules/maintenance/api/maintenanceApi'
 import { CreateMaintenanceScheduleDialog } from '@/modules/maintenance/components/CreateMaintenanceScheduleDialog'
 import { CreateWorkOrderDialog } from '@/modules/maintenance/components/CreateWorkOrderDialog'
+import { OverduePill, WorkOrderPriorityPill, WorkOrderStatusPill } from '@/modules/maintenance/components/WorkOrderPills'
 import { useUiStore } from '@/stores/uiStore'
 
-const STATUS_VARIANT: Record<WorkOrderStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  Open: 'secondary',
-  InProgress: 'default',
-  PendingVerification: 'outline',
-  Completed: 'outline',
-  Cancelled: 'destructive',
-}
+const dateFormat = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
-const PRIORITY_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  Low: 'outline',
-  Medium: 'secondary',
-  High: 'default',
-  Critical: 'destructive',
-}
+const HEAD_CLASS = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase'
+
+/**
+ * These two tabs really do swap panels — two different endpoints, two different tables — so this
+ * stays the Radix primitive rather than the console's `FilterTabs`, which exists for narrowing one
+ * list that stays mounted and would throw away the tabpanel semantics and arrow-key movement that
+ * a genuine panel switch needs. The classes below are only borrowing FilterTabs' underline look so
+ * the two read as one control language.
+ */
+const TAB_TRIGGER_CLASS =
+  '-mb-px h-auto flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-0 pb-2.5 text-sm font-medium text-muted-foreground shadow-none hover:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
 
 export default function MaintenancePage() {
   const navigate = useNavigate()
   const branchId = useUiStore((s) => s.selectedBranchId)
+  const [tab, setTab] = useState<'work-orders' | 'schedules'>('work-orders')
   const [page, setPage] = useState(1)
-  const { data: workOrdersPage, isLoading } = useWorkOrdersList({ branchId, page, pageSize: 100 })
-  const workOrders = workOrdersPage?.items
-  const { data: schedules, isLoading: isLoadingSchedules } = useMaintenanceSchedulesList({ branchId })
 
-  const overdueCount = workOrders?.filter((w) => w.isOverdue).length ?? 0
+  const workOrdersQuery = useWorkOrdersList({ branchId, page, pageSize: 100 })
+  const workOrdersPage = workOrdersQuery.data
+  const workOrders = workOrdersPage?.items
+
+  const schedulesQuery = useMaintenanceSchedulesList({ branchId })
+  const schedules = schedulesQuery.data
+
+  /*
+   * The header used to carry "N overdue" beside the total, counted from `workOrders.filter(isOverdue)`
+   * — the rows of the page you happen to be on. /api/work-orders returns no overdue or per-status
+   * aggregate, so that figure was the truth about 100 rows presented as the truth about the branch,
+   * and it shrank when you paged forward. `isOverdue` is a per-row flag and it is honest per row, so
+   * lateness is now marked on the rows themselves and nowhere else.
+   *
+   * The schedules count below is a different case: /api/work-orders/schedules returns the whole list
+   * unpaginated, so its length genuinely is the total.
+   */
+  const description =
+    tab === 'work-orders'
+      ? workOrdersPage
+        ? `${workOrdersPage.totalCount.toLocaleString()} work orders`
+        : undefined
+      : schedules
+        ? `${schedules.length.toLocaleString()} recurring schedules`
+        : undefined
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            {workOrdersPage?.totalCount ?? '—'} work orders
-            {overdueCount > 0 && (
-              <span className="flex items-center gap-1 text-destructive">
-                <AlertTriangle className="size-3.5" /> {overdueCount} overdue
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Maintenance"
+        description={description}
+        actions={tab === 'work-orders' ? <CreateWorkOrderDialog /> : <CreateMaintenanceScheduleDialog />}
+      />
 
-      <Tabs defaultValue="work-orders">
-        <TabsList className="h-auto flex-wrap">
-          <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
-          <TabsTrigger value="schedules">Recurring Schedules</TabsTrigger>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="gap-4">
+        <TabsList className="h-auto w-full flex-wrap justify-start gap-5 rounded-none border-b border-border bg-transparent p-0">
+          <TabsTrigger value="work-orders" className={TAB_TRIGGER_CLASS}>
+            Work orders
+          </TabsTrigger>
+          <TabsTrigger value="schedules" className={TAB_TRIGGER_CLASS}>
+            Recurring schedules
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="work-orders" className="space-y-3">
-          <div className="flex justify-end">
-            <CreateWorkOrderDialog />
-          </div>
-          {isLoading && (
-            <div className="space-y-2">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full md:h-10" />
-              ))}
-            </div>
+        <TabsContent value="work-orders" className="space-y-4">
+          {workOrdersQuery.isError && (
+            <ListError
+              message="We couldn't load the work orders"
+              onRetry={() => workOrdersQuery.refetch()}
+              isRetrying={workOrdersQuery.isFetching}
+            />
           )}
 
-          {!isLoading && workOrders && workOrders.length > 0 && (
+          {workOrdersQuery.isLoading && <ListSkeleton />}
+
+          {!workOrdersQuery.isLoading && workOrders?.length === 0 && (
+            <ListEmpty message="No work orders here." hint="Nothing is booked in for repair on this branch." />
+          )}
+
+          {!workOrdersQuery.isLoading && workOrdersPage && workOrders && workOrders.length > 0 && (
             <>
-              {/* Mobile: card list */}
+              {/* Mobile: card list — asset, type, priority and a date do not fit six columns wide. */}
               <div className="space-y-2 md:hidden">
                 {workOrders.map((wo) => (
                   <button
                     key={wo.id}
                     type="button"
                     onClick={() => navigate(`/maintenance/work-orders/${wo.id}`)}
-                    className="block w-full space-y-1.5 rounded-lg border bg-card p-3 text-left active:bg-accent"
+                    className="block w-full space-y-1.5 rounded-2xl border border-border bg-card p-3 text-left active:bg-accent"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate font-medium">{wo.title}</p>
-                      <Badge variant={STATUS_VARIANT[wo.status]} className="shrink-0">
-                        {wo.status}
-                      </Badge>
+                      <WorkOrderStatusPill status={wo.status} className="shrink-0" />
                     </div>
                     <p className="truncate text-sm text-muted-foreground">
-                      {wo.assetName} ({wo.assetTag}) · {wo.type}
+                      {wo.assetName} (<span className="tabular-nums">{wo.assetTag}</span>) · {wo.type}
                     </p>
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <Badge variant={PRIORITY_VARIANT[wo.priority]}>{wo.priority}</Badge>
-                      <span className={wo.isOverdue ? 'font-medium text-destructive' : 'text-muted-foreground'}>
-                        {wo.scheduledDate ? new Date(wo.scheduledDate).toLocaleDateString() : '—'}
-                        {wo.isOverdue && ' (overdue)'}
+                      <WorkOrderPriorityPill priority={wo.priority} />
+                      <span className="flex items-center gap-2">
+                        {wo.isOverdue && <OverduePill />}
+                        <span
+                          className={cn('tabular-nums', wo.isOverdue ? 'font-medium text-destructive' : 'text-muted-foreground')}
+                        >
+                          {wo.scheduledDate ? dateFormat.format(new Date(wo.scheduledDate)) : '—'}
+                        </span>
                       </span>
                     </div>
                   </button>
@@ -104,16 +127,16 @@ export default function MaintenancePage() {
               </div>
 
               {/* Desktop / tablet: full table */}
-              <div className="hidden rounded-lg border md:block">
+              <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Work Order</TableHead>
-                      <TableHead>Asset</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Scheduled</TableHead>
-                      <TableHead>Status</TableHead>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className={HEAD_CLASS}>Work order</TableHead>
+                      <TableHead className={HEAD_CLASS}>Asset</TableHead>
+                      <TableHead className={HEAD_CLASS}>Type</TableHead>
+                      <TableHead className={HEAD_CLASS}>Priority</TableHead>
+                      <TableHead className={HEAD_CLASS}>Scheduled</TableHead>
+                      <TableHead className={HEAD_CLASS}>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -125,18 +148,27 @@ export default function MaintenancePage() {
                       >
                         <TableCell className="font-medium">{wo.title}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {wo.assetName} ({wo.assetTag})
+                          {wo.assetName} (<span className="tabular-nums">{wo.assetTag}</span>)
                         </TableCell>
                         <TableCell className="text-muted-foreground">{wo.type}</TableCell>
                         <TableCell>
-                          <Badge variant={PRIORITY_VARIANT[wo.priority]}>{wo.priority}</Badge>
-                        </TableCell>
-                        <TableCell className={wo.isOverdue ? 'font-medium text-destructive' : 'text-muted-foreground'}>
-                          {wo.scheduledDate ? new Date(wo.scheduledDate).toLocaleDateString() : '—'}
-                          {wo.isOverdue && ' (overdue)'}
+                          <WorkOrderPriorityPill priority={wo.priority} />
                         </TableCell>
                         <TableCell>
-                          <Badge variant={STATUS_VARIANT[wo.status]}>{wo.status}</Badge>
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                'tabular-nums',
+                                wo.isOverdue ? 'font-medium text-destructive' : 'text-muted-foreground',
+                              )}
+                            >
+                              {wo.scheduledDate ? dateFormat.format(new Date(wo.scheduledDate)) : '—'}
+                            </span>
+                            {wo.isOverdue && <OverduePill />}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <WorkOrderStatusPill status={wo.status} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -144,63 +176,70 @@ export default function MaintenancePage() {
                 </Table>
               </div>
 
-              {workOrdersPage && (
-                <Pagination
-                  page={workOrdersPage.page}
-                  totalPages={workOrdersPage.totalPages}
-                  totalCount={workOrdersPage.totalCount}
-                  hasPreviousPage={workOrdersPage.hasPreviousPage}
-                  hasNextPage={workOrdersPage.hasNextPage}
-                  onPageChange={setPage}
-                  itemLabel="work orders"
-                />
-              )}
+              <Pagination
+                page={workOrdersPage.page}
+                totalPages={workOrdersPage.totalPages}
+                totalCount={workOrdersPage.totalCount}
+                hasPreviousPage={workOrdersPage.hasPreviousPage}
+                hasNextPage={workOrdersPage.hasNextPage}
+                onPageChange={setPage}
+                itemLabel="work orders"
+              />
             </>
           )}
         </TabsContent>
 
-        <TabsContent value="schedules" className="space-y-3">
-          <div className="flex justify-end">
-            <CreateMaintenanceScheduleDialog />
-          </div>
-          {isLoadingSchedules && (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full md:h-10" />
-              ))}
-            </div>
+        <TabsContent value="schedules" className="space-y-4">
+          {schedulesQuery.isError && (
+            <ListError
+              message="We couldn't load the recurring schedules"
+              onRetry={() => schedulesQuery.refetch()}
+              isRetrying={schedulesQuery.isFetching}
+            />
           )}
 
-          {schedules?.length === 0 && !isLoadingSchedules && (
-            <p className="py-8 text-center text-sm text-muted-foreground">No recurring schedules yet.</p>
+          {schedulesQuery.isLoading && <ListSkeleton rows={4} />}
+
+          {!schedulesQuery.isLoading && schedules?.length === 0 && (
+            <ListEmpty
+              message="No recurring schedules yet."
+              hint="A schedule turns a routine inspection into a work order on its own cadence."
+            />
           )}
 
-          {!isLoadingSchedules && schedules && schedules.length > 0 && (
+          {!schedulesQuery.isLoading && schedules && schedules.length > 0 && (
             <>
               {/* Mobile: card list */}
               <div className="space-y-2 md:hidden">
                 {schedules.map((s) => {
+                  // A recurring inspection that has come round is warning, not destructive: unlike an
+                  // overdue work order it isn't a repair anyone is waiting on, it's the next one due.
                   const isDue = new Date(s.nextDueDate) <= new Date()
                   return (
-                    <div key={s.id} className="space-y-2 rounded-lg border bg-card p-3">
+                    <div key={s.id} className="space-y-2 rounded-2xl border border-border bg-card p-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate font-medium">{s.assetName}</p>
-                        <Badge variant={s.isActive ? 'default' : 'outline'} className="shrink-0">
-                          {s.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-xl px-2.5 py-1 text-xs font-medium whitespace-nowrap',
+                            s.isActive ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          {s.isActive ? 'Active' : 'Paused'}
+                        </span>
                       </div>
                       <p className="text-sm text-muted-foreground">{s.recurrenceRule}</p>
-                      <p className={isDue ? 'text-sm font-medium text-destructive' : 'text-sm text-muted-foreground'}>
-                        Next due {new Date(s.nextDueDate).toLocaleDateString()}
-                        {isDue && ' (due)'}
+                      <p className={cn('text-sm tabular-nums', isDue ? 'font-medium text-warning' : 'text-muted-foreground')}>
+                        {isDue ? 'Due since ' : 'Next due '}
+                        {dateFormat.format(new Date(s.nextDueDate))}
                       </p>
                       <CreateWorkOrderDialog
                         defaultAssetId={s.assetId}
                         maintenanceScheduleId={s.id}
                         trigger={
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" className="rounded-xl">
                             <Wrench />
-                            Create Work Order
+                            Create work order
                           </Button>
                         }
                       />
@@ -210,15 +249,15 @@ export default function MaintenancePage() {
               </div>
 
               {/* Desktop / tablet: full table */}
-              <div className="hidden rounded-lg border md:block">
+              <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Asset</TableHead>
-                      <TableHead>Recurrence</TableHead>
-                      <TableHead>Next Due</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead />
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className={HEAD_CLASS}>Asset</TableHead>
+                      <TableHead className={HEAD_CLASS}>Recurrence</TableHead>
+                      <TableHead className={HEAD_CLASS}>Next due</TableHead>
+                      <TableHead className={HEAD_CLASS}>Status</TableHead>
+                      <TableHead className="w-px" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -228,21 +267,28 @@ export default function MaintenancePage() {
                         <TableRow key={s.id}>
                           <TableCell className="font-medium">{s.assetName}</TableCell>
                           <TableCell className="text-muted-foreground">{s.recurrenceRule}</TableCell>
-                          <TableCell className={isDue ? 'font-medium text-destructive' : 'text-muted-foreground'}>
-                            {new Date(s.nextDueDate).toLocaleDateString()}
-                            {isDue && ' (due)'}
+                          <TableCell className={cn('tabular-nums', isDue ? 'font-medium text-warning' : 'text-muted-foreground')}>
+                            {dateFormat.format(new Date(s.nextDueDate))}
+                            {isDue && ' · due'}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={s.isActive ? 'default' : 'outline'}>{s.isActive ? 'Active' : 'Inactive'}</Badge>
+                            <span
+                              className={cn(
+                                'inline-flex items-center rounded-xl px-2.5 py-1 text-xs font-medium whitespace-nowrap',
+                                s.isActive ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+                              )}
+                            >
+                              {s.isActive ? 'Active' : 'Paused'}
+                            </span>
                           </TableCell>
                           <TableCell className="text-right">
                             <CreateWorkOrderDialog
                               defaultAssetId={s.assetId}
                               maintenanceScheduleId={s.id}
                               trigger={
-                                <Button size="sm" variant="outline">
+                                <Button size="sm" variant="outline" className="rounded-xl">
                                   <Wrench />
-                                  Create Work Order
+                                  Create work order
                                 </Button>
                               }
                             />

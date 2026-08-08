@@ -2,58 +2,60 @@ import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import {
-  useUpdateWorkOrderStatus,
-  useWorkOrder,
-  type WorkOrderStatus,
-} from '@/modules/maintenance/api/maintenanceApi'
+import { ListError, PageHeader } from '@/shared/components/console'
+import { useUpdateWorkOrderStatus, useWorkOrder, type WorkOrderStatus } from '@/modules/maintenance/api/maintenanceApi'
 import { VerifyWorkOrderDialog } from '@/modules/maintenance/components/VerifyWorkOrderDialog'
+import { WorkOrderPriorityPill, WorkOrderStatusPill } from '@/modules/maintenance/components/WorkOrderPills'
 
-const STATUS_VARIANT: Record<WorkOrderStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  Open: 'secondary',
-  InProgress: 'default',
-  PendingVerification: 'outline',
-  Completed: 'outline',
-  Cancelled: 'destructive',
-}
+const dateFormat = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+const dateTimeFormat = new Intl.DateTimeFormat('en-US', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
 
-const PRIORITY_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  Low: 'outline',
-  Medium: 'secondary',
-  High: 'default',
-  Critical: 'destructive',
+const FIELD_LABEL_CLASS = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase'
+const HEAD_CLASS = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase'
+
+function BackLink() {
+  return (
+    <Link
+      to="/maintenance"
+      className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ArrowLeft className="size-4" />
+      Back to maintenance
+    </Link>
+  )
 }
 
 function WorkOrderActions({ workOrderId, status }: { workOrderId: string; status: WorkOrderStatus }) {
   const updateStatus = useUpdateWorkOrderStatus(workOrderId)
 
   const setStatus = (next: WorkOrderStatus) =>
-    updateStatus.mutate(
-      { status: next },
-      { onError: () => toast.error('Could not update work order status.') }
-    )
+    updateStatus.mutate({ status: next }, { onError: () => toast.error('Could not update work order status.') })
 
   if (status === 'Open' || status === 'InProgress') {
     return (
       <div className="flex items-center gap-2">
         {status === 'Open' && (
-          <Button size="sm" disabled={updateStatus.isPending} onClick={() => setStatus('InProgress')}>
+          <Button className="rounded-xl" disabled={updateStatus.isPending} onClick={() => setStatus('InProgress')}>
             {updateStatus.isPending && <Loader2 className="size-4 animate-spin" />}
-            Start Progress
+            Start progress
           </Button>
         )}
         {status === 'InProgress' && (
-          <Button size="sm" disabled={updateStatus.isPending} onClick={() => setStatus('PendingVerification')}>
+          <Button className="rounded-xl" disabled={updateStatus.isPending} onClick={() => setStatus('PendingVerification')}>
             {updateStatus.isPending && <Loader2 className="size-4 animate-spin" />}
-            Submit for Verification
+            Submit for verification
           </Button>
         )}
-        <Button size="sm" variant="ghost" disabled={updateStatus.isPending} onClick={() => setStatus('Cancelled')}>
+        <Button variant="ghost" className="rounded-xl" disabled={updateStatus.isPending} onClick={() => setStatus('Cancelled')}>
           Cancel
         </Button>
       </div>
@@ -65,97 +67,142 @@ function WorkOrderActions({ workOrderId, status }: { workOrderId: string; status
 
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { data: workOrder, isLoading } = useWorkOrder(id)
+  const workOrderQuery = useWorkOrder(id)
+  const workOrder = workOrderQuery.data
 
-  if (isLoading || !workOrder) {
+  // Without this branch a failed request left the page on its loading skeleton forever, because
+  // `isLoading || !workOrder` cannot tell "still asking" from "asked and got a 500".
+  if (workOrderQuery.isError) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-40 w-full" />
+      <div className="space-y-6">
+        <BackLink />
+        <ListError
+          message="We couldn't load this work order"
+          onRetry={() => workOrderQuery.refetch()}
+          isRetrying={workOrderQuery.isFetching}
+        />
+      </div>
+    )
+  }
+
+  if (!workOrder) {
+    return (
+      <div className="space-y-6">
+        <BackLink />
+        <Skeleton className="h-10 w-64 rounded-2xl" />
+        <Skeleton className="h-48 w-full rounded-2xl" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <Link to="/maintenance" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" />
-        Back to maintenance
-      </Link>
+      <BackLink />
 
-      <Card>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-semibold">{workOrder.title}</h1>
-                <Badge variant={STATUS_VARIANT[workOrder.status]}>{workOrder.status}</Badge>
-                <Badge variant={PRIORITY_VARIANT[workOrder.priority]}>{workOrder.priority}</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {workOrder.assetName} ({workOrder.assetTag}) · {workOrder.type}
+      <PageHeader
+        eyebrow={
+          <>
+            {workOrder.assetName} · <span className="tabular-nums">{workOrder.assetTag}</span>
+          </>
+        }
+        title={workOrder.title}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            <WorkOrderStatusPill status={workOrder.status} />
+            <WorkOrderPriorityPill priority={workOrder.priority} />
+            <span>{workOrder.type}</span>
+          </span>
+        }
+        actions={
+          workOrder.status === 'PendingVerification' ? (
+            <VerifyWorkOrderDialog workOrderId={workOrder.id} isScheduleLinked={!!workOrder.maintenanceScheduleId} />
+          ) : (
+            <WorkOrderActions workOrderId={workOrder.id} status={workOrder.status} />
+          )
+        }
+      />
+
+      <div className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-sm">
+        {workOrder.description && <p className="text-sm">{workOrder.description}</p>}
+
+        {/*
+          No "Assigned to" field, though the work order plainly has one. WorkOrderDetailDto carries
+          assignedToUserId and nothing else — no name, and this module has no user lookup to resolve
+          it against — so the row could only ever print a GUID at a technician.
+
+          No branch or currency either, which is why the cost below is a bare figure: see the field.
+        */}
+        <dl className="grid grid-cols-2 gap-5 sm:grid-cols-4">
+          <div>
+            <dt className={FIELD_LABEL_CLASS}>Scheduled</dt>
+            <dd className="mt-1.5 text-sm tabular-nums">
+              {workOrder.scheduledDate ? dateFormat.format(new Date(workOrder.scheduledDate)) : '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className={FIELD_LABEL_CLASS}>Completed</dt>
+            <dd className="mt-1.5 text-sm tabular-nums">
+              {workOrder.completedDate ? dateFormat.format(new Date(workOrder.completedDate)) : '—'}
+            </dd>
+          </div>
+          <div>
+            {/*
+              The amount used to be formatted as USD. Nothing in this response says dollars —
+              WorkOrderDetailDto returns a bare decimal with no currency code and no branch to look
+              one up from — so the symbol was decoration on a number a manager might sign off. The
+              figure is real; the currency was not, so only the figure is shown.
+            */}
+            <dt className={FIELD_LABEL_CLASS}>Cost</dt>
+            <dd className="mt-1.5 text-sm tabular-nums">
+              {workOrder.cost != null
+                ? workOrder.cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className={FIELD_LABEL_CLASS}>Recurring schedule</dt>
+            <dd className="mt-1.5 text-sm">{workOrder.maintenanceScheduleId ? 'Linked' : '—'}</dd>
+          </div>
+        </dl>
+
+        {workOrder.verificationNotes && (
+          <div className="rounded-2xl bg-muted/40 p-4 text-sm">
+            <p className="font-medium">Verification notes</p>
+            <p className="mt-1 text-muted-foreground">{workOrder.verificationNotes}</p>
+            {workOrder.verifiedAt && (
+              <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+                {dateTimeFormat.format(new Date(workOrder.verifiedAt))}
               </p>
-              {workOrder.description && <p className="mt-2 text-sm">{workOrder.description}</p>}
-            </div>
-            {workOrder.status === 'PendingVerification' ? (
-              <VerifyWorkOrderDialog workOrderId={workOrder.id} isScheduleLinked={!!workOrder.maintenanceScheduleId} />
-            ) : (
-              <WorkOrderActions workOrderId={workOrder.id} status={workOrder.status} />
             )}
           </div>
+        )}
+      </div>
 
-          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-            <div>
-              <p className="text-muted-foreground">Scheduled</p>
-              <p>{workOrder.scheduledDate ? new Date(workOrder.scheduledDate).toLocaleDateString() : '—'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Completed</p>
-              <p>{workOrder.completedDate ? new Date(workOrder.completedDate).toLocaleDateString() : '—'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Cost</p>
-              <p>{workOrder.cost != null ? workOrder.cost.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '—'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Recurring schedule</p>
-              <p>{workOrder.maintenanceScheduleId ? 'Linked' : '—'}</p>
-            </div>
-          </div>
-
-          {workOrder.verificationNotes && (
-            <div className="rounded-md border bg-muted/30 p-3 text-sm">
-              <p className="font-medium">Verification notes</p>
-              <p className="text-muted-foreground">{workOrder.verificationNotes}</p>
-              {workOrder.verifiedAt && (
-                <p className="mt-1 text-xs text-muted-foreground">{new Date(workOrder.verifiedAt).toLocaleString()}</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="space-y-2">
-        <h2 className="text-sm font-medium">Downtime</h2>
+      <section className="space-y-3">
+        <h2 className="font-display text-xl font-bold tracking-tight">Downtime</h2>
         {workOrder.downtimeLogs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No downtime recorded for this work order.</p>
         ) : (
-          <div className="rounded-lg border">
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Ended</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className={HEAD_CLASS}>Reason</TableHead>
+                  <TableHead className={HEAD_CLASS}>Started</TableHead>
+                  <TableHead className={HEAD_CLASS}>Ended</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {workOrder.downtimeLogs.map((d) => (
                   <TableRow key={d.id}>
                     <TableCell>{d.reason ?? '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{new Date(d.startedAt).toLocaleString()}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {d.endedAt ? new Date(d.endedAt).toLocaleString() : 'Ongoing'}
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {dateTimeFormat.format(new Date(d.startedAt))}
+                    </TableCell>
+                    <TableCell
+                      className={d.endedAt ? 'text-muted-foreground tabular-nums' : 'font-medium text-warning'}
+                    >
+                      {d.endedAt ? dateTimeFormat.format(new Date(d.endedAt)) : 'Ongoing'}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -163,7 +210,7 @@ export default function WorkOrderDetailPage() {
             </Table>
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

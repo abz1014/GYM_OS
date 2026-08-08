@@ -57,9 +57,9 @@ export function CreateSupplierDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button variant="outline" className="rounded-xl">
           <Truck />
-          New Supplier
+          New supplier
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -78,7 +78,12 @@ export function CreateSupplierDialog() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="supplierPhone">Phone</Label>
-              <Input id="supplierPhone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Input
+                id="supplierPhone"
+                className="tabular-nums"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -90,9 +95,9 @@ export function CreateSupplierDialog() {
             <Input id="supplierAddress" value={address} onChange={(e) => setAddress(e.target.value)} />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createSupplier.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createSupplier.isPending}>
               {createSupplier.isPending && <Loader2 className="size-4 animate-spin" />}
-              Add Supplier
+              Add supplier
             </Button>
           </DialogFooter>
         </form>

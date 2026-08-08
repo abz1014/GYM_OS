@@ -78,7 +78,7 @@ export function CreateInvoiceDialog() {
           <div className="space-y-1.5">
             <Label>Member</Label>
             {memberId ? (
-              <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+              <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-sm">
                 {memberName}
                 <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={() => setMemberId(null)}>
                   Change
@@ -88,7 +88,7 @@ export function CreateInvoiceDialog() {
               <>
                 <Input placeholder="Search member..." value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} />
                 {memberSearch && (
-                  <div className="divide-y rounded-md border">
+                  <div className="divide-y divide-border rounded-xl border border-border">
                     {members?.items.map((m) => (
                       <button
                         key={m.id}

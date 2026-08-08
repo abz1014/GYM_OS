@@ -68,9 +68,9 @@ export function CreateWorkOrderDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button>
+          <Button className="rounded-xl">
             <Plus />
-            New Work Order
+            New work order
           </Button>
         )}
       </DialogTrigger>
@@ -132,10 +132,16 @@ export function CreateWorkOrderDialog({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="scheduledDate">Scheduled date (optional)</Label>
-            <Input id="scheduledDate" type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+            <Input
+              id="scheduledDate"
+              type="date"
+              className="tabular-nums"
+              value={scheduledDate}
+              onChange={(e) => setScheduledDate(e.target.value)}
+            />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createWorkOrder.isPending}>
+            <Button type="submit" className="rounded-xl" disabled={createWorkOrder.isPending}>
               {createWorkOrder.isPending && <Loader2 className="size-4 animate-spin" />}
               Create
             </Button>
