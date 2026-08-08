@@ -137,14 +137,24 @@ without editing the file, using `Section__Key` (double underscore) naming:
 export ASPNETCORE_ENVIRONMENT=Production
 export Jwt__SigningKey="<a real random secret, e.g. openssl rand -base64 48>"
 export ConnectionStrings__GymOsDb="Host=<prod-host>;Port=5432;Database=<prod-db>;Username=<user>;Password=<real-password>"
+export Cors__AllowedOrigins__0="https://<your-frontend-domain>"
 ```
 
-**The API refuses to start** in Production if `Jwt__SigningKey` still equals
-the checked-in placeholder — this is a deliberate fail-fast guard (see
-`Program.cs`) so a deploy that forgot to set the secret fails loudly at
-startup instead of silently running with a signing key visible in source
-control. `ConnectionStrings__GymOsDb` has no equivalent guard (a bad value
-just fails to connect, which is self-evident), but it must be overridden too.
+**The API refuses to start** outside Development/Testing if either of two
+things is wrong — both deliberate fail-fast guards in `Program.cs`:
+
+| Guard | Fires when | Why it exists |
+|---|---|---|
+| `Jwt__SigningKey` | still the checked-in `CHANGE_ME_...` placeholder | Otherwise the deploy silently signs real user tokens with a key that is visible in public source control. |
+| `Cors__AllowedOrigins` | empty, or every entry is localhost | An unset list does **not** open the API up — `WithOrigins([])` allows nobody — it makes the deployed frontend silently unable to call its own backend. Every request fails in the browser with nothing wrong in the API logs, which is an afternoon spent debugging the wrong layer. |
+
+The environment check is an allow-list (`Development` or `Testing`), not a
+`== Production` test, so a host named `Staging` or `Preview` is guarded too.
+
+`ConnectionStrings__GymOsDb` has no equivalent guard — a bad value just fails
+to connect, which is self-evident — but it must be overridden too. Note the
+name: the API reads `ConnectionStrings__GymOsDb`, **not** the
+`GYMOS_DB_CONNECTION` variable that `backend/run-api.sh` uses for local work.
 
 Other settings that follow the same override pattern once a real integration
 is ready (`Storage__Provider`, `Storage__*` for S3, or swapping the
@@ -160,9 +170,26 @@ dotnet ef database update --project src/GymOS.Infrastructure --startup-project s
   --connection "Host=<prod-host>;Port=5432;Database=<prod-db>;Username=<user>;Password=<real-password>"
 ```
 
-Verified this way end-to-end: with both variables set, the API starts with
-`Hosting environment: Production`, Swagger UI is unreachable (404, gated by
-`app.Environment.IsDevelopment()`), and login/JWT issuance works normally.
+Verified this way end-to-end: with all variables set, the API starts with
+`Hosting environment: Production`, `/health` returns 200, Swagger UI is
+unreachable (404, gated by `app.Environment.IsDevelopment()`), login/JWT
+issuance works normally, and a preflight from the configured origin comes back
+with `Access-Control-Allow-Origin` while one from any other origin comes back
+without it (so the browser blocks it). Both refusal guards were confirmed to
+fire, including on `Staging`.
+
+### Hosting shape
+
+The frontend is a static Vite bundle and deploys anywhere — Vercel, Netlify,
+any CDN. Point it at the API with `VITE_API_BASE_URL` at build time.
+
+The backend **cannot** run on Vercel or any serverless platform, for two
+reasons that are structural rather than incidental: it hosts three SignalR
+hubs, which need persistent WebSocket connections, and fifteen recurring
+Hangfire jobs (recurring billing, invoice overdue transitions, class session
+generation, retention), which need a process that stays alive between
+requests. It needs a container or an always-on app service — Railway, Render,
+Fly.io, or Azure App Service.
 
 **What this does not cover** — a real deploy still needs a backup/restore
 runbook and production monitoring/alerting, neither of which exist yet

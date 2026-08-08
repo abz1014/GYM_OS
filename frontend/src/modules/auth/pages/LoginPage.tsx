@@ -40,8 +40,19 @@ const DEMO_ROLES = ['owner', 'manager', 'receptionist', 'trainer', 'nutritionist
  * on one of them would read as two products rather than one restyled.
  */
 export default function LoginPage() {
-  const [email, setEmail] = useState('owner@titanfitness.demo')
-  const [password, setPassword] = useState('Demo@12345')
+  /*
+   * Empty, always.
+   *
+   * These used to be pre-filled with owner@titanfitness.demo / Demo@12345 to save typing during
+   * local work. The `Dev only — demo accounts` block below is correctly gated on import.meta.env.DEV
+   * and tree-shakes out of a production build; this was NOT inside that gate, so it survived — a
+   * deployed login page would open with a live Owner account already typed in, one click from every
+   * member's PII, the takings and the permission matrix.
+   *
+   * The dev chips underneath fill both fields on click, so nothing about local work gets slower.
+   */
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [mfaRequired, setMfaRequired] = useState(false)
   const [mfaCode, setMfaCode] = useState('')
   const navigate = useNavigate()
@@ -164,7 +175,13 @@ export default function LoginPage() {
                 <button
                   key={role}
                   type="button"
-                  onClick={() => setEmail(`${role}@titanfitness.demo`)}
+                  // Fills BOTH fields. It only set the email before, which was fine while the
+                  // password was pre-filled; now that both start empty, setting one would leave
+                  // local work slower than it was.
+                  onClick={() => {
+                    setEmail(`${role}@titanfitness.demo`)
+                    setPassword('Demo@12345')
+                  }}
                   className="rounded-lg border border-border bg-background px-1.5 py-0.5 hover:bg-accent"
                 >
                   {role}

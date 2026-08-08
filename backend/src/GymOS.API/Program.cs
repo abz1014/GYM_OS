@@ -56,11 +56,17 @@ var signingKey = jwtSection[nameof(GymOS.Infrastructure.Identity.JwtSettings.Sig
 // unset or set to something other than Development/Testing and no Jwt__SigningKey environment
 // variable would silently start the API signing real user tokens with a key visible to anyone who
 // reads this public source file. Fail loudly instead of shipping that silently.
-if (builder.Environment.IsProduction() && signingKey.StartsWith("CHANGE_ME", StringComparison.Ordinal))
+// Allow-list the two environments that legitimately carry the placeholder, rather than blocking only
+// Production. The comment above always said "something other than Development/Testing", but the check
+// named Production specifically — so a host set to Staging, Preview, or any other name would have
+// started up signing real tokens with a key published in this file.
+var placeholderIsAcceptable = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
+
+if (!placeholderIsAcceptable && signingKey.StartsWith("CHANGE_ME", StringComparison.Ordinal))
 {
     throw new InvalidOperationException(
-        "Refusing to start in Production with the placeholder Jwt:SigningKey from appsettings.json. " +
-        "Set the Jwt__SigningKey environment variable to a real secret before deploying.");
+        $"Refusing to start in '{builder.Environment.EnvironmentName}' with the placeholder Jwt:SigningKey " +
+        "from appsettings.json. Set the Jwt__SigningKey environment variable to a real secret before deploying.");
 }
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -104,6 +110,23 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
+/*
+ * Same fail-loud rule as the signing key, for the opposite failure.
+ *
+ * An unset origins list does not open the API up — WithOrigins([]) allows nobody — it makes the
+ * deployed frontend silently unable to call its own backend, surfacing as every request failing in
+ * the browser with nothing wrong in the API logs. That is an afternoon of debugging the wrong layer.
+ * The checked-in default is http://localhost:5173, which is correct locally and useless in
+ * production, so a real deployment must set Cors__AllowedOrigins__0 to the site's origin.
+ */
+if (!placeholderIsAcceptable && (allowedOrigins.Length == 0 || allowedOrigins.All(o => o.Contains("localhost"))))
+{
+    throw new InvalidOperationException(
+        $"Refusing to start in '{builder.Environment.EnvironmentName}' with no non-localhost CORS origin. " +
+        "Set Cors__AllowedOrigins__0 to the deployed frontend's origin (e.g. https://your-app.vercel.app).");
+}
+
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy
     .WithOrigins(allowedOrigins)
     .AllowAnyHeader()
