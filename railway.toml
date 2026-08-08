@@ -26,9 +26,22 @@ startCommand = "dotnet GymOS.API.dll"
 # build even starts. The string form is used here because an array that can only ever hold one element
 # communicates nothing and invites exactly that mistake again.
 #
-# Exec form, no shell: `&&`, `|`, and `$VAR` do NOT expand here. A second step would need
-# "/bin/sh -c \"...\"". Nothing below needs one.
-preDeployCommand = "dotnet GymOS.API.dll --migrate"
+# Exec form, no shell: `&&`, `|` and `$VAR` do NOT expand here, which is the entire reason for the
+# /bin/sh -c wrapper below. Without it, `&&` would be handed to `dotnet` as a literal argument.
+#
+# Seeding runs on EVERY deploy on purpose, and that is safe rather than reckless: DemoDataSeeder's
+# first act is `if (await db.Tenants.IgnoreQueryFilters().AnyAsync()) return;`, so from the second
+# deploy onward it logs "Demo data already present" and does nothing. The whole seed is one
+# transaction, so a failure cannot leave a half-populated tenant that then fools that check.
+#
+# The alternative was a manual one-off command after the first deploy, which is a step someone has to
+# know about and remember — and forgetting it produces a fully working site that nobody can log into,
+# because migrations create tables and no users. Making a fresh database come up usable by itself is
+# worth the no-op on later deploys.
+#
+# A seed failure blocks the release, same as a migration failure. That is correct: the demo is the
+# product here, and shipping the app without its data would be shipping nothing.
+preDeployCommand = '/bin/sh -c "dotnet GymOS.API.dll --migrate && dotnet GymOS.API.dll --seed"'
 
 # Railway probes this before routing traffic. The check verifies the database connection, so a
 # container that starts but cannot reach Postgres is never marked healthy.
