@@ -20,6 +20,9 @@ function sentWhen(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 }
 
+/** How many more messages each "Load older" press reveals. */
+const WINDOW_STEP = 30
+
 function Bubble({ message }: { message: MyCoachMessage }) {
   const mine = message.author === 'Member'
   return (
@@ -58,7 +61,8 @@ export default function MyCoachPage() {
   // Live delivery: the coach's reply lands in the open thread without a refresh. Non-fatal on
   // failure — see useCoachingHub.
   useCoachingHub()
-  const coach = useMyCoach()
+  const [windowSize, setWindowSize] = useState(WINDOW_STEP)
+  const coach = useMyCoach(windowSize)
   const send = useMessageMyCoach()
   const markRead = useReadMyCoachMessages()
   const [body, setBody] = useState('')
@@ -125,11 +129,29 @@ export default function MyCoachPage() {
                 </p>
               </div>
             ) : (
-              <ul className="space-y-3">
-                {data!.messages.map((m) => (
-                  <Bubble key={m.id} message={m} />
-                ))}
-              </ul>
+              <>
+                {/* The window is bounded server-side, and until now the member had no way past it —
+                    their own history simply stopped with no explanation. */}
+                {data!.hasOlder && (
+                  <div className="text-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl"
+                      onClick={() => setWindowSize((n) => n + WINDOW_STEP)}
+                      disabled={coach.isFetching}
+                    >
+                      {coach.isFetching ? <Loader2 className="size-4 animate-spin" /> : null}
+                      Load older messages
+                    </Button>
+                  </div>
+                )}
+                <ul className="space-y-3">
+                  {data!.messages.map((m) => (
+                    <Bubble key={m.id} message={m} />
+                  ))}
+                </ul>
+              </>
             )}
 
             {/* A pairing that has ended keeps its history — there is just nobody on the other end. */}

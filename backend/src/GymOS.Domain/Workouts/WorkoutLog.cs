@@ -8,6 +8,10 @@ public class WorkoutLog : AggregateRoot
 
     public Guid? WorkoutTemplateId { get; set; }
 
+    /// <summary>The plan this session came from, when it came from one. Null for a self-logged
+    /// workout, which is most of them.</summary>
+    public WorkoutTemplate? WorkoutTemplate { get; set; }
+
     public DateTimeOffset LoggedAt { get; set; }
 
     public ICollection<WorkoutLogEntry> Entries { get; set; } = [];

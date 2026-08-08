@@ -62,8 +62,8 @@ public class PortalController(ISender mediator) : ControllerBase
     // from their assignment — there is no parameter here for reaching anyone else's coach.
     [HttpGet("coach")]
     [RequirePermission(PermissionCodes.Portal.View)]
-    public async Task<ActionResult<MyCoachDto>> Coach(CancellationToken cancellationToken)
-        => Ok(await mediator.Send(new GetMyCoachQuery(), cancellationToken));
+    public async Task<ActionResult<MyCoachDto>> Coach(int take = 30, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetMyCoachQuery(take), cancellationToken));
 
     [HttpPost("coach/messages")]
     [RequirePermission(PermissionCodes.Portal.View)]

@@ -10,6 +10,9 @@ public class WorkoutLogEntry : BaseEntity
 
     public Guid ExerciseId { get; set; }
 
+    /// <summary>The movement this entry records.</summary>
+    public Exercise? Exercise { get; set; }
+
     public int SetsCompleted { get; set; }
 
     public int RepsCompleted { get; set; }

@@ -72,11 +72,24 @@ export function useMyClients() {
   })
 }
 
-export function useClientConversation(memberId: string | null) {
+/**
+ * A growing window rather than a cursor, and that is a deliberate choice.
+ *
+ * A cursor would fetch only the older page and merge it into what is already cached — which is
+ * exactly where thread pagination goes wrong: duplicates, gaps, and messages landing out of order.
+ * This thread is also live (useCoachingHub invalidates it on every push), so a locally merged cache
+ * would have to reconcile an incoming message against pages assembled by hand. Refetching one
+ * window is always internally consistent and needs no reconciliation at all.
+ *
+ * The cost is refetching messages already on screen, which is affordable because the conversation is
+ * bounded at both ends: two years of retention and twenty messages an hour per side. If a coaching
+ * thread ever gets big enough for this to hurt, that is the signal to add a cursor — not before.
+ */
+export function useClientConversation(memberId: string | null, take = 50) {
   return useQuery({
-    queryKey: ['coaching', 'conversation', memberId],
+    queryKey: ['coaching', 'conversation', memberId, take],
     queryFn: async () =>
-      (await apiClient.get<CoachConversation>(`/api/coaching/clients/${memberId}/messages`)).data,
+      (await apiClient.get<CoachConversation>(`/api/coaching/clients/${memberId}/messages`, { params: { take } })).data,
     enabled: !!memberId,
   })
 }

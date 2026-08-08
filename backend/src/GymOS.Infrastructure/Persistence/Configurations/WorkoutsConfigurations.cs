@@ -35,5 +35,22 @@ public class WorkoutLogConfiguration : IEntityTypeConfiguration<WorkoutLog>
     public void Configure(EntityTypeBuilder<WorkoutLog> builder)
     {
         builder.HasMany(l => l.Entries).WithOne(e => e.WorkoutLog).HasForeignKey(e => e.WorkoutLogId).OnDelete(DeleteBehavior.Cascade);
+
+        // Restrict, mirroring WorkoutTemplateExercise: retiring a template must never take the
+        // sessions performed against it with it. Until now WorkoutTemplateId was a bare Guid with no
+        // constraint at all, so nothing stopped a log pointing at a template that no longer existed.
+        builder.HasOne(l => l.WorkoutTemplate).WithMany().HasForeignKey(l => l.WorkoutTemplateId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class WorkoutLogEntryConfiguration : IEntityTypeConfiguration<WorkoutLogEntry>
+{
+    public void Configure(EntityTypeBuilder<WorkoutLogEntry> builder)
+    {
+        // Same rule, same reason: an exercise that has ever been logged is part of somebody's
+        // history and cannot be deleted out from under it.
+        builder.HasOne(e => e.Exercise).WithMany().HasForeignKey(e => e.ExerciseId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

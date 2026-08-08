@@ -828,10 +828,18 @@ export interface MyCoach {
   messages: MyCoachMessage[]
 }
 
-export function useMyCoach() {
+/**
+ * A growing window rather than a cursor — see useClientConversation on the trainer side for why.
+ * Short version: this thread is live, and a hand-merged cache would have to reconcile a pushed
+ * message against pages assembled locally. One window is always internally consistent.
+ *
+ * `take` is in the query key, so widening it is an ordinary refetch and the hub's prefix
+ * invalidation (['portal', 'coach']) still matches every width.
+ */
+export function useMyCoach(take = 30) {
   return useQuery({
-    queryKey: ['portal', 'coach'],
-    queryFn: async () => (await apiClient.get<MyCoach>('/api/me/coach')).data,
+    queryKey: ['portal', 'coach', take],
+    queryFn: async () => (await apiClient.get<MyCoach>('/api/me/coach', { params: { take } })).data,
     retry: false,
   })
 }

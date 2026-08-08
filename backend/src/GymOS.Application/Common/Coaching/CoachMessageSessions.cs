@@ -41,54 +41,35 @@ public static class CoachMessageSessions
             return new Dictionary<Guid, CoachMessageSessionDto>();
         }
 
+        // One query, using the navigation properties WorkoutLog now has. It did not have them when
+        // this was first written, which is why the older workout queries still hand-join through
+        // dictionaries — there was no relationship for EF to traverse, and no FK constraint either.
         var logs = await db.WorkoutLogs.AsNoTracking()
             .Where(w => ids.Contains(w.Id))
             .Select(w => new
             {
                 w.Id,
                 w.LoggedAt,
-                w.WorkoutTemplateId,
+                TemplateName = w.WorkoutTemplate == null ? null : w.WorkoutTemplate.Name,
+                // One per ENTRY, matching GetMemberWorkoutLogsQuery: repeats decide which group led
+                // the session, so the same workout gets the same name on both screens.
+                MuscleGroups = w.Entries.Select(e => e.Exercise!.MuscleGroup).ToList(),
                 ExerciseIds = w.Entries.Select(e => e.ExerciseId).ToList(),
             })
             .ToListAsync(cancellationToken);
 
-        // Separate lookups rather than navigation properties, because WorkoutLog has none — the same
-        // shape GetMemberWorkoutLogsQuery uses, which is also why this cannot simply reuse that query.
-        var templateIds = logs.Where(l => l.WorkoutTemplateId is not null)
-            .Select(l => l.WorkoutTemplateId!.Value).Distinct().ToList();
-
-        var templateNames = templateIds.Count == 0
-            ? new Dictionary<Guid, string>()
-            : await db.WorkoutTemplates.AsNoTracking()
-                .Where(t => templateIds.Contains(t.Id))
-                .ToDictionaryAsync(t => t.Id, t => t.Name, cancellationToken);
-
-        var exerciseIds = logs.SelectMany(l => l.ExerciseIds).Distinct().ToList();
-        var muscleGroups = exerciseIds.Count == 0
-            ? new Dictionary<Guid, string?>()
-            : await db.Exercises.AsNoTracking()
-                .Where(e => exerciseIds.Contains(e.Id))
-                .ToDictionaryAsync(e => e.Id, e => (string?)e.MuscleGroup, cancellationToken);
-
         return logs.ToDictionary(
             w => w.Id,
-            w =>
-            {
-                var templateName = w.WorkoutTemplateId is Guid tid ? templateNames.GetValueOrDefault(tid) : null;
-
-                return new CoachMessageSessionDto(
-                    w.Id,
-                    // The trainer's own name for the block when there is one; otherwise what the
-                    // session actually looks like, by the same rule the member sees on their history.
-                    string.IsNullOrWhiteSpace(templateName)
-                        // One per ENTRY, matching GetMemberWorkoutLogsQuery: repeats decide which group
-                        // led the session, so the same workout gets the same name on both screens.
-                        ? SessionCharacterPolicy.Describe(w.ExerciseIds.Select(muscleGroups.GetValueOrDefault))
-                        : templateName!,
-                    w.LoggedAt,
-                    // Distinct: five sets of squats is one exercise, and counting rows would make a
-                    // focused session look sprawling.
-                    w.ExerciseIds.Distinct().Count());
-            });
+            w => new CoachMessageSessionDto(
+                w.Id,
+                // The trainer's own name for the block when there is one; otherwise what the session
+                // actually looks like, by the same rule the member sees on their own history.
+                string.IsNullOrWhiteSpace(w.TemplateName)
+                    ? SessionCharacterPolicy.Describe(w.MuscleGroups)
+                    : w.TemplateName!,
+                w.LoggedAt,
+                // Distinct: five sets of squats is one exercise, and counting rows would make a
+                // focused session look sprawling.
+                w.ExerciseIds.Distinct().Count()));
     }
 }

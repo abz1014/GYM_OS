@@ -21,6 +21,9 @@ import {
 const timeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
 const dayFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
 
+/** How many more messages each "Load older" press reveals. */
+const WINDOW_STEP = 50
+
 /** Today shows a clock; anything older shows the day, because "2:14 PM" on its own is a lie by omission. */
 function sentLabel(sentAt: string) {
   const at = new Date(sentAt)
@@ -74,7 +77,10 @@ function ClientRow({
 }
 
 function Thread({ memberId }: { memberId: string }) {
-  const conversation = useClientConversation(memberId)
+  // How much of the thread is on screen. Widened by "Load older", reset by switching client — the
+  // key on <Thread> remounts this, so a deep scroll into one conversation doesn't carry into the next.
+  const [windowSize, setWindowSize] = useState(WINDOW_STEP)
+  const conversation = useClientConversation(memberId, windowSize)
   const send = useMessageClient(memberId)
   const markRead = useMarkClientMessagesRead()
   // The client's own recent sessions, so a note can be attached to the one it is about.
@@ -147,10 +153,20 @@ function Thread({ memberId }: { memberId: string }) {
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
-        {/* The window is bounded server-side. Saying so beats letting a trainer scroll up forever
-            and conclude the earlier conversation was lost. */}
+        {/* Was a dead end: the flag was set and displayed, and there was no way to act on it. */}
         {hasOlder && (
-          <p className="text-center text-xs text-muted-foreground">Older messages aren't shown here.</p>
+          <div className="text-center">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              onClick={() => setWindowSize((n) => n + WINDOW_STEP)}
+              disabled={conversation.isFetching}
+            >
+              {conversation.isFetching ? <Loader2 className="size-4 animate-spin" /> : null}
+              Load older messages
+            </Button>
+          </div>
         )}
 
         {messages.length === 0 ? (

@@ -31,8 +31,9 @@ public class CoachingController(ISender mediator) : ControllerBase
     // trainer (resolved from the JWT) and that member before reading or writing a word.
     [HttpGet("clients/{memberId:guid}/messages")]
     [RequirePermission(PermissionCodes.Trainers.View)]
-    public async Task<ActionResult<CoachConversationDto>> ClientMessages(Guid memberId, CancellationToken cancellationToken)
-        => Ok(await mediator.Send(new GetMyClientConversationQuery(memberId), cancellationToken));
+    public async Task<ActionResult<CoachConversationDto>> ClientMessages(
+        Guid memberId, int take = 50, CancellationToken cancellationToken = default)
+        => Ok(await mediator.Send(new GetMyClientConversationQuery(memberId, take), cancellationToken));
 
     [HttpPost("clients/{memberId:guid}/messages")]
     [RequirePermission(PermissionCodes.Trainers.View)]
