@@ -12,9 +12,16 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Copy the project files alone first and restore against them. This layer only invalidates when a
-# csproj changes, so ordinary source edits reuse the cached NuGet restore instead of re-downloading
-# every package on every deploy.
+# Directory.Build.props FIRST, and it is not optional. MSBuild walks up from each csproj looking for
+# it, so a build without it silently compiles every project with ImplicitUsings and Nullable OFF —
+# which is not a warning, it is several thousand missing-using errors. It builds fine locally because
+# the file is simply there on disk; in a container it only exists if copied. This is what failed the
+# first Railway build.
+COPY backend/Directory.Build.props backend/
+
+# Then the project files alone, and restore against them. This layer only invalidates when a csproj
+# changes, so ordinary source edits reuse the cached NuGet restore instead of re-downloading every
+# package on every deploy.
 COPY backend/src/GymOS.Domain/GymOS.Domain.csproj                 backend/src/GymOS.Domain/
 COPY backend/src/GymOS.Shared/GymOS.Shared.csproj                 backend/src/GymOS.Shared/
 COPY backend/src/GymOS.Application/GymOS.Application.csproj       backend/src/GymOS.Application/
