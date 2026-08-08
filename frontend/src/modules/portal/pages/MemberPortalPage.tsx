@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/shared/components/StatCard'
 import { useAuthStore } from '@/stores/authStore'
-import { SectionCard, dateFormat, dateTimeFormat, classTimeFormat } from '@/modules/portal/components/portalShared'
+import { MemberLoadError, SectionCard, dateFormat, dateTimeFormat, classTimeFormat } from '@/modules/portal/components/portalShared'
 import {
   useMyAttendance,
   useMyClassBookings,
@@ -83,10 +83,19 @@ export default function MemberPortalPage() {
             hint={currentPlanLabel}
           />
           <StatCard label="Member Code" value={profile.data?.memberCode ?? '—'} icon={QrCode} />
+          {/*
+            An em dash, never a zero. "Visits Logged: 0" beside a green "Active" membership badge is
+            the most confident thing on this screen and it was being printed by a failed attendance
+            call — telling someone who has trained three times a week for a year that the gym has no
+            record of them ever coming in. The other two tiles already fall back to a dash for the
+            same reason; this one had a `?? 0` because a count feels like it has a safe default, and
+            it is the one figure here where it does not.
+          */}
           <StatCard
             label="Visits Logged"
-            value={(attendance.data?.totalCount ?? 0).toLocaleString()}
+            value={attendance.data ? attendance.data.totalCount.toLocaleString() : '—'}
             icon={CalendarDays}
+            hint={attendance.isError ? "Couldn't load your visits" : undefined}
           />
         </div>
       )}
@@ -139,8 +148,19 @@ export default function MemberPortalPage() {
             </Button>
           </CardHeader>
           <CardContent>
+            {/* "No classes booked yet." is how a member misses a class they paid for: the booking
+                exists, the request to list it didn't come back, and nothing on the screen suggests
+                looking again. Each panel here fails on its own — the profile above has already
+                loaded by this point, so one dead endpoint takes out one card and not the page. */}
             {classBookings.isLoading ? (
               <Skeleton className="h-24 w-full" />
+            ) : classBookings.isError ? (
+              <MemberLoadError
+                title="We couldn't load your classes"
+                hint="Any bookings you've made are still there."
+                onRetry={() => void classBookings.refetch()}
+                isRetrying={classBookings.isFetching}
+              />
             ) : classBookings.data && classBookings.data.length > 0 ? (
               <ul className="space-y-2 text-sm">
                 {classBookings.data.slice(0, 5).map((b) => (
@@ -170,6 +190,13 @@ export default function MemberPortalPage() {
         <SectionCard title="Recent Check-ins">
           {attendance.isLoading ? (
             <Skeleton className="h-40 w-full" />
+          ) : attendance.isError ? (
+            <MemberLoadError
+              title="We couldn't load your check-ins"
+              hint="Every visit you've made is still on your record."
+              onRetry={() => void attendance.refetch()}
+              isRetrying={attendance.isFetching}
+            />
           ) : attendance.data && attendance.data.items.length > 0 ? (
             <ul className="space-y-2 text-sm">
               {attendance.data.items.slice(0, 8).map((a) => (
@@ -189,8 +216,18 @@ export default function MemberPortalPage() {
       </div>
 
       <SectionCard title="Refer a Friend">
+        {/* The sentence below has the member's code embedded mid-clause, so a failed request used to
+            render "have them mention your member code ␣ at the front desk" — a hole a member cannot
+            read as an error and will happily send a friend to the desk with. */}
         {referrals.isLoading ? (
           <Skeleton className="h-24 w-full" />
+        ) : referrals.isError ? (
+          <MemberLoadError
+            title="We couldn't load your referral code"
+            hint="Ask at the front desk and they can look it up."
+            onRetry={() => void referrals.refetch()}
+            isRetrying={referrals.isFetching}
+          />
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">

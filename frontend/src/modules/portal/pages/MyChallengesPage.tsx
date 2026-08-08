@@ -2,7 +2,7 @@ import { Flag } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ChallengeRow } from '@/modules/portal/components/portalShared'
+import { ChallengeRow, MemberLoadError } from '@/modules/portal/components/portalShared'
 import { useMyChallenges } from '@/modules/challenges/api/challengesApi'
 
 /** Community challenges on their own page — they were previously one card among 36. */
@@ -20,6 +20,23 @@ export default function MyChallengesPage() {
       </div>
 
       {challenges.isLoading && <Skeleton className="h-48 w-full" />}
+
+      {/* The empty state below is correctly gated on `challenges.data`, so it never lied — but that
+          left a failed request rendering the heading and then nothing at all, forever, with no way
+          to ask again. A blank page is not a smaller version of a wrong page; it is just a page a
+          member has no way to interpret. */}
+      {challenges.isError && (
+        <Card>
+          <CardContent className="py-6">
+            <MemberLoadError
+              title="We couldn't load the challenges"
+              hint="Any challenge you've joined is still running."
+              onRetry={() => void challenges.refetch()}
+              isRetrying={challenges.isFetching}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {challenges.data && challenges.data.length === 0 && (
         <Card>

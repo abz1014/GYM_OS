@@ -3,7 +3,7 @@
  * MemberPortalPage; they were lifted out when that page was split into focused screens so the
  * styling of a mastery bar, a macro bar or a challenge row stays identical wherever it appears.
  */
-import { BarChart3, ClipboardList, Flag, HeartPulse, Loader2, Minus, Shuffle, Sparkles, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react'
+import { BarChart3, ClipboardList, CloudOff, Flag, HeartPulse, Loader2, Minus, RotateCw, Shuffle, Sparkles, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -42,6 +42,48 @@ export function MemberEmptyState({
       {action && (
         <Button asChild variant="outline" className="mt-2 h-11 px-4">
           <Link to={action.to}>{action.label}</Link>
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The other empty screen: the one where we don't know.
+ *
+ * MemberEmptyState above is a claim about the member — "you haven't logged a workout yet", "your
+ * trainer hasn't set you a plan". Those sentences were being printed by dropped requests all over
+ * this module, because every one of them was reached through `(data ?? []).length === 0` and a
+ * failed query produces the same empty array as an empty gym. Told that their trainer has given them
+ * nothing, or that none of their training exists, a member has no way to know it isn't true — and on
+ * the logging screens they act on it and record the session twice.
+ *
+ * So the two states are separate components, phrased to be unmistakable: this one talks about the
+ * connection and never about the member, and it always offers the retry, because every portal query
+ * sets `retry: false` and one dropped request is enough to land here.
+ */
+export function MemberLoadError({
+  title = "We couldn't load this",
+  hint = 'Your training is safe — we just can’t reach the gym right now.',
+  onRetry,
+  isRetrying,
+}: {
+  title?: string
+  hint?: string
+  onRetry?: () => void
+  isRetrying?: boolean
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-8 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-muted">
+        <CloudOff className="size-6 text-muted-foreground" />
+      </span>
+      <p className="font-medium">{title}</p>
+      <p className="max-w-xs text-sm text-muted-foreground">{hint}</p>
+      {onRetry && (
+        <Button variant="outline" className="mt-2 h-11 rounded-xl px-4" onClick={onRetry} disabled={isRetrying}>
+          <RotateCw className={isRetrying ? 'size-4 animate-spin' : 'size-4'} />
+          {isRetrying ? 'Trying…' : 'Try again'}
         </Button>
       )}
     </div>

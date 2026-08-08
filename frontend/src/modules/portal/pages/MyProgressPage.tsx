@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils'
 import { TrendChart, type TrendPoint } from '@/shared/components/TrendChart'
 import { CountUp } from '@/shared/components/uplift'
+import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import {
   useAchieveMyGoal,
   useCreateMyGoal,
@@ -177,7 +178,30 @@ function DeltaChip({ percent }: { percent: number | null }) {
 }
 
 function StrengthTab() {
-  const { data: volume } = useMyTrainingVolume(VOLUME_DAYS)
+  const volumeQuery = useMyTrainingVolume(VOLUME_DAYS)
+  const volume = volumeQuery.data
+
+  /*
+   * This tab owns its own query, so the page-level isError branch above cannot cover it — on a
+   * failed volume call the page rendered its error line AND this card underneath, counting animatedly
+   * up to "0kg" over "Total volume · 30 days" with "Log a workout to start your volume trend" beneath
+   * it. Three separate statements that the member has not trained in a month, one of them animated
+   * for emphasis. The card is replaced outright rather than zeroed.
+   */
+  if (volumeQuery.isError) {
+    return (
+      <Card className="rounded-3xl edge-light">
+        <CardContent className="py-5">
+          <MemberLoadError
+            title="We couldn't load your volume"
+            hint="Every session you've logged is still recorded."
+            onRetry={() => void volumeQuery.refetch()}
+            isRetrying={volumeQuery.isFetching}
+          />
+        </CardContent>
+      </Card>
+    )
+  }
 
   const points: TrendPoint[] = (volume ?? []).map((v) => ({
     label: dateFmt.format(new Date(`${v.date}T00:00:00Z`)),
@@ -270,7 +294,29 @@ function StrengthTab() {
 }
 
 function BodyTab({ photos }: { photos: { id: string; photoUrl: string; takenAt: string }[] }) {
-  const { data: measurements } = useMyMeasurements()
+  const measurementsQuery = useMyMeasurements()
+  const measurements = measurementsQuery.data
+
+  /*
+   * Same shape as StrengthTab, and the same reason. The body-weight figure already falls back to an
+   * em dash rather than a zero, but "Log a measurement to start your weight trend." underneath it is
+   * still a claim that the member has never been weighed — and the photo strip below reads as an
+   * empty history rather than an unreachable one.
+   */
+  if (measurementsQuery.isError) {
+    return (
+      <Card className="rounded-3xl edge-light">
+        <CardContent className="py-5">
+          <MemberLoadError
+            title="We couldn't load your measurements"
+            hint="Nothing you've recorded has been lost."
+            onRetry={() => void measurementsQuery.refetch()}
+            isRetrying={measurementsQuery.isFetching}
+          />
+        </CardContent>
+      </Card>
+    )
+  }
 
   const weightPoints: TrendPoint[] = (measurements ?? [])
     .filter((m) => m.weightKg !== null)

@@ -1,5 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { PanelError } from '@/shared/components/console'
 import {
   OCCUPANCY_BASELINE_DAYS,
   occupancyBaselineRange,
@@ -83,9 +84,16 @@ export function CheckInsByHourPanel() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-lg font-bold tracking-tight">Check-ins by hour</h2>
+          {/*
+            The subtitle needed the same error branch the plot below already had, and didn't have
+            one. `totalToday` is summed out of `toBuckets(undefined)`, which is 24 zeroes, so a
+            failed request landed on the `=== 0` arm and printed "No check-ins recorded today yet"
+            in the panel header — directly above a plot area correctly saying it couldn't load. The
+            header is the line someone reads; it was the one telling them the door hadn't opened.
+          */}
           {todayQuery.isLoading ? (
             <Skeleton className="mt-2 h-4 w-48" />
-          ) : (
+          ) : todayQuery.isError && !todayQuery.data ? null : (
             <p className="mt-1 text-sm text-muted-foreground">
               {totalToday === 0
                 ? 'No check-ins recorded today yet'
@@ -110,8 +118,12 @@ export function CheckInsByHourPanel() {
 
       {todayQuery.isLoading ? (
         <Skeleton className="mt-6 h-56 w-full" />
-      ) : todayQuery.isError ? (
-        <p className="mt-6 text-sm text-muted-foreground">Couldn't load today's check-ins.</p>
+      ) : todayQuery.isError && !todayQuery.data ? (
+        <PanelError
+          message="We couldn't load today's check-ins."
+          onRetry={() => void todayQuery.refetch()}
+          isRetrying={todayQuery.isFetching}
+        />
       ) : (
         <>
           {/* Fixed plot height on purpose: this sits beside a queue whose length varies with how

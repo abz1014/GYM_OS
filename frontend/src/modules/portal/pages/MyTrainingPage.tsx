@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { MasteryBar, MemberEmptyState, RECOMMENDATION_STYLE, RECOVERY_STYLE, SUGGESTION_CONFIG, SectionCard, dateFormat } from '@/modules/portal/components/portalShared'
+import { MasteryBar, MemberEmptyState, MemberLoadError, RECOMMENDATION_STYLE, RECOVERY_STYLE, SUGGESTION_CONFIG, SectionCard, dateFormat } from '@/modules/portal/components/portalShared'
 import {
   useLogMyRecovery,
   useMyMastery,
@@ -153,8 +153,21 @@ export default function MyTrainingPage() {
             <CardTitle className="text-base">Workout Suggestions</CardTitle>
           </CardHeader>
           <CardContent>
+            {/*
+              Four cards on this page read their data through `data && data.length > 0`, which a
+              failed request satisfies in exactly the same way an untrained member does. Every query
+              here sets `retry: false`, so one dropped packet used to print this card's "Log a couple
+              of sessions to start getting suggestions." to someone who has logged fifty — with
+              nothing on screen to tell them the sentence came from a broken connection.
+            */}
             {suggestions.isLoading ? (
               <Skeleton className="h-32 w-full" />
+            ) : suggestions.isError ? (
+              <MemberLoadError
+                title="We couldn't load your suggestions"
+                onRetry={() => void suggestions.refetch()}
+                isRetrying={suggestions.isFetching}
+              />
             ) : suggestions.data && suggestions.data.length > 0 ? (
               <ul className="space-y-2.5">
                 {suggestions.data.slice(0, 6).map((s) => {
@@ -192,7 +205,18 @@ export default function MyTrainingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {mastery.data && mastery.data.exercises.length > 0 ? (
+            {/*
+              Mastery is computed from the same sessions the member can see listed two cards down, so
+              a failed fetch put "Train an exercise to build mastery." directly beside the evidence
+              that they have. That line is only true of someone who has never trained.
+            */}
+            {mastery.isError ? (
+              <MemberLoadError
+                title="We couldn't load your mastery"
+                onRetry={() => void mastery.refetch()}
+                isRetrying={mastery.isFetching}
+              />
+            ) : mastery.data && mastery.data.exercises.length > 0 ? (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Muscle groups</p>
@@ -219,8 +243,20 @@ export default function MyTrainingPage() {
         </Card>
 
         <SectionCard title="Assigned Workouts">
+          {/*
+            The worst of the four, because it is the only one that makes a claim about somebody else:
+            a dropped request told the member their trainer had not written them a plan. There is no
+            way to check that from this screen and every reason to believe it, and what follows is a
+            conversation at the front desk about a plan that was there all along.
+          */}
           {assignments.isLoading ? (
             <Skeleton className="h-40 w-full" />
+          ) : assignments.isError ? (
+            <MemberLoadError
+              title="We couldn't load your plan"
+              onRetry={() => void assignments.refetch()}
+              isRetrying={assignments.isFetching}
+            />
           ) : assignments.data && assignments.data.length > 0 ? (
             <ul className="space-y-2 text-sm">
               {assignments.data.map((a) => (
@@ -247,8 +283,20 @@ export default function MyTrainingPage() {
         </SectionCard>
 
         <SectionCard title="Recent Sessions">
+          {/*
+            The same shape aimed at the member's own record: "Your training history starts here" was
+            printed over a training history that already exists. The empty state below stays exactly
+            as written, because for the member it was written for — the one on session zero — it is
+            both true and the most useful thing this card can say.
+          */}
           {workouts.isLoading ? (
             <Skeleton className="h-40 w-full" />
+          ) : workouts.isError ? (
+            <MemberLoadError
+              title="We couldn't load your sessions"
+              onRetry={() => void workouts.refetch()}
+              isRetrying={workouts.isFetching}
+            />
           ) : workouts.data && workouts.data.length > 0 ? (
             <ul className="space-y-2 text-sm">
               {workouts.data.slice(0, 10).map((w) => (

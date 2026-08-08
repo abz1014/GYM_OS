@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, MessageCircle, Send, UserCircle } from 'lucide-react'
+import { CloudOff, Loader2, MessageCircle, RotateCw, Send, UserCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -95,6 +95,43 @@ export default function MyCoachPage() {
   }
 
   if (coach.isLoading) return <Skeleton className="mx-auto h-72 w-full max-w-2xl" />
+
+  /*
+   * The failure state has to come before anything reads `data`, because the shape of this page is
+   * `trainerId == null ? "no trainer" : the thread`, and a failed request produces the same
+   * `undefined` as a member who genuinely has no coach. So a dropped connection told someone paying
+   * for personal training that they have no trainer, hid the whole conversation, and pointed them at
+   * the front desk to ask about buying PT they already own. There is no version of that which is
+   * better than saying the request failed.
+   *
+   * The query sets `retry: false`, so this fires on the first dropped request — which makes the
+   * retry button the only way back short of a page reload.
+   */
+  if (coach.isError) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-5">
+        <h1 className="text-2xl font-semibold tracking-tight">My Coach</h1>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <CloudOff className="size-10 text-muted-foreground" />
+            <p className="font-medium">We couldn't load your coach</p>
+            <p className="max-w-xs text-sm text-muted-foreground">
+              This is a connection problem, not a change to your training.
+            </p>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => void coach.refetch()}
+              disabled={coach.isFetching}
+            >
+              {coach.isFetching ? <Loader2 className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
+              {coach.isFetching ? 'Trying…' : 'Try again'}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const data = coach.data
   const hasCoach = data?.trainerId != null

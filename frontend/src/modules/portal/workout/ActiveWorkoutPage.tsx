@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import {
   SESSION_SOURCE_LABEL,
@@ -238,6 +239,32 @@ export default function ActiveWorkoutPage() {
 
   if (proposal.isLoading && !running) {
     return <Skeleton className="h-96 w-full rounded-3xl shimmer" />
+  }
+
+  /**
+   * The screen below is reached through `!proposal.data?.canConfirm`, which a failed request satisfies
+   * exactly as well as a member with no plan — so a dropped fetch told someone standing at a rack that
+   * their trainer hadn't set them anything and there was nothing to start. It is the one sentence on
+   * this screen that cannot be checked from where the member is standing.
+   *
+   * Whole-screen rather than per-section here, unlike the portal pages: before a session starts, the
+   * proposal IS the screen. The manual logger comes along because the member is in the gym now and a
+   * retry that fails twice shouldn't end with them having nowhere to record what they did.
+   */
+  if (proposal.isError && !running) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4">
+        <MemberLoadError
+          title="We couldn't load your session"
+          hint="Your plan and your history are safe — we just can't reach the gym right now."
+          onRetry={() => void proposal.refetch()}
+          isRetrying={proposal.isFetching}
+        />
+        <Button asChild variant="outline" className="press h-12 w-full rounded-2xl">
+          <Link to="/log-activity">Log a workout manually</Link>
+        </Button>
+      </div>
+    )
   }
 
   // Nothing to propose — no plan, no history, no catalogue. The manual logger is the honest fallback

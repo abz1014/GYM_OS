@@ -14,7 +14,7 @@ import {
   useOverdueInvoices,
   useStillCheckedInCount,
 } from '@/modules/dashboard/api/dashboardApi'
-import { StatTile } from '@/shared/components/console'
+import { ListError, StatTile } from '@/shared/components/console'
 import { CheckInsByHourPanel } from '@/modules/dashboard/components/CheckInsByHourPanel'
 import { NeedsYouPanel } from '@/modules/dashboard/components/NeedsYouPanel'
 
@@ -85,7 +85,8 @@ export default function DashboardPage() {
   const summaryQuery = useDashboardSummary()
   useDashboardHub()
 
-  const { branch, branchCount } = useBranchScope()
+  const branchScope = useBranchScope()
+  const { branch, branchCount } = branchScope
   const stillCheckedIn = useStillCheckedInCount()
   const overdue = useOverdueInvoices()
   const atRisk = useAtRiskMembers()
@@ -104,13 +105,51 @@ export default function DashboardPage() {
 
   const heading = dateHeadingFormat.format(new Date())
 
-  if (summaryQuery.isError) {
+  /*
+   * The branch list has to be checked BEFORE the summary, and it has to be checked at all.
+   *
+   * Every query on this page is gated on `enabled: !!selectedBranchId`, and the only thing that sets
+   * that id is BranchSwitcher's effect, which runs off the branch list. So when /api/branches fails,
+   * summaryQuery is not `error` — it is `pending`, and stays pending for as long as the tab is open,
+   * because it was never enabled. The page's existing isError branch could not fire, `!summary` was
+   * true forever, and the whole dashboard sat on skeletons that no amount of waiting would resolve.
+   *
+   * A branch list that loads but is empty ends in the same place — no id, no enabled query — so it
+   * gets the same treatment, worded for what it actually is.
+   *
+   * The test is "we ended up with no branch", not "the last request errored". react-query keeps the
+   * previous data on a failed refetch, and a page that already has its branches can carry on through
+   * a background failure rather than throwing the working dashboard away over it.
+   */
+  if (!branchScope.isPending && branchCount === 0) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         <h1 className="font-display text-3xl font-black tracking-tight">{heading}</h1>
-        <p className="text-sm text-muted-foreground">
-          Something went wrong loading the dashboard. Try refreshing the page.
-        </p>
+        <ListError
+          message={
+            branchScope.isError
+              ? "We couldn't load your branches, so none of today's figures can be shown."
+              : 'No branch is available on this account, so there is nothing to report on.'
+          }
+          onRetry={branchScope.refetch}
+          isRetrying={branchScope.isFetching}
+        />
+      </div>
+    )
+  }
+
+  // `&& !summary` because this query polls every 30s: one failed poll used to replace a working
+  // dashboard with an error page. With numbers already on screen the honest thing is to leave them
+  // up — the "Updated Ns ago" chip keeps counting, which is what says they have stopped being fresh.
+  if (summaryQuery.isError && !summary) {
+    return (
+      <div className="space-y-3">
+        <h1 className="font-display text-3xl font-black tracking-tight">{heading}</h1>
+        <ListError
+          message="We couldn't load today's figures."
+          onRetry={() => void summaryQuery.refetch()}
+          isRetrying={summaryQuery.isFetching}
+        />
       </div>
     )
   }
@@ -213,37 +252,67 @@ export default function DashboardPage() {
               by status in local state — no page in this app reads a filter out of the URL. The
               matching rows in "Needs you" link to the module, which is a promise the app can keep.
             */}
+            {/*
+              A third state on both of these, between the skeleton and the number: the request
+              failed. `?? 0` in this position does not degrade gracefully — "At risk: 0" and
+              "Overdue invoices: 0" are not blanks, they are the two most reassuring numbers on the
+              screen, and a manager who reads them off a broken billing call goes home. An em dash
+              with "Couldn't load" says the one true thing instead, and drops the severity rail with
+              it: a rail on a tile with no number is a warning about nothing.
+
+              Note what is NOT collapsed into this. Both tiles are still gated on their permission
+              first, so a receptionist who cannot see billing gets a shorter row exactly as before —
+              "not allowed to see it" and "we failed to fetch it" are different facts and only one
+              of them is worth a person's attention.
+
+              And a failed REFRESH is a third fact again. The overdue query polls every 60s, so one
+              dropped poll would blank a tile that is holding a perfectly real number; the figure
+              stays and the caption says it has stopped being current, which is true of the number
+              and true of the connection.
+            */}
             {hasPermission('reports.view') &&
               (atRisk.isLoading ? (
                 <Skeleton className="h-[132px] w-full rounded-2xl" />
+              ) : atRisk.isError && !atRisk.data ? (
+                <StatTile label="At risk" value="—" caption="Couldn't load" />
               ) : (
                 <StatTile
                   label="At risk"
                   value={(atRisk.data?.length ?? 0).toLocaleString()}
                   tone="warning"
-                  caption={quietDays !== null ? `No visit in ${quietDays}+ days${allBranchesNote}` : undefined}
-                  captionTone="warning"
+                  caption={
+                    atRisk.isError
+                      ? "Couldn't refresh"
+                      : quietDays !== null
+                        ? `No visit in ${quietDays}+ days${allBranchesNote}`
+                        : undefined
+                  }
+                  captionTone={atRisk.isError ? 'muted' : 'warning'}
                 />
               ))}
 
             {hasPermission('billing.view') &&
               (overdue.isLoading ? (
                 <Skeleton className="h-[132px] w-full rounded-2xl" />
+              ) : overdue.isError && !overdue.data ? (
+                <StatTile label="Overdue invoices" value="—" caption="Couldn't load" />
               ) : (
                 <StatTile
                   label="Overdue invoices"
                   value={(overdueSummary?.count ?? 0).toLocaleString()}
                   tone="destructive"
                   caption={
-                    overdueSummary && overdueSummary.count > 0
-                      ? `${
-                          overdueSummary.outstanding
-                            ? `${money(overdueSummary.outstanding.amount, overdueSummary.outstanding.currency)} outstanding`
-                            : 'Unpaid past due'
-                        }${allBranchesNote}`
-                      : undefined
+                    overdue.isError
+                      ? "Couldn't refresh"
+                      : overdueSummary && overdueSummary.count > 0
+                        ? `${
+                            overdueSummary.outstanding
+                              ? `${money(overdueSummary.outstanding.amount, overdueSummary.outstanding.currency)} outstanding`
+                              : 'Unpaid past due'
+                          }${allBranchesNote}`
+                        : undefined
                   }
-                  captionTone="destructive"
+                  captionTone={overdue.isError ? 'muted' : 'destructive'}
                 />
               ))}
           </>

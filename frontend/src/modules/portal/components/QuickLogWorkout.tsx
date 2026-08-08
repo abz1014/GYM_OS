@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import {
   SESSION_SOURCE_LABEL,
@@ -183,6 +184,22 @@ export function QuickLogWorkout() {
 
   if (suggestions.isLoading || options.isLoading) return <Skeleton className="h-72 w-full" />
 
+  // Everything the member can pick from comes from one of three queries, and they fail separately.
+  // Losing `suggestions` costs the usual-lifts row, losing `proposal` costs the load-the-session
+  // shortcut; both are shortcuts, and a shortcut that quietly isn't there is survivable. Losing all
+  // three leaves a screen with a search box over an empty catalogue and no way to log anything, which
+  // is worth saying out loud rather than presenting as a gym with no exercises in it.
+  if (options.isError && usualLifts.length === 0 && proposed.length === 0) {
+    return (
+      <MemberLoadError
+        title="We couldn't load the exercise list"
+        hint="Nothing you've logged before is lost — we just can't reach the gym right now."
+        onRetry={() => void options.refetch()}
+        isRetrying={options.isFetching}
+      />
+    )
+  }
+
   return (
     <div className="space-y-4">
       {/* One tap to load the whole session — the fastest path for anyone on a fixed program. */}
@@ -278,22 +295,40 @@ export function QuickLogWorkout() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
-              {otherExercises.map((e) => (
-                <button
-                  key={e.id}
-                  type="button"
-                  onClick={() => openFor(e.id, e.name, null, null)}
-                  className="min-h-14 rounded-xl border-2 p-2 text-left text-sm transition-colors hover:border-primary/50 hover:bg-accent"
-                >
-                  <span className="font-medium leading-tight">{e.name}</span>
-                  {e.muscleGroup && <span className="block text-xs text-muted-foreground">{e.muscleGroup}</span>}
-                </button>
-              ))}
-              {otherExercises.length === 0 && (
-                <p className="col-span-full py-4 text-center text-sm text-muted-foreground">No matches.</p>
-              )}
-            </div>
+            {/*
+              `otherExercises` is filtered out of `options.data?.exercises ?? []`, so a catalogue that
+              failed to arrive matches nothing — and the panel answered every term the member typed
+              with "No matches.", which is a claim that this gym has no exercise by that name. It said
+              it for "bench", confidently, once per keystroke.
+              This stays a panel-level error rather than taking the screen down with it: the row of
+              usual lifts above comes from a different query and is frequently still working, and
+              logging what you always log is the path most members are on anyway.
+            */}
+            {options.isError ? (
+              <MemberLoadError
+                title="We couldn't load the exercise list"
+                hint="This is our connection, not your gym's catalogue — your usual lifts above still work."
+                onRetry={() => void options.refetch()}
+                isRetrying={options.isFetching}
+              />
+            ) : (
+              <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+                {otherExercises.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => openFor(e.id, e.name, null, null)}
+                    className="min-h-14 rounded-xl border-2 p-2 text-left text-sm transition-colors hover:border-primary/50 hover:bg-accent"
+                  >
+                    <span className="font-medium leading-tight">{e.name}</span>
+                    {e.muscleGroup && <span className="block text-xs text-muted-foreground">{e.muscleGroup}</span>}
+                  </button>
+                ))}
+                {otherExercises.length === 0 && (
+                  <p className="col-span-full py-4 text-center text-sm text-muted-foreground">No matches.</p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

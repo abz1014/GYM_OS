@@ -40,6 +40,7 @@ import {
   useWorkoutActivityReport,
 } from '@/modules/reports/api/reportsApi'
 import { SimpleBarChart } from '@/modules/reports/components/SimpleBarChart'
+import { PanelError } from '@/shared/components/console'
 import { useTrainersList } from '@/modules/trainers/api/trainersApi'
 
 function ExportButton({ onExport }: { onExport: () => Promise<void> }) {
@@ -88,6 +89,40 @@ function ReportCard({
 }
 
 /**
+ * The status half of every card on this page: still asking, asked and failed, or here it is.
+ *
+ * It exists because the third state was missing everywhere. Each card was `isLoading ? skeleton :
+ * chart(data ?? [])`, which collapses "the request failed" into "the answer is nothing" — a page of
+ * flat charts and "No data for this period." rows, indistinguishable from a quiet month. That is the
+ * worst possible failure for a reports screen, because a report is read precisely by someone who
+ * does not already know the answer and has no way to tell that the zero is fake.
+ *
+ * The distinction it does NOT erase is the real empty result. A chart with no bars and a table
+ * saying "No data for this period." are still correct when the request succeeded and returned
+ * nothing, and both are left exactly as they were for that case.
+ *
+ * `children` is evaluated by the caller before this runs, so every body below still reads its data
+ * through `?? []` / optional chaining rather than assuming it exists.
+ */
+function CardBody({
+  query,
+  skeletonClassName = 'h-48 w-full',
+  children,
+}: {
+  query: { isLoading: boolean; isError: boolean; isFetching: boolean; refetch: () => unknown }
+  skeletonClassName?: string
+  children: React.ReactNode
+}) {
+  if (query.isLoading) {
+    return <Skeleton className={skeletonClassName} />
+  }
+  if (query.isError) {
+    return <PanelError message="We couldn't load this report." onRetry={() => void query.refetch()} isRetrying={query.isFetching} />
+  }
+  return <>{children}</>
+}
+
+/**
  * One figure in a report's summary row. Takes the value already formatted, and takes it as a string
  * rather than a number so the caller has to have decided what to do about a missing one — see the
  * capture-rate and engagement rows, where a failed request used to render "0%".
@@ -102,56 +137,47 @@ function ReportFigure({ value, label }: { value: string; label: string }) {
 }
 
 function RevenueTab() {
-  const { data, isLoading } = useRevenueReport(6)
+  const query = useRevenueReport(6)
 
   return (
     <ReportCard title="Revenue (last 6 months)" action={<ExportButton onExport={() => exportRevenueReport(6)} />}>
-      {isLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : (
+      <CardBody query={query}>
         <SimpleBarChart
-          data={(data ?? []).map((p) => ({ label: p.period, value: p.revenue }))}
+          data={(query.data ?? []).map((p) => ({ label: p.period, value: p.revenue }))}
           valueFormatter={(v) => `$${v.toLocaleString()}`}
         />
-      )}
+      </CardBody>
     </ReportCard>
   )
 }
 
 function AttendanceTab() {
-  const { data, isLoading } = useAttendanceReport(30)
+  const query = useAttendanceReport(30)
 
   return (
     <ReportCard title="Attendance (last 30 days)" action={<ExportButton onExport={() => exportAttendanceReport(30)} />}>
-      {isLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : (
-        <SimpleBarChart
-          data={(data ?? []).map((p) => ({ label: p.date.slice(5), value: p.checkIns }))}
-        />
-      )}
+      <CardBody query={query}>
+        <SimpleBarChart data={(query.data ?? []).map((p) => ({ label: p.date.slice(5), value: p.checkIns }))} />
+      </CardBody>
     </ReportCard>
   )
 }
 
 function MembershipTab() {
-  const { data, isLoading } = useMembershipBreakdownReport()
+  const query = useMembershipBreakdownReport()
+  const data = query.data
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <ReportCard title="Members by Status" action={<ExportButton onExport={exportMembershipReport} />}>
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={query}>
           <SimpleBarChart data={Object.entries(data?.byStatus ?? {}).map(([label, value]) => ({ label, value }))} />
-        )}
+        </CardBody>
       </ReportCard>
       <ReportCard title="Active Memberships by Plan Type">
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={query}>
           <SimpleBarChart data={Object.entries(data?.byPlanType ?? {}).map(([label, value]) => ({ label, value }))} />
-        )}
+        </CardBody>
       </ReportCard>
     </div>
   )
@@ -195,15 +221,13 @@ function DataTable<T>({
 }
 
 function TrainersTab() {
-  const { data, isLoading } = useTrainersList()
-  const { data: commissions, isLoading: isLoadingCommissions } = useTrainerCommissionReport(6)
+  const trainers = useTrainersList()
+  const commissions = useTrainerCommissionReport(6)
 
   return (
     <div className="space-y-4">
       <ReportCard title="Trainer Performance">
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={trainers}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -216,7 +240,7 @@ function TrainersTab() {
                 </tr>
               </thead>
               <tbody>
-                {data?.map((t) => (
+                {trainers.data?.map((t) => (
                   <tr key={t.id} className="border-b last:border-0">
                     <td className="py-2 pr-4">{t.fullName}</td>
                     <td className="py-2 pr-4">{t.activeClientCount}</td>
@@ -230,18 +254,16 @@ function TrainersTab() {
               </tbody>
             </table>
           </div>
-        )}
+        </CardBody>
       </ReportCard>
 
       <ReportCard
         title="Commissions (last 6 months)"
         action={<ExportButton onExport={() => exportTrainerCommissionReport(6)} />}
       >
-        {isLoadingCommissions ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={commissions}>
           <DataTable
-            rows={commissions ?? []}
+            rows={commissions.data ?? []}
             keyFor={(r) => r.trainerName}
             columns={[
               { header: 'Trainer', render: (r) => r.trainerName },
@@ -250,39 +272,35 @@ function TrainersTab() {
               { header: 'Records', render: (r) => r.recordCount },
             ]}
           />
-        )}
+        </CardBody>
       </ReportCard>
     </div>
   )
 }
 
 function InventoryTab() {
-  const { data: inventoryPage, isLoading } = useInventoryItemsList({ page: 1, pageSize: 100 })
-  const data = inventoryPage?.items
+  const inventory = useInventoryItemsList({ page: 1, pageSize: 100 })
+  const data = inventory.data?.items
   const lowStockCount = data?.filter((i) => i.isLowStock).length ?? 0
-  const { data: movements, isLoading: isLoadingMovements } = useInventoryStockMovementReport(30)
+  const movements = useInventoryStockMovementReport(30)
 
   return (
     <div className="space-y-4">
+      {/* The "— N low stock" suffix stays gated on `data`, so a failed request drops the claim from
+          the heading rather than titling the card "0 low stock". */}
       <ReportCard title={`Inventory Levels${data ? ` — ${lowStockCount} low stock` : ''}`}>
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
-          <SimpleBarChart
-            data={(data ?? []).map((i) => ({ label: i.name, value: i.quantityOnHand }))}
-          />
-        )}
+        <CardBody query={inventory}>
+          <SimpleBarChart data={(data ?? []).map((i) => ({ label: i.name, value: i.quantityOnHand }))} />
+        </CardBody>
       </ReportCard>
 
       <ReportCard
         title="Stock Movement (last 30 days)"
         action={<ExportButton onExport={() => exportInventoryStockMovementReport(30)} />}
       >
-        {isLoadingMovements ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={movements}>
           <DataTable
-            rows={movements ?? []}
+            rows={movements.data ?? []}
             keyFor={(r) => r.sku}
             columns={[
               { header: 'Item', render: (r) => r.itemName },
@@ -293,40 +311,36 @@ function InventoryTab() {
               { header: 'On Hand', render: (r) => r.currentQuantityOnHand },
             ]}
           />
-        )}
+        </CardBody>
       </ReportCard>
     </div>
   )
 }
 
 function EquipmentTab() {
-  const { data: assetsPage, isLoading } = useAssetsList({ page: 1, pageSize: 100 })
-  const data = assetsPage?.items
+  const assets = useAssetsList({ page: 1, pageSize: 100 })
+  const data = assets.data?.items
   const counts = (data ?? []).reduce<Record<string, number>>((acc, a) => {
     acc[a.status] = (acc[a.status] ?? 0) + 1
     return acc
   }, {})
-  const { data: downtime, isLoading: isLoadingDowntime } = useEquipmentDowntimeReport(6)
+  const downtime = useEquipmentDowntimeReport(6)
 
   return (
     <div className="space-y-4">
       <ReportCard title="Equipment Status Breakdown">
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={assets}>
           <SimpleBarChart data={Object.entries(counts).map(([label, value]) => ({ label, value }))} />
-        )}
+        </CardBody>
       </ReportCard>
 
       <ReportCard
         title="Downtime & Maintenance Cost (last 6 months)"
         action={<ExportButton onExport={() => exportEquipmentDowntimeReport(6)} />}
       >
-        {isLoadingDowntime ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={downtime}>
           <DataTable
-            rows={downtime ?? []}
+            rows={downtime.data ?? []}
             keyFor={(r) => r.assetTag}
             columns={[
               { header: 'Asset', render: (r) => r.assetName },
@@ -336,29 +350,26 @@ function EquipmentTab() {
               { header: 'Maintenance Cost', render: (r) => `$${r.totalMaintenanceCost.toLocaleString()}` },
             ]}
           />
-        )}
+        </CardBody>
       </ReportCard>
     </div>
   )
 }
 
 function CrmTab() {
-  const { data, isLoading } = useCrmPipelineConversionReport()
+  const query = useCrmPipelineConversionReport()
+  const data = query.data
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <ReportCard title="Pipeline by Stage" action={<ExportButton onExport={exportCrmPipelineReport} />}>
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={query}>
           <SimpleBarChart data={Object.entries(data?.byStage ?? {}).map(([label, value]) => ({ label, value }))} />
-        )}
+        </CardBody>
       </ReportCard>
       <ReportCard title="Conversion">
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
-          !data ? (
+        <CardBody query={query}>
+          {!data ? (
             <p className="text-sm text-muted-foreground">Conversion figures aren't available right now.</p>
           ) : (
             <div className="flex flex-col gap-2 text-sm">
@@ -366,16 +377,16 @@ function CrmTab() {
               <p>Converted to members: <span className="font-medium tabular-nums">{data.convertedCount.toLocaleString()}</span></p>
               <p>Conversion rate: <span className="font-medium tabular-nums">{data.conversionRatePercent}%</span></p>
             </div>
-          )
-        )}
+          )}
+        </CardBody>
       </ReportCard>
     </div>
   )
 }
 
 function MaintenanceTab() {
-  const { data: workOrdersPage, isLoading } = useWorkOrdersList({ page: 1, pageSize: 100 })
-  const data = workOrdersPage?.items
+  const workOrders = useWorkOrdersList({ page: 1, pageSize: 100 })
+  const data = workOrders.data?.items
   const overdueCount = data?.filter((w) => w.isOverdue).length ?? 0
   const counts = (data ?? []).reduce<Record<string, number>>((acc, w) => {
     acc[w.status] = (acc[w.status] ?? 0) + 1
@@ -384,35 +395,30 @@ function MaintenanceTab() {
 
   return (
     <ReportCard title={`Work Orders by Status${data ? ` — ${overdueCount} overdue` : ''}`}>
-      {isLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : (
+      <CardBody query={workOrders}>
         <SimpleBarChart data={Object.entries(counts).map(([label, value]) => ({ label, value }))} />
-      )}
+      </CardBody>
     </ReportCard>
   )
 }
 
 function WorkoutsTab() {
-  const { data, isLoading } = useWorkoutActivityReport(30)
+  const query = useWorkoutActivityReport(30)
+  const data = query.data
 
   return (
     <div className="space-y-4">
       <ReportCard title="Most Logged Exercises (last 30 days)">
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={query}>
           <SimpleBarChart data={(data ?? []).slice(0, 10).map((r) => ({ label: r.exerciseName, value: r.timesLogged }))} />
-        )}
+        </CardBody>
       </ReportCard>
 
       <ReportCard
         title="Workout Activity (last 30 days)"
         action={<ExportButton onExport={() => exportWorkoutActivityReport(30)} />}
       >
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={query}>
           <DataTable
             rows={data ?? []}
             keyFor={(r) => r.exerciseName}
@@ -425,45 +431,42 @@ function WorkoutsTab() {
               { header: 'Avg Weight (kg)', render: (r) => r.avgWeightKg?.toFixed(1) ?? '—' },
             ]}
           />
-        )}
+        </CardBody>
       </ReportCard>
     </div>
   )
 }
 
 function NutritionTab() {
-  const { data, isLoading } = useNutritionReport(30)
+  const query = useNutritionReport(30)
+  const data = query.data
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ReportCard title="Most Logged Food Items (last 30 days)">
-          {isLoading ? (
-            <Skeleton className="h-48 w-full" />
-          ) : (
+          <CardBody query={query}>
             <SimpleBarChart
               data={(data?.topFoodItems ?? []).slice(0, 10).map((r) => ({ label: r.foodItemName, value: r.timesLogged }))}
             />
-          )}
+          </CardBody>
         </ReportCard>
         <ReportCard title="Logging Summary">
-          {isLoading ? (
-            <Skeleton className="h-48 w-full" />
-          ) : (
+          {/* Four `?? 0`s used to survive a failed request here and print a gym where nobody ate,
+              drank or logged anything for a month. CardBody takes them off the screen instead. */}
+          <CardBody query={query} skeletonClassName="h-24 w-full">
             <div className="flex flex-col gap-2 text-sm">
               <p>Meal entries logged: <span className="font-medium tabular-nums">{(data?.totalMealEntriesLogged ?? 0).toLocaleString()}</span></p>
               <p>Total calories logged: <span className="font-medium tabular-nums">{(data?.totalCaloriesLogged ?? 0).toLocaleString()}</span></p>
               <p>Water logs: <span className="font-medium tabular-nums">{(data?.totalWaterLogsLogged ?? 0).toLocaleString()}</span></p>
               <p>Total water logged: <span className="font-medium tabular-nums">{((data?.totalWaterMlLogged ?? 0) / 1000).toFixed(1)} L</span></p>
             </div>
-          )}
+          </CardBody>
         </ReportCard>
       </div>
 
       <ReportCard title="Food Item Breakdown" action={<ExportButton onExport={() => exportNutritionReport(30)} />}>
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={query}>
           <DataTable
             rows={data?.topFoodItems ?? []}
             keyFor={(r) => r.foodItemName}
@@ -473,16 +476,17 @@ function NutritionTab() {
               { header: 'Total Calories', render: (r) => r.totalCaloriesLogged.toLocaleString() },
             ]}
           />
-        )}
+        </CardBody>
       </ReportCard>
     </div>
   )
 }
 
 function AnalyticsTab() {
-  const { data: atRisk, isLoading: isLoadingAtRisk } = useAtRiskMembersReport()
-  const { data: cohorts, isLoading: isLoadingCohorts } = useCohortRetentionReport(12)
-  const { data: ltv, isLoading: isLoadingLtv } = useLtvBySourceReport()
+  const atRiskQuery = useAtRiskMembersReport()
+  const atRisk = atRiskQuery.data
+  const cohortsQuery = useCohortRetentionReport(12)
+  const ltvQuery = useLtvBySourceReport()
 
   return (
     <div className="space-y-4">
@@ -490,11 +494,14 @@ function AnalyticsTab() {
         title={`At-Risk Members${atRisk ? ` — ${atRisk.length} quiet ${atRisk.length === 1 ? 'member' : 'members'}` : ''}`}
         action={<ExportButton onExport={exportAtRiskMembersReport} />}
       >
-        {isLoadingAtRisk ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (atRisk ?? []).length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">No active members have gone quiet right now.</p>
-        ) : (
+        {/* "No active members have gone quiet right now." is the single most reassuring sentence on
+            this page and it used to be printed by a dropped connection. It is still the right thing
+            to say for a genuinely empty result, which is why it stays INSIDE CardBody rather than
+            being merged with the failure state. */}
+        <CardBody query={atRiskQuery}>
+          {(atRisk ?? []).length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No active members have gone quiet right now.</p>
+          ) : (
           <DataTable
             rows={atRisk ?? []}
             keyFor={(r) => r.memberId}
@@ -515,29 +522,26 @@ function AnalyticsTab() {
               },
             ]}
           />
-        )}
+          )}
+        </CardBody>
       </ReportCard>
 
       <ReportCard
         title="Cohort Retention (last 12 months)"
         action={<ExportButton onExport={() => exportCohortRetentionReport(12)} />}
       >
-        {isLoadingCohorts ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={cohortsQuery}>
           <SimpleBarChart
-            data={(cohorts ?? []).map((c) => ({ label: c.cohortMonth, value: c.retentionRatePercent }))}
+            data={(cohortsQuery.data ?? []).map((c) => ({ label: c.cohortMonth, value: c.retentionRatePercent }))}
             valueFormatter={(v) => `${v}%`}
           />
-        )}
+        </CardBody>
       </ReportCard>
 
       <ReportCard title="Lifetime Value by Acquisition Source" action={<ExportButton onExport={exportLtvBySourceReport} />}>
-        {isLoadingLtv ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
+        <CardBody query={ltvQuery}>
           <DataTable
-            rows={ltv ?? []}
+            rows={ltvQuery.data ?? []}
             keyFor={(r) => r.source}
             columns={[
               { header: 'Source', render: (r) => r.source },
@@ -546,7 +550,7 @@ function AnalyticsTab() {
               { header: 'Avg LTV / Member', render: (r) => `$${r.averageLtv.toLocaleString()}` },
             ]}
           />
-        )}
+        </CardBody>
       </ReportCard>
     </div>
   )
@@ -572,10 +576,28 @@ function GateMetricsCard() {
   const capture = useLoggingCaptureReport(12)
   const returns = useReturnRateReport()
 
+  /*
+   * Two independent requests, so three outcomes rather than two. Both down is a dead card and says
+   * so; one down leaves the half that loaded on screen — a real capture rate is worth reading even
+   * when the return cohort is missing — with a line naming what the em dashes are standing in for.
+   * Without that line the dashes read as "this gym has no data", which is a different and much worse
+   * statement than "we couldn't fetch it".
+   */
+  const bothFailed = capture.isError && returns.isError
+
   return (
     <ReportCard title="Gate metrics">
       {capture.isLoading || returns.isLoading ? (
         <Skeleton className="h-40 w-full rounded-2xl" />
+      ) : bothFailed ? (
+        <PanelError
+          message="We couldn't load the gate metrics."
+          onRetry={() => {
+            void capture.refetch()
+            void returns.refetch()
+          }}
+          isRetrying={capture.isFetching || returns.isFetching}
+        />
       ) : (
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
@@ -611,6 +633,13 @@ function GateMetricsCard() {
             />
           </div>
 
+          {capture.isError && (
+            <p className="text-sm text-muted-foreground">
+              Capture rate, time-to-log and sessions per member couldn't be loaded — those dashes are
+              missing figures, not zeroes.
+            </p>
+          )}
+
           {/*
             Time-to-log measures arrival to record, not the tap itself. The roadmap's "under five
             seconds" is an interaction latency and nothing in this system observes one — there is no
@@ -638,7 +667,9 @@ function GateMetricsCard() {
             <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
               Return rate after joining
             </p>
-            {!returns.data ? (
+            {returns.isError ? (
+              <p className="mt-2 text-sm text-muted-foreground">We couldn't load the return rates.</p>
+            ) : !returns.data ? (
               <p className="mt-2 text-sm text-muted-foreground">Return figures aren't available right now.</p>
             ) : (
               <div className="mt-2 flex flex-wrap gap-2">
@@ -675,13 +706,12 @@ function GateMetricsCard() {
 }
 
 function LoggingCaptureCard() {
-  const { data, isLoading } = useLoggingCaptureReport(12)
+  const query = useLoggingCaptureReport(12)
+  const data = query.data
 
   return (
     <ReportCard title="Workout capture rate (last 12 weeks)">
-      {isLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : (
+      <CardBody query={query}>
         <div className="space-y-4">
           {/* No `?? 0` here on purpose. A request that failed used to render "0% of visits were
               logged", which is not a neutral placeholder — it is a specific, alarming, false claim
@@ -716,23 +746,22 @@ function LoggingCaptureCard() {
             100% is training this gym did that the app never saw.
           </p>
         </div>
-      )}
+      </CardBody>
     </ReportCard>
   )
 }
 
 function EngagementTab() {
-  const { data, isLoading } = useEngagementSummary()
+  const query = useEngagementSummary()
+  const data = query.data
 
   return (
     <div className="space-y-4">
       <GateMetricsCard />
       <LoggingCaptureCard />
       <ReportCard title="Engagement Overview">
-        {isLoading ? (
-          <Skeleton className="h-24 w-full" />
-        ) : (
-          !data ? (
+        <CardBody query={query} skeletonClassName="h-24 w-full">
+          {!data ? (
             <p className="text-sm text-muted-foreground">Engagement figures aren't available right now.</p>
           ) : (
             <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
@@ -744,24 +773,28 @@ function EngagementTab() {
                 label="Challenges completed / joined"
               />
             </div>
-          )
-        )}
+          )}
+        </CardBody>
       </ReportCard>
 
       <ReportCard title="Level Distribution">
-        {isLoading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (data?.levelDistribution ?? []).length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">No members have earned XP yet.</p>
-        ) : (
-          <SimpleBarChart data={(data?.levelDistribution ?? []).map((r) => ({ label: `Lvl ${r.level}`, value: r.memberCount }))} />
-        )}
+        {/* "No members have earned XP yet." is a statement about the gym's engagement programme, and
+            it was previously made on behalf of any failed request. It belongs to the empty result
+            only, so it sits inside CardBody. */}
+        <CardBody query={query}>
+          {(data?.levelDistribution ?? []).length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No members have earned XP yet.</p>
+          ) : (
+            <SimpleBarChart data={(data?.levelDistribution ?? []).map((r) => ({ label: `Lvl ${r.level}`, value: r.memberCount }))} />
+          )}
+        </CardBody>
       </ReportCard>
 
       <ReportCard title="Retention Correlation">
-        {isLoading ? (
-          <Skeleton className="h-24 w-full" />
-        ) : (
+        {/* Six `?? 0`s and a `.toFixed(1)` over them: a failed request read "At-risk members (0):
+            average level 0.0 … Not enough at-risk members yet to draw a correlation", which is a
+            complete, plausible, entirely fabricated finding. */}
+        <CardBody query={query} skeletonClassName="h-24 w-full">
           <div className="flex flex-col gap-2 text-sm">
             <p>
               At-risk members (<span className="tabular-nums">{data?.retention.atRiskMemberCount ?? 0}</span>): average level{' '}
@@ -777,7 +810,7 @@ function EngagementTab() {
                 : 'Not enough at-risk members yet to draw a correlation.'}
             </p>
           </div>
-        )}
+        </CardBody>
       </ReportCard>
     </div>
   )

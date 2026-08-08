@@ -9,6 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton'
  * reach the server", "there is genuinely nothing here", and "we are still asking" are three
  * different facts, and a list that renders "No results" while the request is still in flight — or
  * worse, while it has failed — tells staff the gym has no members.
+ *
+ * PanelError is the fourth: the failure state again, for a panel that already has a card around it.
  */
 
 /**
@@ -32,6 +34,40 @@ export function ListError({
         <RotateCw className={isRetrying ? 'size-4 animate-spin' : 'size-4'} />
         {isRetrying ? 'Trying…' : 'Try again'}
       </Button>
+    </div>
+  )
+}
+
+/**
+ * The same fact as ListError, without the card around it.
+ *
+ * Report cards and dashboard panels already draw their own border and ground, and nesting ListError
+ * inside one puts a second bordered box a few pixels inside the first, which reads as a rendering
+ * fault rather than as an error. This is what goes in the body of a panel that has chrome of its own.
+ *
+ * The default wording is deliberately about the request, not about the gym. "No data for this
+ * period" is a claim about the business; "we couldn't load this" is a claim about the network, and
+ * only one of them is true when a request has failed.
+ */
+export function PanelError({
+  message = "We couldn't load this.",
+  onRetry,
+  isRetrying,
+}: {
+  message?: string
+  onRetry?: () => void
+  isRetrying?: boolean
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-8 text-center">
+      <CloudOff className="size-6 text-muted-foreground" aria-hidden />
+      <p className="text-sm text-muted-foreground">{message}</p>
+      {onRetry && (
+        <Button variant="outline" size="sm" className="mt-1 rounded-xl" onClick={onRetry} disabled={isRetrying}>
+          <RotateCw className={isRetrying ? 'size-4 animate-spin' : 'size-4'} />
+          {isRetrying ? 'Trying…' : 'Try again'}
+        </Button>
+      )}
     </div>
   )
 }

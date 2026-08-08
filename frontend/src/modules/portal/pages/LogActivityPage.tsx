@@ -3,7 +3,7 @@ import { Dumbbell, GlassWater, Loader2, Ruler, UtensilsCrossed } from 'lucide-re
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
-import { MemberEmptyState } from '@/modules/portal/components/portalShared'
+import { MemberEmptyState, MemberLoadError } from '@/modules/portal/components/portalShared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -25,8 +25,8 @@ import {
 const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
 
 function RecentWorkouts() {
-  const { data: logs } = useMyWorkoutLogs()
-  const recent = (logs ?? []).slice(0, 8)
+  const logs = useMyWorkoutLogs()
+  const recent = (logs.data ?? []).slice(0, 8)
 
   return (
     <Card>
@@ -34,7 +34,21 @@ function RecentWorkouts() {
         <CardTitle className="text-base">Recent sessions</CardTitle>
       </CardHeader>
       <CardContent>
-        {recent.length === 0 ? (
+        {/*
+          `(logs.data ?? [])` flattens a failed request into the same empty array as a new member, and
+          this card sits directly under the logger — so the one place the mistake gets acted on. A
+          member who has just logged a session, sees "Your first session goes here", and concludes the
+          save didn't take will log it again, and the second copy is real. The query is read as a
+          whole here rather than destructured, so the failure has something to say and a way back.
+        */}
+        {logs.isError ? (
+          <MemberLoadError
+            title="We couldn't load your recent sessions"
+            hint="Anything you just logged was saved — this list is what we can't read back."
+            onRetry={() => void logs.refetch()}
+            isRetrying={logs.isFetching}
+          />
+        ) : recent.length === 0 ? (
           <MemberEmptyState icon={Dumbbell} title="Your first session goes here" hint="Log a workout above and it shows up straight away." />
         ) : (
           <div className="space-y-2">
@@ -54,7 +68,12 @@ function RecentWorkouts() {
 const WATER_PRESETS = [250, 500, 750]
 
 function LogNutritionTab() {
-  const { data: options, isLoading } = useMyLoggingOptions()
+  // Kept as the query object rather than destructured straight to `data`, because down in the meal
+  // card a failed load and a member with no diet plan both arrive as `undefined` and have to be told
+  // apart. `options` and `isLoading` stay as they were so the rest of the tab reads unchanged.
+  const optionsQuery = useMyLoggingOptions()
+  const options = optionsQuery.data
+  const isLoading = optionsQuery.isLoading
   const { data: summary } = useMyNutritionSummary()
   const logWater = useLogMyWater()
   const logMeal = useLogMyMeal()
@@ -109,7 +128,21 @@ function LogNutritionTab() {
           <CardTitle className="text-base">Meal</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!hasPlan ? (
+          {/*
+            `hasPlan` is false when the member has no plan and false when the request for it failed,
+            and the branch below reacts to both by blaming the trainer and closing meal logging down
+            entirely — the member is told to go and ask for something they already have, and then
+            given no way to log the meal they are sitting in front of. The error branch says what
+            actually happened and offers the retry that gets the form back.
+          */}
+          {optionsQuery.isError ? (
+            <MemberLoadError
+              title="We couldn't load your meal options"
+              hint="Your plan and today's meals are safe — we just can't reach them right now."
+              onRetry={() => void optionsQuery.refetch()}
+              isRetrying={optionsQuery.isFetching}
+            />
+          ) : !hasPlan ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
               You don't have an active diet plan yet — ask your trainer to set one up and meal logging will
               open up here.
@@ -125,11 +158,23 @@ function LogNutritionTab() {
                       <SelectValue placeholder="Pick a food" />
                     </SelectTrigger>
                     <SelectContent>
-                      {options?.foods.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.name} · {f.caloriesPerServing} kcal / {f.servingSizeDescription}
-                        </SelectItem>
-                      ))}
+                      {/*
+                        A failed request no longer reaches this far — the card above intercepts it —
+                        so an empty list here means the gym has genuinely entered no foods. Left to
+                        itself the dropdown opened onto blank space, which reads as a broken control
+                        rather than an empty catalogue.
+                      */}
+                      {options?.foods.length ? (
+                        options.foods.map((f) => (
+                          <SelectItem key={f.id} value={f.id}>
+                            {f.name} · {f.caloriesPerServing} kcal / {f.servingSizeDescription}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <p className="px-2 py-3 text-center text-sm text-muted-foreground">
+                          Your gym hasn't added any foods yet.
+                        </p>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

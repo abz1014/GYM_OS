@@ -2,6 +2,7 @@ import { CheckCircle2, Circle, Hourglass, MapPin } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import { useMyPassport, type MyPassportEntry } from '@/modules/portal/api/portalApi'
 
 /** Plain words for how long ago, because "41 days" is arithmetic and "6 weeks ago" is a memory. */
@@ -58,6 +59,30 @@ export default function MyPassportPage() {
   const passport = useMyPassport()
 
   if (passport.isLoading) return <Skeleton className="mx-auto h-96 w-full max-w-2xl" />
+
+  /*
+   * `if (!data) return null` was doing double duty: TypeScript narrowing, and — because the query
+   * sets `retry: false` — the entire failure path. One dropped request left a member looking at the
+   * tab bar over a completely blank page, with nothing to read, nothing to press and no indication
+   * that anything had gone wrong at all. The narrowing is still needed; the failure now says so.
+   */
+  if (passport.isError) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-5">
+        <h1 className="text-2xl font-semibold tracking-tight">Gym Passport</h1>
+        <Card>
+          <CardContent className="py-6">
+            <MemberLoadError
+              title="We couldn't load your passport"
+              hint="Everything you've tried is still on your record."
+              onRetry={() => void passport.refetch()}
+              isRetrying={passport.isFetching}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const data = passport.data
   if (!data) return null

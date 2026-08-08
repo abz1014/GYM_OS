@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
+import { useBranchesQuery, type Branch } from '@/shared/hooks/useBranches'
 import type { PagedList } from '@/types/paging'
 import type { InvoiceListItem } from '@/modules/billing/api/billingApi'
 import type { CrmPipelineSummary } from '@/modules/crm/api/crmApi'
@@ -55,10 +56,20 @@ function toDateOnlyString(date: Date): string {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
-interface BranchOption {
-  id: string
-  name: string
-  currency: string
+interface BranchScope {
+  branch: Branch | null
+  branchCount: number
+  /**
+   * The branch list itself failed. Nothing on this page can be trusted while this is true: the
+   * branch-scoped queries below are gated on a branch id that will never arrive, so they sit in
+   * `pending` rather than reporting an error of their own — the caller has to say so on their behalf.
+   */
+  isError: boolean
+  /** Still asking for the first time. Distinct from `isError` so the caller can keep showing skeletons for one and not the other. */
+  isPending: boolean
+  /** A request is in flight, first or retried — for the spinner on the retry control. */
+  isFetching: boolean
+  refetch: () => void
 }
 
 /**
@@ -68,18 +79,25 @@ interface BranchOption {
  * something different on a one-branch tenant than on a three-branch one.
  *
  * Deliberately shares BranchSwitcher's ['branches'] cache: same endpoint, same response, and the
- * switcher has already fetched it by the time this screen mounts.
+ * switcher has already fetched it by the time this screen mounts. It now shares the hook as well, so
+ * the two can't drift.
+ *
+ * The status fields are the point. This used to destructure `data` alone, which made the single most
+ * consequential failure in the console completely silent — see useBranchesQuery for why a failed
+ * /api/branches leaves every other query pending forever instead of failing.
  */
-export function useBranchScope(): { branch: BranchOption | null; branchCount: number } {
+export function useBranchScope(): BranchScope {
   const branchId = useUiStore((s) => s.selectedBranchId)
-  const { data } = useQuery({
-    queryKey: ['branches'],
-    queryFn: async () => (await apiClient.get<BranchOption[]>('/api/branches')).data,
-  })
+  const query = useBranchesQuery()
+  const { data } = query
 
   return {
     branch: data?.find((b) => b.id === branchId) ?? null,
     branchCount: data?.length ?? 0,
+    isError: query.isError,
+    isPending: query.isPending,
+    isFetching: query.isFetching,
+    refetch: () => void query.refetch(),
   }
 }
 

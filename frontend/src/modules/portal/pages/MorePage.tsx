@@ -6,6 +6,7 @@ import { useLogout } from '@/modules/auth/api/authApi'
 import { useMyToday, useMyProfile } from '@/modules/portal/api/portalApi'
 import { useAuthStore } from '@/stores/authStore'
 import { Bloom, GrainOverlay } from '@/shared/components/uplift'
+import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import { MEMBER_MORE_LINKS, type MemberMoreLink } from '@/shared/nav/memberNav'
 
 const GROUP_ORDER: MemberMoreLink['group'][] = ['Training', 'Community', 'Account']
@@ -61,6 +62,23 @@ export default function MorePage() {
               : 'Your gym'}
         </p>
       </div>
+
+      {/*
+        The hero card is the member code — the thing someone is holding this screen up at the front
+        desk to show. When the profile request failed the whole card simply wasn't there, which
+        reads as "this app doesn't have a card" rather than "we couldn't fetch it", and leaves a
+        member standing at the desk with no code and no idea why. It says so now, in the same slot.
+      */}
+      {profile.isError && (
+        <div className="rounded-3xl border border-border bg-card p-2 edge-light">
+          <MemberLoadError
+            title="We couldn't load your membership card"
+            hint="Your membership hasn't changed — the front desk can look up your code."
+            onRetry={() => void profile.refetch()}
+            isRetrying={profile.isFetching}
+          />
+        </div>
+      )}
 
       {profile.data && (
         <Link

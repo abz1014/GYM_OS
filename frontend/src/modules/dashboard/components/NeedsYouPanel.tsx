@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, CloudOff } from 'lucide-react'
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -160,11 +160,40 @@ export function NeedsYouPanel({ summary }: { summary: DashboardSummary | undefin
 
   const isLoading = !summary || overdue.isLoading || leads.isLoading
 
+  /*
+   * Which sources this queue is missing, by name.
+   *
+   * A row only renders when its count is above zero, which is what makes an empty queue meaningful —
+   * and which is exactly what made a failure indistinguishable from calm. A dead billing call ended
+   * with no invoice row, and if the rest of the gym happened to be quiet the panel printed "Nothing
+   * in the queue right now." over an unknown number of overdue invoices. So the failures are named,
+   * the all-clear is withheld whenever there is one, and any rows that DID load are still shown —
+   * "we're missing billing" is more useful than throwing away the two facts we have.
+   *
+   * `summary` is not in this list: DashboardPage renders an error for the whole page when the
+   * summary call fails, so by the time this panel is mounted with data, that one has succeeded.
+   * Nor are queries the user has no permission for — those are disabled, never error, and their
+   * absence is correct rather than a fault.
+   */
+  const missing: string[] = []
+  // `&& !data`: the overdue query polls every 60s, and a failed poll on top of a good answer leaves
+  // the row on screen — saying the queue is missing invoices directly above the invoice row would be
+  // the panel contradicting itself.
+  if (overdue.isError && !overdue.data) missing.push('overdue invoices')
+  if (leads.isError && !leads.data) missing.push('new leads')
+
+  const retryMissing = () => {
+    if (overdue.isError) void overdue.refetch()
+    if (leads.isError) void leads.refetch()
+  }
+
   return (
     <section className="flex flex-col rounded-3xl border border-border bg-card p-6 edge-light-soft">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-display text-lg font-bold tracking-tight">Needs you</h2>
-        {rows.length > 0 && (
+        {/* No badge while anything is missing: the number would be a count of the queue, and this is
+            a count of the part of it that loaded. */}
+        {rows.length > 0 && missing.length === 0 && (
           <span className="flex min-w-6 items-center justify-center rounded-lg bg-foreground px-2 py-0.5 font-display text-xs font-bold text-background tabular-nums">
             {rows.length}
           </span>
@@ -178,7 +207,7 @@ export function NeedsYouPanel({ summary }: { summary: DashboardSummary | undefin
           <Skeleton className="h-[68px] w-full rounded-[14px]" />
           <Skeleton className="h-[68px] w-full rounded-[14px]" />
         </div>
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && missing.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">Nothing in the queue right now.</p>
       ) : (
         <ul className="mt-4 space-y-2">
@@ -213,6 +242,23 @@ export function NeedsYouPanel({ summary }: { summary: DashboardSummary | undefin
             )
           })}
         </ul>
+      )}
+
+      {!isLoading && missing.length > 0 && (
+        <p className="mt-4 flex items-start gap-2 text-sm text-muted-foreground">
+          <CloudOff className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            We couldn't load {missing.join(' or ')}, so this queue is incomplete.{' '}
+            <button
+              type="button"
+              onClick={retryMissing}
+              disabled={overdue.isFetching || leads.isFetching}
+              className="font-medium text-foreground underline underline-offset-2 disabled:opacity-50"
+            >
+              {overdue.isFetching || leads.isFetching ? 'Trying…' : 'Try again'}
+            </button>
+          </span>
+        </p>
       )}
     </section>
   )
