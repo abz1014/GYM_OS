@@ -19,7 +19,16 @@ startCommand = "dotnet GymOS.API.dll"
 
 # Runs once per deploy, before the new container takes traffic. `--migrate` applies pending
 # migrations and exits (see Program.cs). Safe to run repeatedly: EF skips migrations already applied.
-preDeployCommand = ["dotnet", "GymOS.API.dll", "--migrate"]
+#
+# ONE STRING, not an argv array. Railway's schema is `string | array with maxItems 1`, and the array's
+# single element is a whole command LINE, not a token — so ["dotnet", "GymOS.API.dll", "--migrate"]
+# fails the config parse with "Array must contain at most 1 element(s)" at Snapshot code, before the
+# build even starts. The string form is used here because an array that can only ever hold one element
+# communicates nothing and invites exactly that mistake again.
+#
+# Exec form, no shell: `&&`, `|`, and `$VAR` do NOT expand here. A second step would need
+# "/bin/sh -c \"...\"". Nothing below needs one.
+preDeployCommand = "dotnet GymOS.API.dll --migrate"
 
 # Railway probes this before routing traffic. The check verifies the database connection, so a
 # container that starts but cannot reach Postgres is never marked healthy.

@@ -82,7 +82,26 @@ var signingKey = jwtSection[nameof(GymOS.Infrastructure.Identity.JwtSettings.Sig
 // started up signing real tokens with a key published in this file.
 var placeholderIsAcceptable = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
 
-if (!placeholderIsAcceptable && signingKey.StartsWith("CHANGE_ME", StringComparison.Ordinal))
+/*
+ * `--migrate` and `--seed` are exempt from both startup guards below, and that exemption is the whole
+ * reason this flag exists.
+ *
+ * Both guards protect an API that is about to SERVE HTTP: one stops it signing real tokens with a
+ * published key, the other stops it going live unreachable by its own frontend. Neither risk exists
+ * for a command that opens a database connection, applies migrations and exits. But `builder.Build()`
+ * has to run before those branches can be reached, so the guards were executing first — meaning a
+ * pre-deploy migration would abort with "Refusing to start ... with no non-localhost CORS origin".
+ *
+ * A schema migration failing on a CORS setting is the kind of error that sends you to the wrong layer
+ * for an hour. Worse, on Railway the pre-deploy command runs BEFORE the frontend exists, so on a
+ * first deploy there is no origin to give it — the guard would block the very migration needed to
+ * make the app deployable at all.
+ *
+ * The web path is untouched: `dotnet GymOS.API.dll` with no arguments still gets both guards.
+ */
+var isCliCommand = args.Contains("--migrate") || args.Contains("--seed");
+
+if (!placeholderIsAcceptable && !isCliCommand && signingKey.StartsWith("CHANGE_ME", StringComparison.Ordinal))
 {
     throw new InvalidOperationException(
         $"Refusing to start in '{builder.Environment.EnvironmentName}' with the placeholder Jwt:SigningKey " +
@@ -140,7 +159,8 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
  * The checked-in default is http://localhost:5173, which is correct locally and useless in
  * production, so a real deployment must set Cors__AllowedOrigins__0 to the site's origin.
  */
-if (!placeholderIsAcceptable && (allowedOrigins.Length == 0 || allowedOrigins.All(o => o.Contains("localhost"))))
+if (!placeholderIsAcceptable && !isCliCommand &&
+    (allowedOrigins.Length == 0 || allowedOrigins.All(o => o.Contains("localhost"))))
 {
     throw new InvalidOperationException(
         $"Refusing to start in '{builder.Environment.EnvironmentName}' with no non-localhost CORS origin. " +
@@ -170,6 +190,12 @@ if (args.Contains("--migrate"))
     var db = migrateScope.ServiceProvider.GetRequiredService<GymOsDbContext>();
     await db.Database.MigrateAsync();
     app.Logger.LogInformation("Migrations applied.");
+
+    // Dispose before returning, or this log line may never be printed. The console logger writes from
+    // a background queue that is flushed on disposal, and a bare `return` from top-level statements
+    // ends the process without disposing the host. On a deploy platform that produces a green
+    // pre-deploy step with no output — indistinguishable from a migration that did nothing.
+    await app.DisposeAsync();
     return;
 }
 
@@ -178,6 +204,7 @@ if (args.Contains("--seed"))
     using var seedScope = app.Services.CreateScope();
     var seeder = seedScope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
     await seeder.SeedAsync();
+    await app.DisposeAsync();
     return;
 }
 
