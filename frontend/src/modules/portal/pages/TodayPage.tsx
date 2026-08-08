@@ -13,6 +13,8 @@ import { WeeklyGoalDialog } from '@/modules/portal/components/WeeklyGoalDialog'
 import { useMyToday, useMyLeaderboard, type MyInsight, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
 
 const classTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
+const arrivalTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
+
 const dateEyebrowFormat = new Intl.DateTimeFormat('en-US', { weekday: 'long', day: 'numeric', month: 'short' })
 
 /** Monday-first, matching the week WeeklyGoalPolicy counts and the order the server returns. */
@@ -96,11 +98,28 @@ export default function TodayPage() {
    * week. Three statements, one screen, and the member is left deciding which one to believe.
    */
   const visit = data?.visit
+  const arrivedAt = visit?.checkedInAt ? arrivalTimeFormat.format(new Date(visit.checkedInAt)) : null
   const visitLine = !visit?.needsRecording
     ? null
     : visit.state === 'InGym'
-      ? "You're at the gym. One tap when you're done."
+      // The arrival time rather than an elapsed counter. "47 min so far" would only recompute when
+      // the query refetches, so it would sit on screen being wrong; a clock time stays true.
+      ? arrivedAt
+        ? `You're at the gym since ${arrivedAt}. One tap when you're done.`
+        : "You're at the gym. One tap when you're done."
       : 'You were at the gym today — want to record it?'
+
+  /*
+   * Step 3 of the roadmap in one boolean: the door already told the app they were here, so the
+   * record-it prompt leads the screen instead of sitting under the ring where it has to be scrolled
+   * for. The prompt itself is unchanged — this only decides where it goes.
+   *
+   * It moves for both InGym and Visited (needsRecording covers both), because the roadmap asks for
+   * the prompt "on the way out", and a member who has already left and not recorded is exactly the
+   * person it was meant to catch. Once something is recorded, needsRecording goes false and the
+   * screen returns to its normal order rather than nagging.
+   */
+  const promptLeadsScreen = visit?.needsRecording === true
 
   /**
    * When the request fails outright there is nothing honest to draw. Falling through to the normal
@@ -161,6 +180,8 @@ export default function TodayPage() {
                 : `${remaining} more session${remaining === 1 ? '' : 's'} to hit your week.`)}
         </p>
       )}
+
+      {promptLeadsScreen && <ConfirmSessionButton onLogged={setCelebration} />}
 
       {/* Hero: the whole "am I on track" answer, without reading a single number twice. */}
       <Card className="rounded-3xl">
@@ -249,8 +270,10 @@ export default function TodayPage() {
         </CardContent>
       </Card>
 
-      {/* The one action this screen exists for — one tap, not a form. See ConfirmSessionButton. */}
-      <ConfirmSessionButton onLogged={setCelebration} />
+      {/* The one action this screen exists for — one tap, not a form. See ConfirmSessionButton.
+          Rendered here only when the gym has no record of them today; if it does, it has already
+          led the screen above and drawing it twice would give the member two identical buttons. */}
+      {!promptLeadsScreen && <ConfirmSessionButton onLogged={setCelebration} />}
 
       {/*
         Rank comes from the leaderboard the member can actually open; it is only rendered once that
