@@ -30,6 +30,8 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
             NotFoundException notFoundEx => (HttpStatusCode.NotFound, notFoundEx.Message, null),
             UnauthorizedAccessException unauthorizedEx => (HttpStatusCode.Unauthorized, unauthorizedEx.Message, null),
             ForbiddenAccessException forbiddenEx => (HttpStatusCode.Forbidden, forbiddenEx.Message, null),
+            // 429, not 400: this one comes back on its own, so a client retrying later is correct.
+            RateLimitExceededException rateLimitEx => (HttpStatusCode.TooManyRequests, rateLimitEx.Message, null),
             _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred.", null)
         };
 

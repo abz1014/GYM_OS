@@ -63,6 +63,7 @@ public static class DependencyInjection
         services.AddScoped<BackgroundJobs.MembershipExpiryCheckJob>();
         services.AddScoped<BackgroundJobs.MembershipExpiryTransitionJob>();
         services.AddScoped<BackgroundJobs.InvoiceOverdueTransitionJob>();
+        services.AddScoped<BackgroundJobs.CoachMessageRetentionJob>();
         services.AddScoped<BackgroundJobs.BirthdayCheckJob>();
         services.AddScoped<BackgroundJobs.MaintenanceDueCheckJob>();
         services.AddScoped<BackgroundJobs.LowStockCheckJob>();

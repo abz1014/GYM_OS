@@ -144,6 +144,9 @@ app.UseHangfireDashboard("/hangfire");
 RecurringJob.AddOrUpdate<MembershipExpiryCheckJob>("membership-expiry-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<MembershipExpiryTransitionJob>("membership-expiry-transition", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<InvoiceOverdueTransitionJob>("invoice-overdue-transition", job => job.RunAsync(CancellationToken.None), Cron.Daily);
+// Weekly, not daily. Nothing about a two-year retention boundary is urgent to the day, and a job
+// that deletes member correspondence should run as rarely as it can still do its job.
+RecurringJob.AddOrUpdate<CoachMessageRetentionJob>("coach-message-retention", job => job.RunAsync(CancellationToken.None), Cron.Weekly);
 RecurringJob.AddOrUpdate<BirthdayCheckJob>("birthday-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<MaintenanceDueCheckJob>("maintenance-due-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);
 RecurringJob.AddOrUpdate<LowStockCheckJob>("low-stock-check", job => job.RunAsync(CancellationToken.None), Cron.Daily);

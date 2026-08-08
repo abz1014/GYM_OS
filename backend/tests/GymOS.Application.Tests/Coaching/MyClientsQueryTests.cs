@@ -165,6 +165,74 @@ public class MyClientsQueryTests : ApplicationTestBase
         (await db.ScheduledNotifications.IgnoreQueryFilters().AnyAsync(n => n.RecipientMemberId == memberId)).ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task Filling_the_hourly_allowance_stops_further_sends_into_that_pairing()
+    {
+        var ctx = await SeedAsync();
+        var memberId = await AddMemberAsync(ctx, "Chatty");
+        await AssignAsync(ctx.TrainerId, memberId);
+
+        // The allowance already spent this hour, by this trainer, into this pairing.
+        for (var i = 0; i < CoachMessagePolicy.MaxMessagesPerHour; i++)
+        {
+            await MessageAsync(ctx, memberId, CoachMessageAuthor.Trainer, $"msg {i}", readAt: null, sentAt: Now.AddMinutes(-i - 1));
+        }
+
+        AsTrainer(ctx);
+
+        // 429, not 400 — this one comes back on its own, and a client retrying later is correct.
+        await Should.ThrowAsync<RateLimitExceededException>(
+            () => SendAsync(new MessageMyClientCommand(memberId, "and another")));
+    }
+
+    [Fact]
+    public async Task A_busy_trainer_is_never_throttled_for_having_many_clients()
+    {
+        var ctx = await SeedAsync();
+        var loud = await AddMemberAsync(ctx, "Loud");
+        var quiet = await AddMemberAsync(ctx, "Quiet");
+        await AssignAsync(ctx.TrainerId, loud);
+        await AssignAsync(ctx.TrainerId, quiet);
+
+        // A full hour's allowance spent on ONE client. The limit is per pairing, so the trainer's
+        // other clients must be unaffected — otherwise coaching eleven people is itself the offence.
+        for (var i = 0; i < CoachMessagePolicy.MaxMessagesPerHour; i++)
+        {
+            await MessageAsync(ctx, loud, CoachMessageAuthor.Trainer, $"msg {i}", readAt: null, sentAt: Now.AddMinutes(-i - 1));
+        }
+
+        AsTrainer(ctx);
+
+        await SendAsync(new MessageMyClientCommand(quiet, "How did Thursday go?"));
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        (await db.CoachMessages.IgnoreQueryFilters().CountAsync(c => c.MemberId == quiet)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Being_replied_to_a_lot_does_not_use_up_your_own_allowance()
+    {
+        var ctx = await SeedAsync();
+        var memberId = await AddMemberAsync(ctx, "Listener");
+        await AssignAsync(ctx.TrainerId, memberId);
+
+        // The MEMBER filled the hour. The trainer's own allowance is untouched by that.
+        for (var i = 0; i < CoachMessagePolicy.MaxMessagesPerHour; i++)
+        {
+            await MessageAsync(ctx, memberId, CoachMessageAuthor.Member, $"msg {i}", readAt: null, sentAt: Now.AddMinutes(-i - 1));
+        }
+
+        AsTrainer(ctx);
+
+        await SendAsync(new MessageMyClientCommand(memberId, "Let's slow down and take these one at a time."));
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        (await db.CoachMessages.IgnoreQueryFilters()
+            .CountAsync(c => c.MemberId == memberId && c.Author == CoachMessageAuthor.Trainer)).ShouldBe(1);
+    }
+
     private async Task AddCoachReplyTemplateAsync(SeedContext ctx)
     {
         using var scope = CreateScope();

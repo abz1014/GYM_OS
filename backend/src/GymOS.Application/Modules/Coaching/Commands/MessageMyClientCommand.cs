@@ -48,6 +48,8 @@ public class MessageMyClientCommandHandler(
             throw new ForbiddenAccessException("This member is not one of your active clients.");
         }
 
+        await GuardRateLimitAsync(trainerId, request.MemberId, CoachMessageAuthor.Trainer, cancellationToken);
+
         // The session must be the client's own. Without this a trainer could attach any workout in
         // the gym to a message and expose it to somebody it does not belong to.
         if (request.WorkoutLogId is Guid logId
@@ -71,6 +73,34 @@ public class MessageMyClientCommandHandler(
 
         await db.SaveChangesAsync(cancellationToken);
         return message.Id;
+    }
+
+    /// <summary>
+    /// Refuses a send once this side has filled its hourly allowance into this pairing.
+    ///
+    /// Scoped to the pairing and the author, so a trainer working through eleven clients is never
+    /// throttled for being busy, and a member is never throttled because their coach replied a lot.
+    /// The window is applied by CoachMessagePolicy; this only fetches what it needs to judge.
+    /// </summary>
+    private async Task GuardRateLimitAsync(
+        Guid trainerId, Guid memberId, CoachMessageAuthor author, CancellationToken cancellationToken)
+    {
+        var since = dateTimeProvider.UtcNow - CoachMessagePolicy.RateLimitWindow;
+
+        // Pulled to memory before the window compare: a DateTimeOffset range filter does not
+        // translate on SQLite, the same limitation the rest of this codebase works around.
+        var recent = (await db.CoachMessages.AsNoTracking()
+                .Where(c => c.TrainerId == trainerId && c.MemberId == memberId && c.Author == author)
+                .Select(c => c.SentAt)
+                .ToListAsync(cancellationToken))
+            .Where(sentAt => sentAt > since)
+            .ToList();
+
+        if (!CoachMessagePolicy.IsWithinRateLimit(recent, dateTimeProvider.UtcNow))
+        {
+            throw new RateLimitExceededException(
+                $"That's {CoachMessagePolicy.MaxMessagesPerHour} messages in an hour. Give it a little while before sending more.");
+        }
     }
 
     /// <summary>

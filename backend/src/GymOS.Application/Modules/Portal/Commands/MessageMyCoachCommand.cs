@@ -52,6 +52,27 @@ public class MessageMyCoachCommandHandler(
             throw new ForbiddenAccessException("You don't have a trainer to message right now.");
         }
 
+        /*
+         * The member's own hourly allowance into this pairing. Scoped to the sender so a member is
+         * never throttled because their coach replied a lot, and pulled to memory before the window
+         * compare because a DateTimeOffset range filter does not translate on SQLite.
+         */
+        var since = dateTimeProvider.UtcNow - CoachMessagePolicy.RateLimitWindow;
+        var recentFromMe = (await db.CoachMessages.AsNoTracking()
+                .Where(c => c.TrainerId == assignment.TrainerId
+                            && c.MemberId == memberId
+                            && c.Author == CoachMessageAuthor.Member)
+                .Select(c => c.SentAt)
+                .ToListAsync(cancellationToken))
+            .Where(sentAt => sentAt > since)
+            .ToList();
+
+        if (!CoachMessagePolicy.IsWithinRateLimit(recentFromMe, dateTimeProvider.UtcNow))
+        {
+            throw new RateLimitExceededException(
+                $"That's {CoachMessagePolicy.MaxMessagesPerHour} messages in an hour. Your coach will get back to you — give it a little while before sending more.");
+        }
+
         // A session reference is only honoured when it is the member's own. Trusting the id would let
         // a member point their coach at somebody else's workout.
         if (request.WorkoutLogId is Guid logId
