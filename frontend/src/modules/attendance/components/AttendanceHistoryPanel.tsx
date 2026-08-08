@@ -131,7 +131,7 @@ export function AttendanceHistoryPanel() {
                   badly in a table on a phone screen. */}
               <div className="space-y-2 lg:hidden">
                 {data.items.map((record) => (
-                  <div key={record.id} className="space-y-2 rounded-2xl border border-border bg-card p-4">
+                  <div key={record.id} className="space-y-2 rounded-panel border border-border bg-card p-4">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate font-medium">{record.memberName}</p>
                       <Badge variant="outline" className="shrink-0">
@@ -148,7 +148,7 @@ export function AttendanceHistoryPanel() {
               </div>
 
               {/* Desktop / tablet: full table */}
-              <div className="hidden overflow-hidden rounded-2xl border border-border bg-card lg:block">
+              <div className="hidden overflow-hidden rounded-panel border border-border bg-card lg:block">
                 <Table>
                   <TableHeader>
                     <TableRow>

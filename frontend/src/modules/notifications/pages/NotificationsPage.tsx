@@ -99,7 +99,7 @@ function DevMailboxTab() {
       )}
 
       {logs?.map((log) => (
-        <article key={log.id} className="space-y-1 rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <article key={log.id} className="space-y-1 rounded-panel border border-border bg-card p-4 edge-light-soft">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <Mail className="size-4 shrink-0 text-muted-foreground" />
@@ -143,7 +143,7 @@ function ScheduledTab() {
               phone and end up clipped mid-word. */}
           <div className="space-y-2 md:hidden">
             {scheduled.map((n) => (
-              <div key={n.id} className="space-y-1.5 rounded-2xl border border-border bg-card p-3">
+              <div key={n.id} className="space-y-1.5 rounded-panel border border-border bg-card p-3 edge-light-soft">
                 <div className="flex items-center justify-between gap-2">
                   {/* A scheduled notification can point at a member, at a staff user, or at
                       neither, and ScheduledNotificationDto resolves the name to null in the last
@@ -164,7 +164,7 @@ function ScheduledTab() {
           </div>
 
           {/* Desktop / tablet: full table */}
-          <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+          <div className="hidden overflow-hidden rounded-panel border border-border bg-card md:block edge-light-soft">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -239,7 +239,7 @@ function TemplatesTab() {
           {templates.map((template) => (
             <article
               key={template.id}
-              className="space-y-2 rounded-2xl border border-border bg-card p-4 shadow-sm"
+              className="space-y-2 rounded-panel border border-border bg-card p-4 edge-light-soft"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">

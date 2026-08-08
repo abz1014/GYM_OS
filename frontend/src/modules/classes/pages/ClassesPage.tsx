@@ -107,7 +107,7 @@ function ScheduleTab() {
                 <article
                   key={s.id}
                   className={cn(
-                    'flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm',
+                    'flex items-center justify-between gap-3 rounded-panel border border-border bg-card p-4 edge-light-soft',
                     !s.isActive && 'opacity-60',
                   )}
                 >
@@ -183,7 +183,7 @@ function ClassTypesTab() {
             <article
               key={t.id}
               className={cn(
-                'space-y-2 rounded-2xl border border-border bg-card p-4 shadow-sm',
+                'space-y-2 rounded-panel border border-border bg-card p-4 edge-light-soft',
                 !t.isActive && 'opacity-60',
               )}
             >
@@ -256,7 +256,7 @@ function SessionsTab() {
           {daySessions.map((s) => (
             <article
               key={s.id}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
+              className="flex items-center justify-between gap-3 rounded-panel border border-border bg-card p-4 edge-light-soft"
             >
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2">

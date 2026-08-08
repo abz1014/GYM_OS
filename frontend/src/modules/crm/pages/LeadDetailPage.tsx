@@ -119,7 +119,7 @@ export default function LeadDetailPage() {
         }
       />
 
-      <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="space-y-4 rounded-panel border border-border bg-card p-5 edge-light-soft">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{SOURCE_LABELS[lead.source]}</Badge>
           <Badge variant={scoreBadgeVariant(lead.score)} className="tabular-nums">
@@ -172,7 +172,7 @@ export default function LeadDetailPage() {
         {sortedActivities.map((a) => (
           <div
             key={a.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-border bg-card p-4 edge-light-soft"
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">

@@ -38,7 +38,9 @@ function toBuckets(data: HourlyCheckIns[] | undefined): number[] {
  *
  * The second series is real, not decoration — the same endpoint over the previous 28 full days,
  * divided by 28, is a genuine "typical day at this hour" and is what makes a bar readable as busy or
- * quiet rather than just tall.
+ * quiet rather than just tall. Both series stayed exactly as they were through the uplift pass; what
+ * that pass added is the peak bar's gradient and glow, and the dashed NOW marker — which is free,
+ * because the current hour is the one fact on this chart the browser already knows.
  */
 export function CheckInsByHourPanel() {
   const today = todayDateOnly()
@@ -68,8 +70,16 @@ export function CheckInsByHourPanel() {
 
   const scaleMax = Math.max(peakCount, ...averageByHour, 1)
 
+  // Where "now" falls inside its own column, so the marker sits at 18:40 rather than on the 18:00
+  // gridline. Read at render rather than from a timer of its own: DashboardPage already re-renders
+  // this subtree every five seconds for its "Updated {n}s ago" chip, which is finer than a marker
+  // measured in hours needs.
+  const clock = new Date()
+  const nowHour = clock.getHours()
+  const nowOffsetPercent = (clock.getMinutes() / 60) * 100
+
   return (
-    <section className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+    <section className="rounded-3xl border border-border bg-card p-6 edge-light-soft">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-lg font-bold tracking-tight">Check-ins by hour</h2>
@@ -122,6 +132,33 @@ export function CheckInsByHourPanel() {
                   }`}
                 >
                   {/*
+                    The NOW marker. Drawn first so the bars paint over it — it is a reference line,
+                    not a series, and it must never be mistaken for one. It renders only inside the
+                    hour that is currently running, so it disappears by construction on a window that
+                    doesn't contain the present (a chart left open past midnight, say).
+                  */}
+                  {hour === nowHour && (
+                    <>
+                      <span
+                        aria-hidden
+                        className="absolute top-0 bottom-0 w-[1.5px] opacity-30"
+                        style={{
+                          left: `${nowOffsetPercent}%`,
+                          backgroundImage:
+                            'repeating-linear-gradient(180deg, var(--foreground) 0 4px, transparent 4px 8px)',
+                        }}
+                      />
+                      <span
+                        aria-hidden
+                        className="absolute -top-3.5 -translate-x-1/2 rounded-md bg-foreground px-2 py-[3px] text-[10px] leading-none font-bold tracking-[0.06em] text-primary"
+                        style={{ left: `${nowOffsetPercent}%` }}
+                      >
+                        NOW
+                      </span>
+                    </>
+                  )}
+
+                  {/*
                     The average is a bar behind today's, not a line across it.
 
                     It was a floating tick per column, which failed in all three positions it can
@@ -145,12 +182,18 @@ export function CheckInsByHourPanel() {
                   )}
                   <div
                     // Peak hour in volt, the rest in ink — the one thing a manager reads off this
-                    // chart is "when is the floor full", so it gets the accent.
+                    // chart is "when is the floor full", so it gets the accent, and now the gradient
+                    // and coloured shadow that lift it off the plot. Non-sequential bars, so only
+                    // the peak is coloured: a ramp across the day would imply an order these hours
+                    // don't have.
                     className={cn(
                       'relative mx-auto w-3/5 rounded-t-md transition-[height] duration-700 ease-out',
-                      isPeak ? 'bg-primary' : 'bg-foreground'
+                      isPeak ? 'shadow-[0_6px_18px_-6px_rgba(214,249,74,0.9)]' : 'bg-foreground'
                     )}
-                    style={{ height: `${(count / scaleMax) * 100}%` }}
+                    style={{
+                      height: `${(count / scaleMax) * 100}%`,
+                      ...(isPeak ? { background: 'linear-gradient(180deg,#D6F94A,#C0E33A)' } : null),
+                    }}
                   />
                 </div>
               )

@@ -28,6 +28,10 @@ const EYEBROW = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground u
  *   GET /api/attendance, whose row is (id, memberId, memberName, checkInAt, checkOutAt, method) —
  *   there is no plan and no billing state on it. The second line carries what the row does know: still
  *   in the building, or the time they left.
+ *
+ * The uplift gives the feed two states and no new facts: the newest row is volt-tinted because it is
+ * the scan the desk just made, and a row whose visit has closed drops to 60% — present, because "did
+ * she come in today" is a question staff ask, but no longer competing with the people in the room.
  */
 /**
  * @param capacity The licensed number for this site, or null when the gym has never set one. Passed
@@ -93,15 +97,23 @@ export function FrontDeskRail({ capacity }: { capacity: number | null }) {
         </div>
 
         {capacity !== null && !inBuilding.isPending && !inBuilding.isError && (
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-border">
             <div
               className={cn(
                 'h-full rounded-full transition-[width] duration-700 ease-out',
                 // Over the licensed number is a fact staff need to act on, not a full bar — the fill
                 // is clamped so the bar stays a bar, and the colour is what carries the alarm.
-                inBuilding.data.totalCount >= capacity ? 'bg-destructive' : 'bg-primary',
+                inBuilding.data.totalCount >= capacity && 'bg-destructive',
               )}
-              style={{ width: `${Math.min(100, (inBuilding.data.totalCount / capacity) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, (inBuilding.data.totalCount / capacity) * 100)}%`,
+                // The kit's volt gradient, the same one the member app's rings and progress fills
+                // use. Dropped entirely when the room is over its licensed number: a gradient there
+                // would soften the one reading on this rail that is supposed to look wrong.
+                ...(inBuilding.data.totalCount >= capacity
+                  ? null
+                  : { background: 'linear-gradient(90deg,#B8DC2B,#EDFF8A)' }),
+              }}
             />
           </div>
         )}
@@ -115,9 +127,9 @@ export function FrontDeskRail({ capacity }: { capacity: number | null }) {
         <p className={EYEBROW}>Just now</p>
 
         {recent.isPending && (
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-1">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+              <Skeleton key={i} className="h-[58px] w-full rounded-[14px]" />
             ))}
           </div>
         )}
@@ -129,18 +141,31 @@ export function FrontDeskRail({ capacity }: { capacity: number | null }) {
         )}
 
         {recent.isSuccess && recent.data.items.length > 0 && (
-          <ul className="mt-3 space-y-2">
-            {recent.data.items.map((record) => {
+          <ul className="mt-3 space-y-1">
+            {recent.data.items.map((record, index) => {
               const checkedOutAt = record.checkOutAt
+              // The row the desk is actually looking at — the scan that just happened. It is keyed by
+              // record id, so a new arrival mounts a new element and the fade runs on its own without
+              // any "is this new" bookkeeping.
+              const isNewest = index === 0
+
               return (
                 <li
                   key={record.id}
                   className={cn(
-                    'flex items-center gap-3 rounded-2xl px-4 py-3',
-                    checkedOutAt ? 'bg-card/50' : 'bg-card'
+                    'flex items-center gap-3 rounded-[14px] px-3 py-2.5',
+                    isNewest && 'animate-in fade-in slide-in-from-top-2 bg-secondary duration-[240ms]',
+                    // Someone who has left is still worth showing — staff read this to answer "did he
+                    // come in today" — but at 60% it stops competing with the people in the room.
+                    checkedOutAt && 'opacity-60'
                   )}
                 >
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted font-display text-xs font-black">
+                  <span
+                    className={cn(
+                      'flex size-9 shrink-0 items-center justify-center rounded-xl font-display text-xs font-black',
+                      isNewest ? 'bg-primary text-primary-foreground' : 'bg-border'
+                    )}
+                  >
                     {initials(record.memberName)}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -149,7 +174,12 @@ export function FrontDeskRail({ capacity }: { capacity: number | null }) {
                       {checkedOutAt ? `Left at ${kioskTimeFormat.format(new Date(checkedOutAt))}` : 'In the building'}
                     </span>
                   </span>
-                  <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
+                  <span
+                    className={cn(
+                      'shrink-0 text-sm font-medium tabular-nums',
+                      isNewest ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                  >
                     {kioskTimeFormat.format(new Date(record.checkInAt))}
                   </span>
                 </li>
@@ -162,7 +192,7 @@ export function FrontDeskRail({ capacity }: { capacity: number | null }) {
       {/* Only drawn when there genuinely is a scheduled session still ahead of the clock — an empty
           "Next class" frame at 10pm tells the desk nothing it didn't already know. */}
       {nextClass && (
-        <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="rounded-[22px] border border-border bg-card p-4 edge-light">
           <p className={EYEBROW}>Next class</p>
           <div className="mt-3 flex items-center gap-3">
             <span className="flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-muted font-display leading-none font-black tracking-tight text-chart-2 tabular-nums">

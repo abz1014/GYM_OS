@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { TrendChart, type TrendPoint } from '@/shared/components/TrendChart'
+import { CountUp } from '@/shared/components/uplift'
 import {
   useAchieveMyGoal,
   useCreateMyGoal,
@@ -199,15 +200,22 @@ function StrengthTab() {
 
   return (
     <div className="space-y-4">
-      <Card className="rounded-3xl">
+      <Card className="rounded-3xl edge-light">
         <CardContent className="py-5">
           <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
             Total volume · {VOLUME_DAYS} days
           </p>
           <div className="mt-1 flex items-center gap-3">
-            <span className="font-display text-4xl leading-none font-black tracking-tight tabular-nums">
-              {total >= 1000 ? `${(total / 1000).toFixed(1)}t` : `${Math.round(total)}kg`}
-            </span>
+            {/*
+              One formatted string, not a number with a unit hung off the side: "34.8t" and "940kg"
+              are different units, and a roll-up that reformatted mid-count would flick between them.
+              CountUp keeps the caller's own formatter for exactly that reason.
+            */}
+            <CountUp
+              to={total}
+              format={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}t` : `${Math.round(v)}kg`)}
+              className="font-display text-4xl leading-none font-black tracking-tight tabular-nums"
+            />
             <DeltaChip percent={deltaPercent} />
           </div>
           {deltaPercent !== null && (
@@ -216,11 +224,18 @@ function StrengthTab() {
             </p>
           )}
 
+          {/*
+            A line/area chart, never bars. Progress over time is a shape, and the whole point of
+            `zeroBaseline` here is that rest days sit on the floor so the shape carries the direction.
+            `glow` is the uplift's one behavioural addition: a persistent marker on the last real
+            session, which a 30-point series otherwise only shows on hover.
+          */}
           <div className="mt-4">
             <TrendChart
               data={points}
               colorClassName="text-primary"
               zeroBaseline
+              glow
               valueFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}t` : `${Math.round(v)}kg`)}
               emptyMessage="Log a workout to start your volume trend."
             />
@@ -230,7 +245,7 @@ function StrengthTab() {
 
       {points.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
-          <Card className="rounded-2xl">
+          <Card className="rounded-2xl edge-light">
             <CardContent className="py-4">
               <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Total lifted</p>
               <p className="mt-1 font-display text-2xl font-black tracking-tight tabular-nums">
@@ -239,7 +254,7 @@ function StrengthTab() {
               </p>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl">
+          <Card className="rounded-2xl edge-light">
             <CardContent className="py-4">
               <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Training days</p>
               <p className="mt-1 font-display text-2xl font-black tracking-tight tabular-nums">
@@ -271,7 +286,7 @@ function BodyTab({ photos }: { photos: { id: string; photoUrl: string; takenAt: 
 
   return (
     <div className="space-y-4">
-      <Card className="rounded-3xl">
+      <Card className="rounded-3xl edge-light">
         <CardContent className="py-5">
           <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Body weight</p>
           <div className="mt-1 flex items-center gap-3">
@@ -306,7 +321,7 @@ function BodyTab({ photos }: { photos: { id: string; photoUrl: string; takenAt: 
       </Card>
 
       {bodyFatPoints.length > 0 && (
-        <Card className="rounded-3xl">
+        <Card className="rounded-3xl edge-light">
           <CardContent className="py-5">
             <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Body fat</p>
             <div className="mt-4">
@@ -317,7 +332,7 @@ function BodyTab({ photos }: { photos: { id: string; photoUrl: string; takenAt: 
       )}
 
       {photos.length > 0 && (
-        <Card className="rounded-3xl">
+        <Card className="rounded-3xl edge-light">
           <CardContent className="py-5">
             <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Progress photos</p>
             <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
@@ -362,8 +377,10 @@ export default function MyProgressPage() {
             onClick={() => setTab(t.key)}
             aria-current={t.key === tab ? 'true' : undefined}
             className={cn(
-              'h-11 flex-1 rounded-xl text-sm font-bold transition-colors',
-              t.key === tab ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              'h-11 flex-1 rounded-xl text-sm font-bold transition-[transform,background-color,color] duration-[120ms] ease-[var(--ease-uplift)] active:scale-[.97]',
+              t.key === tab
+                ? 'bg-primary text-primary-foreground shadow-volt'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {t.label}
@@ -379,8 +396,8 @@ export default function MyProgressPage() {
 
       {isLoading && (
         <div className="space-y-3">
-          <Skeleton className="h-56 w-full rounded-3xl" />
-          <Skeleton className="h-24 w-full rounded-2xl" />
+          <Skeleton className="h-56 w-full rounded-3xl shimmer" />
+          <Skeleton className="h-24 w-full rounded-2xl shimmer" />
         </div>
       )}
 
@@ -395,7 +412,7 @@ export default function MyProgressPage() {
               { label: 'This month', value: progress.visitsThisMonth },
               { label: 'Total visits', value: progress.totalVisits },
             ].map((stat) => (
-              <Card key={stat.label} className="rounded-2xl">
+              <Card key={stat.label} className="rounded-2xl edge-light">
                 <CardContent className="px-3 py-4 text-center">
                   <p className="font-display text-3xl leading-none font-black tracking-tight tabular-nums">
                     {stat.value}
@@ -408,7 +425,7 @@ export default function MyProgressPage() {
             ))}
           </div>
 
-          <Card className="rounded-3xl">
+          <Card className="rounded-3xl edge-light">
             <CardHeader className="pb-2">
               <CardTitle className="font-display text-base font-bold">Goals</CardTitle>
               <CardAction>
@@ -434,7 +451,7 @@ export default function MyProgressPage() {
           </Card>
 
           {timeline && timeline.length > 0 && (
-            <Card className="rounded-3xl">
+            <Card className="rounded-3xl edge-light">
               <CardHeader className="pb-2">
                 <CardTitle className="font-display text-base font-bold">Your story so far</CardTitle>
               </CardHeader>

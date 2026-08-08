@@ -153,9 +153,104 @@
   --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
 }
 
+/*
+ * The uplift kit — see docs/UI_UPLIFT_SPEC.md §2 and §3.
+ *
+ * One easing, three durations. Anything outside this table is a bug: the point of a single motion
+ * vocabulary is that a press feels the same everywhere, and a screen that invents its own timing
+ * reads as a different product.
+ */
+@theme inline {
+  --ease-uplift: cubic-bezier(0.2, 0, 0, 1);
+  --ease-expressive: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-micro: 120ms;
+  --duration-standard: 240ms;
+  --duration-expressive: 640ms;
+
+  /*
+   * The staff console's panel corner, from the spec's panel vocabulary: "20px radius, hairline
+   * border, soft shadow". A token rather than `rounded-[20px]` repeated across thirty files,
+   * because the whole point of the billing pair being the template is that the twelve modules
+   * copying it cannot drift from it — and a magic literal is exactly how that drift starts.
+   *
+   * Scoped to the console on purpose. The member surface keeps the Tailwind scale: its cards are
+   * `rounded-3xl` heroes with `rounded-2xl` groups nested inside, a relationship that a single
+   * flat panel radius would collapse.
+   */
+  --radius-panel: 20px;
+}
+
+@layer utilities {
+  /*
+   * Edge light. One line, and it does more for perceived quality than anything else in the kit:
+   * on the ink surface a 1px border is otherwise the only thing separating a #151517 card from a
+   * #0B0B0C page, so every card reads as a flat rectangle with nothing above it.
+   */
+  .edge-light {
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  }
+
+  /* The light-surface equivalent. A white-on-white card needs a cast shadow, not an inner highlight. */
+  .edge-light-soft {
+    box-shadow: 0 1px 2px rgb(11 11 12 / 0.04);
+  }
+
+  /*
+   * Both at once, for a surface that needs to work on either ground — the shared Card primitive is
+   * used by the dark member app AND the light staff console, so it cannot pick one. The inner
+   * highlight is invisible on white and the cast shadow is invisible on ink; each surface takes the
+   * half that applies to it.
+   */
+  .surface-lift {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.06),
+      0 1px 2px rgb(11 11 12 / 0.04);
+  }
+
+  /*
+   * Severity rails. A 3px inset rail in the row's own tone, on the leading edge — what lets someone
+   * read severity from across a room without reading a number. Deliberately inset rather than a
+   * border so it never changes the box's size and rows stay aligned whether or not they escalate.
+   */
+  .rail-primary { box-shadow: inset 3px 0 0 var(--primary); }
+  .rail-warning { box-shadow: inset 3px 0 0 var(--warning); }
+  .rail-destructive { box-shadow: inset 3px 0 0 var(--destructive); }
+  .rail-success { box-shadow: inset 3px 0 0 var(--success); }
+
+  /* Coloured shadow for accent elements — the volt buttons already do this; this names it. */
+  .shadow-volt {
+    box-shadow: 0 8px 22px -6px var(--primary);
+  }
+
+  /* Press feedback. The cheapest "this feels native" win available, and it belongs on every
+     tappable surface in the member app. */
+  .press {
+    transition: transform var(--duration-micro) var(--ease-uplift);
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  /*
+   * Reduced motion is honoured globally rather than per-component, so a screen added later cannot
+   * forget it. Roll-ups, drift, bloom drift and stagger all go; opacity fades stay, and so does the
+   * rest-timer countdown — that one is information, not decoration.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
   body {
     @apply bg-background text-foreground font-sans;
@@ -163,5 +258,43 @@
   /* Tabular numerals everywhere a number changes but its layout shouldn't — timers, weights, KPIs. */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/*
+ * Skeletons shimmer rather than sitting flat, and match the SHAPE of what is loading — a ring
+ * skeleton is a ring. 1.4s sweep, 6% white on dark surfaces.
+ */
+/* Login's ambient bloom. Purely decorative, so motion-safe: gates it entirely. */
+@keyframes bloom-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(4%, -3%) scale(1.06); }
+}
+
+@keyframes uplift-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+@layer utilities {
+  .shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgb(255 255 255 / 0.06) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: uplift-shimmer 1.4s linear infinite;
+  }
+
+  /* Bars grow from the baseline; the stagger is applied per-bar with an inline delay. */
+  @keyframes uplift-bar-grow {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+  .bar-grow {
+    transform-origin: bottom;
+    animation: uplift-bar-grow var(--duration-expressive) var(--ease-expressive) both;
   }
 }

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { ActivityRing } from '@/shared/components/ActivityRing'
+import { Bloom, CountUp, GrainOverlay } from '@/shared/components/uplift'
 import { PR_TYPE_CONFIG } from '@/modules/portal/components/portalShared'
 import { useOfferUndo, useUndoMyWorkout, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
 
@@ -23,6 +24,12 @@ function formatRecord(type: string, value: number): string {
  * then what was exceptional (records, achievements, level), then the slower-burning things.
  *
  * One tap dismisses it. There is deliberately no second action competing with that.
+ *
+ * The uplift is surface only — bloom, grain, edge light, a roll-up on the numerals. The ORDER and the
+ * CONTENT are dictated by MyWorkoutResult and neither moves. In particular this screen still cannot
+ * say what the DTO does not carry: `newRecords` is `{exerciseName, type, value}`, so there is no
+ * previous best to count up from and no date to name, and there is no duration, set count or volume
+ * anywhere in the payload to draw a session recap from.
  */
 export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutResult; onDismiss: () => void }) {
   const undo = useUndoMyWorkout()
@@ -70,6 +77,10 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
       ? 'Goal already met this week. This one is a bonus.'
       : `${Math.max(0, result.weeklySessionGoal - result.sessionsThisWeek)} to go this week.`
 
+  // The one screen in the product allowed to celebrate, so the bloom takes the kit's top setting when
+  // a record landed and its ordinary hero value otherwise.
+  const hasRecord = result.newRecords.length > 0
+
   return (
     <div
       role="dialog"
@@ -77,30 +88,49 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
       aria-label="Workout logged"
       className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background"
     >
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-6 py-10 text-center">
+      <GrainOverlay className="fixed inset-0" />
+
+      <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-6 py-10 text-center">
         <div className="space-y-1">
           {kicker && (
             <p className="text-xs font-semibold tracking-widest text-primary uppercase">{kicker}</p>
           )}
-          <h2 className="text-3xl font-bold tracking-tight">{headline}</h2>
+          <h2 className="font-display text-3xl font-black tracking-tight">{headline}</h2>
           <p className="text-sm text-muted-foreground">{subhead}</p>
         </div>
 
-        <ActivityRing
-          value={result.sessionsThisWeek}
-          goal={result.weeklySessionGoal}
-          colorClassName={result.goalMet ? 'text-emerald-500' : 'text-primary'}
-        >
-          <span className="text-5xl leading-none font-black tracking-tight tabular-nums">{result.sessionsThisWeek}</span>
-          <span className="mt-1 text-xs text-muted-foreground">of {result.weeklySessionGoal}</span>
-        </ActivityRing>
+        {/* The bloom sits behind the ring, never on it, and grows into place with it. */}
+        <div className="relative flex items-center justify-center">
+          <Bloom
+            className="-inset-10 animate-in zoom-in-90 duration-[640ms] ease-[var(--ease-expressive)]"
+            opacity={hasRecord ? 0.3 : 0.16}
+            blur={40}
+          />
+          <ActivityRing
+            value={result.sessionsThisWeek}
+            goal={result.weeklySessionGoal}
+            colorClassName={result.goalMet ? 'text-emerald-500' : 'text-primary'}
+            gradient
+          >
+            <CountUp
+              to={result.sessionsThisWeek}
+              className="font-display text-5xl leading-none font-black tracking-tight tabular-nums"
+            />
+            <span className="mt-1 text-xs text-muted-foreground">of {result.weeklySessionGoal}</span>
+          </ActivityRing>
+        </div>
 
         {/* The two numbers that always exist, side by side. */}
         <div className="grid w-full grid-cols-2 gap-3">
-          <Stat icon={<Sparkles className="size-5 text-amber-500" />} value={`+${result.xpEarned}`} label="XP earned" />
+          <Stat
+            icon={<Sparkles className="size-5 text-amber-500" />}
+            value={result.xpEarned}
+            format={(n) => `+${Math.round(n).toLocaleString()}`}
+            label="XP earned"
+          />
           <Stat
             icon={<Flame className={result.workoutStreakWeeks > 0 ? 'size-5 text-orange-500' : 'size-5 text-muted-foreground'} />}
-            value={String(result.workoutStreakWeeks)}
+            value={result.workoutStreakWeeks}
             label="week streak"
           />
         </div>
@@ -113,8 +143,10 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
           />
         )}
 
+        {/* The record lands after the ring and the roll-ups have finished, so it reads as the last
+            word rather than one more thing arriving at the same time as everything else. */}
         {result.newRecords.length > 0 && (
-          <Section title={result.newRecords.length === 1 ? 'New record' : 'New records'}>
+          <Section delayMs={320} title={result.newRecords.length === 1 ? 'New record' : 'New records'}>
             {result.newRecords.map((r, i) => (
               <Row
                 key={`${r.exerciseName}-${r.type}-${i}`}
@@ -128,7 +160,10 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
         )}
 
         {result.newAchievements.length > 0 && (
-          <Section title={result.newAchievements.length === 1 ? 'Achievement unlocked' : 'Achievements unlocked'}>
+          <Section
+            delayMs={400}
+            title={result.newAchievements.length === 1 ? 'Achievement unlocked' : 'Achievements unlocked'}
+          >
             {result.newAchievements.map((a) => (
               <Row key={a.code} icon={<Award className="size-4 text-violet-500" />} left={a.name} sub={a.description} />
             ))}
@@ -136,7 +171,7 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
         )}
 
         {result.challengeProgress.length > 0 && (
-          <Section title="Challenges">
+          <Section delayMs={480} title="Challenges">
             {result.challengeProgress.map((c) => (
               <Row
                 key={c.name}
@@ -151,13 +186,13 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
       </div>
 
       {/* Sticky so the way out is always in reach, however much landed above. */}
-      <div className="sticky bottom-0 w-full space-y-2 border-t bg-background px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="sticky bottom-0 z-10 w-full space-y-2 border-t bg-background/85 px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
         {/*
           Closing the celebration used to take the only way back with it. The way out now carries
           the way back for a few seconds — the member who taps Done reflexively is the same one who
           mis-tapped in the first place.
         */}
-        <Button className="mx-auto flex h-14 w-full max-w-md text-base" onClick={onDone}>
+        <Button className="press mx-auto flex h-14 w-full max-w-md rounded-2xl text-base font-bold shadow-volt" onClick={onDone}>
           Done
         </Button>
 
@@ -168,7 +203,7 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
         */}
         <Button
           variant="ghost"
-          className="mx-auto flex h-11 w-full max-w-md text-sm text-muted-foreground"
+          className="press mx-auto flex h-11 w-full max-w-md text-sm text-muted-foreground"
           disabled={undo.isPending || undone}
           onClick={() =>
             undo.mutate(result.workoutLogId, {
@@ -189,11 +224,31 @@ export function WorkoutCelebration({ result, onDismiss }: { result: MyWorkoutRes
   )
 }
 
-function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
+/**
+ * Both figures here are Archivo numerals well past the kit's 26px threshold, so both roll up. There is
+ * no previous value for either — XP is earned by this session and the streak is a count of weeks — so
+ * zero is the honest start, unlike the record weight the spec would have counted up from an old best
+ * the DTO does not carry.
+ */
+function Stat({
+  icon,
+  value,
+  label,
+  format,
+}: {
+  icon: ReactNode
+  value: number
+  label: string
+  format?: (value: number) => string
+}) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-xl border p-4">
+    <div className="flex flex-col items-center gap-1 rounded-2xl border bg-card p-4 edge-light">
       {icon}
-      <span className="text-3xl leading-none font-black tracking-tight tabular-nums">{value}</span>
+      <CountUp
+        to={value}
+        format={format}
+        className="font-display text-3xl leading-none font-black tracking-tight tabular-nums"
+      />
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   )
@@ -201,18 +256,21 @@ function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: s
 
 function Banner({ icon, title, tone }: { icon: ReactNode; title: string; tone: string }) {
   return (
-    <div className={`flex w-full items-center justify-center gap-2 rounded-xl border p-3 font-medium ${tone}`}>
+    <div className={`flex w-full items-center justify-center gap-2 rounded-2xl border bg-card p-3 font-medium edge-light ${tone}`}>
       {icon}
       {title}
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, children, delayMs = 0 }: { title: string; children: ReactNode; delayMs?: number }) {
   return (
-    <section className="w-full space-y-2 text-left">
+    <section
+      className="w-full space-y-2 text-left animate-in fade-in slide-in-from-bottom-2 duration-[640ms] ease-[var(--ease-expressive)] fill-mode-both"
+      style={{ animationDelay: `${delayMs}ms` }}
+    >
       <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>
-      <div className="overflow-hidden rounded-xl border">{children}</div>
+      <div className="overflow-hidden rounded-2xl border bg-card edge-light">{children}</div>
     </section>
   )
 }
@@ -235,7 +293,7 @@ function Row({
         <span className="block truncate text-sm font-medium">{left}</span>
         {sub && <span className="block truncate text-xs text-muted-foreground">{sub}</span>}
       </span>
-      {right && <span className="shrink-0 text-sm font-semibold tabular-nums">{right}</span>}
+      {right && <span className="shrink-0 font-display text-sm font-bold tabular-nums">{right}</span>}
     </div>
   )
 }

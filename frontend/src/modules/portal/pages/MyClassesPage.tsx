@@ -41,7 +41,7 @@ function ClassAction({ session }: { session: MyClassSession }) {
   if (session.myBookingStatus === 'Booked' || session.myBookingStatus === 'CheckedIn') {
     return (
       <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground">
+        <span className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground shadow-volt">
           <Check className="size-4" />
           {session.myBookingStatus === 'CheckedIn' ? 'Checked in' : 'Booked'}
         </span>
@@ -175,7 +175,7 @@ export default function MyClassesPage() {
                 <div
                   key={s.sessionId}
                   className={cn(
-                    'flex items-center gap-3 rounded-2xl border bg-card p-3',
+                    'flex items-center gap-3 rounded-2xl border bg-card p-3 edge-light',
                     // A class the member is already in reads as settled before anything is read.
                     booked ? 'border-primary/40 bg-accent' : 'border-border',
                   )}

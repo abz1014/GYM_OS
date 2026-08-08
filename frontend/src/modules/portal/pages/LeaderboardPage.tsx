@@ -4,6 +4,7 @@ import { Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { Bloom, GrainOverlay } from '@/shared/components/uplift'
 import { MemberEmptyState } from '@/modules/portal/components/portalShared'
 import {
   useMyLeaderboard,
@@ -39,7 +40,7 @@ function Row({ row, unit }: { row: LeaderboardRow; unit: string }) {
         row.isYou
           ? // Inverted rather than merely tinted: a member scrolling for themselves should find their
             // own row without reading a single name.
-            'border-primary bg-primary text-primary-foreground'
+            'border-primary bg-primary text-primary-foreground shadow-volt'
           : row.rank === 1
             ? 'border-warning/40 bg-card'
             : 'border-border bg-card',
@@ -155,7 +156,12 @@ export default function LeaderboardPage() {
       {data && data.totalRanked > 0 && (
         <>
           {/* Your standing, stated before the list — most members open this to find themselves. */}
-          <div className="rounded-3xl border border-border bg-card p-5">
+          <div
+            className="relative overflow-hidden rounded-3xl border border-border p-5 edge-light"
+            style={{ background: 'linear-gradient(160deg,#17190F,#151517 46%,#121214)' }}
+          >
+            <Bloom className="-top-14 -left-8 size-52" opacity={0.16} />
+            <GrainOverlay />
             {data.you ? (
               <div className="flex items-end justify-between gap-4">
                 <div>
@@ -163,7 +169,12 @@ export default function LeaderboardPage() {
                     Your position
                   </p>
                   <p className="mt-1 flex items-baseline gap-2">
-                    <span className="font-display text-6xl leading-none font-black tracking-tight text-primary tabular-nums">
+                    <span
+                      className="font-display text-6xl leading-none font-black tracking-tight text-primary tabular-nums"
+                      // The one numeral on this screen a member is looking for; the glow is what
+                      // makes it findable without reading.
+                      style={{ textShadow: '0 0 28px rgb(214 249 74 / 0.45)' }}
+                    >
                       {data.you.rank}
                     </span>
                     <span className="text-lg text-muted-foreground">of {data.totalRanked}</span>

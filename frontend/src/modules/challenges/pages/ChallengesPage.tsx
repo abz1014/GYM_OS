@@ -170,7 +170,7 @@ export default function ChallengesPage() {
       {challenges && challenges.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
           {challenges.map((c) => (
-            <div key={c.id} className="space-y-2 rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div key={c.id} className="space-y-2 rounded-panel border border-border bg-card p-5 edge-light-soft">
               <h2 className="flex items-center gap-2 font-display text-xl font-bold tracking-tight">
                 <Flag className="size-4 shrink-0 text-warning" />
                 {c.name}

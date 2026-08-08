@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Pagination } from '@/shared/components/Pagination'
-import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
+import { ListEmpty, ListError, ListSkeleton, PageHeader, SEVERITY_ROW } from '@/shared/components/console'
 import { useMaintenanceSchedulesList, useWorkOrdersList } from '@/modules/maintenance/api/maintenanceApi'
 import { CreateMaintenanceScheduleDialog } from '@/modules/maintenance/components/CreateMaintenanceScheduleDialog'
 import { CreateWorkOrderDialog } from '@/modules/maintenance/components/CreateWorkOrderDialog'
@@ -102,7 +102,12 @@ export default function MaintenancePage() {
                     key={wo.id}
                     type="button"
                     onClick={() => navigate(`/maintenance/work-orders/${wo.id}`)}
-                    className="block w-full space-y-1.5 rounded-2xl border border-border bg-card p-3 text-left active:bg-accent"
+                    className={cn(
+                      'press block w-full space-y-1.5 rounded-panel border border-border p-3 text-left active:bg-accent',
+                      // Rail and edge light are both box-shadow, so an overdue card takes the rail
+                      // and the tinted ground instead of the ordinary card surface — never both.
+                      wo.isOverdue ? SEVERITY_ROW.destructive : 'bg-card edge-light-soft',
+                    )}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate font-medium">{wo.title}</p>
@@ -127,7 +132,7 @@ export default function MaintenancePage() {
               </div>
 
               {/* Desktop / tablet: full table */}
-              <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+              <div className="hidden overflow-hidden rounded-panel border border-border bg-card md:block edge-light-soft">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -143,7 +148,7 @@ export default function MaintenancePage() {
                     {workOrders.map((wo) => (
                       <TableRow
                         key={wo.id}
-                        className="cursor-pointer"
+                        className={cn('cursor-pointer', wo.isOverdue && SEVERITY_ROW.destructive)}
                         onClick={() => navigate(`/maintenance/work-orders/${wo.id}`)}
                       >
                         <TableCell className="font-medium">{wo.title}</TableCell>
@@ -216,7 +221,7 @@ export default function MaintenancePage() {
                   // overdue work order it isn't a repair anyone is waiting on, it's the next one due.
                   const isDue = new Date(s.nextDueDate) <= new Date()
                   return (
-                    <div key={s.id} className="space-y-2 rounded-2xl border border-border bg-card p-3">
+                    <div key={s.id} className="space-y-2 rounded-panel border border-border bg-card p-3 edge-light-soft">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate font-medium">{s.assetName}</p>
                         <span
@@ -249,7 +254,7 @@ export default function MaintenancePage() {
               </div>
 
               {/* Desktop / tablet: full table */}
-              <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+              <div className="hidden overflow-hidden rounded-panel border border-border bg-card md:block edge-light-soft">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">

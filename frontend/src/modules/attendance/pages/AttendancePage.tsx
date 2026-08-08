@@ -8,6 +8,7 @@ import { AttendanceHistoryPanel } from '@/modules/attendance/components/Attendan
 import { CheckInPanel } from '@/modules/attendance/components/CheckInPanel'
 import { FrontDeskRail } from '@/modules/attendance/components/FrontDeskRail'
 import { kioskTimeFormat } from '@/modules/attendance/components/frontDeskFormat'
+import { Bloom, GrainOverlay } from '@/shared/components/uplift'
 import { useUiStore } from '@/stores/uiStore'
 
 interface Branch {
@@ -50,6 +51,10 @@ function useKioskClock(): Date {
  * Negative margins cancel AppShell's content padding so the dark surface reaches the edges of the
  * content area instead of floating as a panel inside a light frame — a kiosk that stops short of the
  * bezel reads as a window, not a mode.
+ *
+ * The screen's one bloom lives here rather than inside CheckInPanel: it is meant to sit behind the
+ * whole left half and bleed off the edge, which is only possible from the element that owns the
+ * edge. It is green rather than volt because the thing it is lighting is the granted verdict.
  */
 export default function AttendancePage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
@@ -66,8 +71,11 @@ export default function AttendancePage() {
   const branchName = branch?.name
 
   return (
-    <div className="dark -m-3 flex min-h-[calc(100%+1.5rem)] flex-col bg-background text-foreground sm:-m-6 sm:min-h-[calc(100%+3rem)]">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border px-6 py-4">
+    <div className="dark relative -m-3 flex min-h-[calc(100%+1.5rem)] flex-col overflow-hidden bg-background text-foreground sm:-m-6 sm:min-h-[calc(100%+3rem)]">
+      <Bloom className="-top-[30%] left-[6%] h-[110%] w-[52%] rounded-full" color="#A3E635" opacity={0.13} blur={70} />
+      <GrainOverlay opacity={0.045} />
+
+      <header className="relative flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border px-6 py-4">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
           <Dumbbell className="size-5" />
         </span>
@@ -108,7 +116,7 @@ export default function AttendancePage() {
           </div>
           <time
             dateTime={now.toISOString()}
-            className="font-display text-3xl leading-none font-black tracking-tight tabular-nums"
+            className="font-display text-[30px] leading-none font-black tracking-tight tabular-nums"
           >
             {kioskTimeFormat.format(now)}
           </time>
@@ -116,14 +124,18 @@ export default function AttendancePage() {
       </header>
 
       {view === 'checkin' ? (
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_420px]">
+        <div className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_420px]">
           <div className="flex min-w-0 items-center px-6">
             <CheckInPanel />
           </div>
           <FrontDeskRail capacity={branch?.capacity ?? null} />
         </div>
       ) : (
-        <AttendanceHistoryPanel />
+        // Wrapped only to give it a stacking context above the bloom, which is absolutely
+        // positioned and would otherwise paint over this static subtree.
+        <div className="relative">
+          <AttendanceHistoryPanel />
+        </div>
       )}
     </div>
   )

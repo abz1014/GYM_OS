@@ -25,8 +25,32 @@ function MemberTab({ tab, pathname, dot }: { tab: MemberTabData; pathname: strin
           active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
         )}
       >
-        <span className="relative">
-          <tab.icon className={cn('size-6', active && 'stroke-[2.5]')} />
+        {/*
+          The icon lifts 2px and cross-fades between its two weights on activation. Two stacked copies
+          rather than one with a toggled stroke-width, because stroke-width is not an animatable
+          property here — swapping it snaps, and the snap is the one thing that made this bar feel
+          like a set of links rather than a control.
+        */}
+        <span
+          className={cn(
+            'relative block size-6 transition-transform duration-[240ms] ease-[var(--ease-uplift)]',
+            active && '-translate-y-0.5',
+          )}
+        >
+          <tab.icon
+            aria-hidden
+            className={cn(
+              'absolute inset-0 size-6 transition-opacity duration-[240ms] ease-[var(--ease-uplift)]',
+              active ? 'opacity-0' : 'opacity-100',
+            )}
+          />
+          <tab.icon
+            aria-hidden
+            className={cn(
+              'absolute inset-0 size-6 stroke-[2.5] transition-opacity duration-[240ms] ease-[var(--ease-uplift)]',
+              active ? 'opacity-100' : 'opacity-0',
+            )}
+          />
           {/*
             A dot, not a number. The count is on the screen the dot leads to; repeating it here would
             have the member reading "3" twice and reconciling them the moment one lagged. The label
@@ -55,10 +79,12 @@ function MemberTab({ tab, pathname, dot }: { tab: MemberTabData; pathname: strin
  * than silently becoming a different product at ≥768px.
  *
  * MEMBER_TABS (data, order, alsoMatches, aria-current logic) is untouched by the redesign — only how
- * the 2nd entry ("Log") renders changed: it's promoted to an elevated circular FAB, centered and
- * floating above the bar rather than sitting flush inside it as a 4th flat icon+label tab. It still
- * points at exactly the same route (`/log-activity`) and still gets an aria-current when active, via
- * the same `alsoMatches`-driven `active` check every other tab uses — the promotion is visual only.
+ * the "Log" entry renders changed: it's promoted to an elevated circular FAB, centered and floating
+ * above the bar rather than sitting flush inside it as a flat icon+label tab. It still points at
+ * whatever route MEMBER_TABS gives it (`/workout` — see the note there on why the centre action
+ * starts a live session rather than opening the after-the-fact logger) and still gets an
+ * aria-current when active, via the same `alsoMatches`-driven `active` check every other tab uses.
+ * The promotion is visual only.
  */
 export function MemberTabBar() {
   const { pathname } = useLocation()
@@ -99,7 +125,11 @@ export function MemberTabBar() {
                 aria-label="Log a workout"
                 className={cn(
                   'absolute top-0 left-1/2 flex size-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full',
-                  'bg-primary text-primary-foreground shadow-[0_8px_22px_-6px_var(--primary)] transition-transform hover:scale-105',
+                  'bg-primary text-primary-foreground shadow-[0_8px_22px_-6px_var(--primary)]',
+                  // Deeper than the kit's .97 press: the FAB is a floating disc with nothing around
+                  // it to measure against, so the same travel reads as less movement than it does on
+                  // a full-width surface.
+                  'transition-transform duration-[120ms] ease-[var(--ease-uplift)] hover:scale-105 active:scale-[.94]',
                   fabActive && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
                 )}
               >

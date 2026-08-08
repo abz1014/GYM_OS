@@ -122,7 +122,7 @@ export default function WorkOrderDetailPage() {
         }
       />
 
-      <div className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="space-y-5 rounded-panel border border-border bg-card p-5 edge-light-soft">
         {workOrder.description && <p className="text-sm">{workOrder.description}</p>}
 
         {/*
@@ -183,7 +183,7 @@ export default function WorkOrderDetailPage() {
         {workOrder.downtimeLogs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No downtime recorded for this work order.</p>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="overflow-hidden rounded-panel border border-border bg-card edge-light-soft">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">

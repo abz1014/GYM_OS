@@ -36,7 +36,7 @@ export function PermissionMatrixTable() {
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+    <div className="overflow-x-auto rounded-panel border border-border bg-card edge-light-soft">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/50">

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useLogout } from '@/modules/auth/api/authApi'
 import { useMyToday, useMyProfile } from '@/modules/portal/api/portalApi'
 import { useAuthStore } from '@/stores/authStore'
+import { Bloom, GrainOverlay } from '@/shared/components/uplift'
 import { MEMBER_MORE_LINKS, type MemberMoreLink } from '@/shared/nav/memberNav'
 
 const GROUP_ORDER: MemberMoreLink['group'][] = ['Training', 'Community', 'Account']
@@ -64,9 +65,15 @@ export default function MorePage() {
       {profile.data && (
         <Link
           to="/membership"
-          className="block rounded-3xl border border-border bg-card p-5 transition-colors hover:bg-accent"
+          // The one row promoted out of the list and given the hero treatment. It earns it: this is
+          // the thing a member physically holds up at the front desk, and it was previously sitting
+          // in the Account group looking like "Account & security".
+          className="press relative block overflow-hidden rounded-3xl border border-border p-5 edge-light transition-colors"
+          style={{ background: 'linear-gradient(160deg,#17190F,#151517 46%,#121214)' }}
         >
-          <div className="flex items-start justify-between gap-3">
+          <Bloom className="-top-12 -right-10 size-48" opacity={0.14} />
+          <GrainOverlay />
+          <div className="relative flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Membership</p>
               {/* Wraps rather than truncates: this is the card's headline, and "Quarterly Stand…"
@@ -93,8 +100,8 @@ export default function MorePage() {
             </span>
           </div>
 
-          <div className="mt-4 flex items-center gap-3 border-t border-border pt-4">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+          <div className="relative mt-4 flex items-center gap-3 border-t border-border pt-4">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-volt">
               <QrCode className="size-6" />
             </span>
             <span className="min-w-0 flex-1">
@@ -117,12 +124,12 @@ export default function MorePage() {
         return (
           <section key={group} className="space-y-2">
             <h2 className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">{group}</h2>
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="overflow-hidden rounded-2xl border border-border bg-card edge-light">
               {links.map((link, i) => (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-accent ${
+                  className={`press flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-accent ${
                     i > 0 ? 'border-t border-border' : ''
                   }`}
                 >

@@ -145,7 +145,7 @@ export default function CrmPage() {
                   </div>
                   <div className="space-y-2">
                     {stageLeads.map((lead) => (
-                      <div key={lead.id} className="space-y-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
+                      <div key={lead.id} className="space-y-2 rounded-panel border border-border bg-card p-3 edge-light-soft">
                         <Link to={`/crm/${lead.id}`} className="block hover:underline">
                           <div className="flex items-center justify-between gap-2">
                             <p className="truncate font-medium">{lead.fullName}</p>
@@ -188,7 +188,7 @@ export default function CrmPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {hotLeads.length > 0 && (
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <section className="rounded-panel border border-border bg-card p-5 edge-light-soft">
             <h2 className="font-display text-xl font-bold tracking-tight">Hot leads</h2>
             <p className="mt-1 text-sm text-muted-foreground">Highest scoring, still in play.</p>
             <ul className="mt-4 divide-y divide-border">
@@ -213,7 +213,7 @@ export default function CrmPage() {
         )}
 
         {topReferrers && topReferrers.length > 0 && (
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <section className="rounded-panel border border-border bg-card p-5 edge-light-soft">
             <h2 className="font-display text-xl font-bold tracking-tight">Top referrers</h2>
             <p className="mt-1 text-sm text-muted-foreground">Members who send people through the door.</p>
             <ul className="mt-4 divide-y divide-border">

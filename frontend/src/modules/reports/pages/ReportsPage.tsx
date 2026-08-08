@@ -77,7 +77,7 @@ function ReportCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-panel border border-border bg-card p-5 edge-light-soft">
       <div className="flex flex-row items-center justify-between gap-3">
         <h2 className="font-display text-xl font-bold tracking-tight">{title}</h2>
         {action}

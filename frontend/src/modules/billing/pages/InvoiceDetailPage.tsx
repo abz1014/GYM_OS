@@ -12,9 +12,22 @@ import { RecordPaymentDialog } from '@/modules/billing/components/RecordPaymentD
 
 const currency = (amount: number, code: string) => amount.toLocaleString('en-US', { style: 'currency', currency: code })
 
-const PANEL = 'overflow-hidden rounded-2xl border border-border bg-card shadow-sm'
+/**
+ * The panel vocabulary every detail route in the console inherits: 20px radius, hairline border,
+ * the light surface's soft cast shadow. Lead, Work order, Trainer, Import job and the full Member
+ * route are all this frame with different contents.
+ */
+const PANEL = 'overflow-hidden rounded-panel border border-border bg-card edge-light-soft'
 const PANEL_HEADING = 'font-display text-xl font-bold tracking-tight'
+/** Uppercase eyebrow column headers, matching the list. */
+const COLUMN_HEAD = 'text-[10px] font-bold tracking-[0.13em] text-muted-foreground uppercase'
 
+/**
+ * The detail half of the console's list/detail template.
+ *
+ * The header stacks member → number → status → dates, so the page answers "whose, which, what state"
+ * before any table is read, and the totals stack ends in the one line somebody opened the page for.
+ */
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const invoiceQuery = useInvoice(id)
@@ -87,10 +100,10 @@ export default function InvoiceDetailPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Description</TableHead>
-              <TableHead>Qty</TableHead>
-              <TableHead>Unit price</TableHead>
-              <TableHead>Total</TableHead>
+              <TableHead className={COLUMN_HEAD}>Description</TableHead>
+              <TableHead className={COLUMN_HEAD}>Qty</TableHead>
+              <TableHead className={COLUMN_HEAD}>Unit price</TableHead>
+              <TableHead className={COLUMN_HEAD}>Total</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -105,41 +118,49 @@ export default function InvoiceDetailPage() {
           </TableBody>
         </Table>
 
-        <div className="ml-auto w-full max-w-xs space-y-1.5 p-5 text-sm tabular-nums">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span>{currency(invoice.subtotal, invoice.currency)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Tax</span>
-            <span>{currency(invoice.taxAmount, invoice.currency)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Discount</span>
-            <span>-{currency(invoice.discountAmount, invoice.currency)}</span>
-          </div>
-          <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
-            <span>Total</span>
-            <span>{currency(invoice.totalAmount, invoice.currency)}</span>
-          </div>
-          <div className="flex justify-between text-success">
-            <span>Paid</span>
-            <span>{currency(invoice.amountPaid, invoice.currency)}</span>
-          </div>
-          {/* The one line on this page somebody is chasing. It carries the emphasis only while there
-              is something to chase — a settled invoice showing an amber zero reads as a problem. */}
-          <div
-            className={cn(
-              'flex justify-between font-semibold',
-              isSettled ? 'text-muted-foreground' : 'text-warning',
+        {/* The totals sit in a recessed well at the foot of the lines they total, rather than
+            floating on the same white as the table. */}
+        <div className="flex justify-end border-t border-border bg-[#FAFAF7] p-5">
+          <div className="w-full max-w-xs space-y-1.5 text-sm tabular-nums">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{currency(invoice.subtotal, invoice.currency)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Tax</span>
+              <span>{currency(invoice.taxAmount, invoice.currency)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Discount</span>
+              <span>-{currency(invoice.discountAmount, invoice.currency)}</span>
+            </div>
+            <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
+              <span>Total</span>
+              <span>{currency(invoice.totalAmount, invoice.currency)}</span>
+            </div>
+            <div className="flex justify-between text-success">
+              <span>Paid</span>
+              <span>{currency(invoice.amountPaid, invoice.currency)}</span>
+            </div>
+            {/*
+              The one line on this page somebody is chasing. It gets its own tinted well, the amber
+              rail and a 22px display numeral — but only while there is something to chase. A settled
+              invoice shows the same figure muted and inline with the rows above it, because an amber
+              zero under a rail reads as a problem, and closing an invoice is the opposite of one.
+            */}
+            {isSettled ? (
+              <div className="flex justify-between font-semibold text-muted-foreground">
+                <span>Outstanding</span>
+                <span>{currency(invoice.amountOutstanding, invoice.currency)}</span>
+              </div>
+            ) : (
+              <div className="mt-2.5 flex items-center justify-between gap-4 rounded-[14px] bg-[#FDF6EC] px-3.5 py-3 rail-warning">
+                <span className="font-bold text-[#B45309]">Outstanding</span>
+                <span className="font-display text-[22px] leading-none font-black tracking-[-0.03em] text-[#B45309]">
+                  {currency(invoice.amountOutstanding, invoice.currency)}
+                </span>
+              </div>
             )}
-          >
-            <span>Outstanding</span>
-            <span
-              className={cn(!isSettled && 'font-display text-xl leading-none font-black tracking-tight')}
-            >
-              {currency(invoice.amountOutstanding, invoice.currency)}
-            </span>
           </div>
         </div>
       </div>
@@ -150,10 +171,10 @@ export default function InvoiceDetailPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Method</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Paid at</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className={COLUMN_HEAD}>Method</TableHead>
+                <TableHead className={COLUMN_HEAD}>Amount</TableHead>
+                <TableHead className={COLUMN_HEAD}>Paid at</TableHead>
+                <TableHead className={COLUMN_HEAD}>Status</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -186,10 +207,10 @@ export default function InvoiceDetailPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Amount</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Refunded at</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className={COLUMN_HEAD}>Amount</TableHead>
+                <TableHead className={COLUMN_HEAD}>Reason</TableHead>
+                <TableHead className={COLUMN_HEAD}>Refunded at</TableHead>
+                <TableHead className={COLUMN_HEAD}>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -87,7 +87,7 @@ function MemberNutrition() {
         }}
       />
       {!memberId && searchTerm && (
-        <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="divide-y divide-border overflow-hidden rounded-panel border border-border bg-card edge-light-soft">
           {members?.items.length === 0 && <p className="p-3 text-sm text-muted-foreground">No members match.</p>}
           {members?.items.map((m) => (
             <button
@@ -179,7 +179,7 @@ export default function NutritionPage() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {foodItems?.map((food) => (
-                <div key={food.id} className="space-y-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
+                <div key={food.id} className="space-y-2 rounded-panel border border-border bg-card p-3 edge-light-soft">
                     <div className="flex items-center justify-between">
                       <p className="font-medium">{food.name}</p>
                       <span className="text-sm text-muted-foreground">{food.servingSizeDescription}</span>

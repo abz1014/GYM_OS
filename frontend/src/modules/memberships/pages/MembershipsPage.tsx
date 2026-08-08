@@ -93,7 +93,7 @@ function PlansTab() {
           {plans.map((plan) => (
             <article
               key={plan.id}
-              className={cn('rounded-2xl border border-border bg-card p-5 shadow-sm', !plan.isActive && 'opacity-60')}
+              className={cn('rounded-panel border border-border bg-card p-5 edge-light-soft', !plan.isActive && 'opacity-60')}
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="min-w-0 font-display text-lg font-bold tracking-tight">{plan.name}</h3>
@@ -172,7 +172,7 @@ function DiscountsAndCoupons() {
               <article
                 key={discount.id}
                 className={cn(
-                  'rounded-2xl border border-border bg-card p-4 shadow-sm',
+                  'rounded-panel border border-border bg-card p-4 edge-light-soft',
                   !discount.isActive && 'opacity-60',
                 )}
               >
@@ -219,7 +219,7 @@ function DiscountsAndCoupons() {
               <article
                 key={coupon.id}
                 className={cn(
-                  'rounded-2xl border border-border bg-card p-4 shadow-sm',
+                  'rounded-panel border border-border bg-card p-4 edge-light-soft',
                   !coupon.isActive && 'opacity-60',
                 )}
               >

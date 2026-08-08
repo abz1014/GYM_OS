@@ -7,6 +7,7 @@ import type { AxiosError } from 'axios'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Bloom, GrainOverlay } from '@/shared/components/uplift'
 import { useAuthStore } from '@/stores/authStore'
 import { useLogin } from '@/modules/auth/api/authApi'
 import { resolveLandingRoute } from '@/shared/nav/landingRoute'
@@ -27,6 +28,16 @@ const DEMO_ROLES = ['owner', 'manager', 'receptionist', 'trainer', 'nutritionist
  * that don't do what they say. Same reasoning kills the streak-specific subhead ("keep your 7-week
  * streak alive") — nothing is known about who's typing until they've typed it, so the copy stays
  * honest and generic instead of guessing a number.
+ *
+ * Two blooms rather than the kit's usual one: a volt radial top-left and a cooler #7DD3FC counter-glow
+ * bottom-right. The counter-glow is what keeps the ink from going muddy — a single warm radial on
+ * #0B0B0C reads as a stain. The volt one is the only ambient drift in the product; it is pure
+ * decoration on the one screen with nothing to read yet, and index.css gates it on prefers-reduced-motion
+ * globally.
+ *
+ * The mark stays lucide's Dumbbell. The uplift proposes a drawn barbell in this same 52px volt square,
+ * but the mark appears in three places (here, the staff rail, the kiosk header) and a mark that changed
+ * on one of them would read as two products rather than one restyled.
  */
 export default function LoginPage() {
   const [email, setEmail] = useState('owner@titanfitness.demo')
@@ -67,12 +78,9 @@ export default function LoginPage() {
     // inputs did exactly that and rendered near-black text on the near-black card. Re-declaring it
     // here computes the variable inside the .dark scope, where it is the light ink.
     <div className="dark relative flex min-h-svh flex-col justify-end overflow-hidden bg-background p-6 pb-10 text-foreground sm:justify-center sm:py-16">
-      {/* Radial volt glow, top-left — pure decoration, sits behind everything. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-1/4 -left-1/4 size-[70vh] rounded-full opacity-25 blur-3xl"
-        style={{ background: 'radial-gradient(circle, var(--primary) 0%, transparent 70%)' }}
-      />
+      <Bloom drift className="-top-1/4 -left-1/4 size-[70vh]" opacity={0.22} blur={64} />
+      <Bloom className="-right-1/4 -bottom-1/4 size-[55vh]" color="#7DD3FC" opacity={0.1} blur={64} />
+      <GrainOverlay />
 
       <div className="relative mx-auto w-full max-w-sm">
         <div className="mb-8 flex size-13 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_8px_22px_-6px_var(--primary)]">
@@ -93,7 +101,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-14 rounded-2xl border-border bg-card px-4 text-base focus-visible:ring-[3px] focus-visible:ring-ring/20"
+              className="h-14 rounded-2xl border-border bg-card px-4 text-base focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/20"
             />
           </div>
 
@@ -113,7 +121,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={mfaRequired}
-              className="h-14 rounded-2xl border-border bg-card px-4 text-base focus-visible:ring-[3px] focus-visible:ring-ring/20"
+              className="h-14 rounded-2xl border-border bg-card px-4 text-base focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/20"
             />
           </div>
 
@@ -129,7 +137,7 @@ export default function LoginPage() {
                 placeholder="6-digit code"
                 value={mfaCode}
                 onChange={(e) => setMfaCode(e.target.value)}
-                className="h-14 rounded-2xl border-border bg-card px-4 text-base focus-visible:ring-[3px] focus-visible:ring-ring/20"
+                className="h-14 rounded-2xl border-border bg-card px-4 text-base focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/20"
               />
             </div>
           )}
@@ -137,7 +145,7 @@ export default function LoginPage() {
           <Button
             type="submit"
             disabled={login.isPending}
-            className="h-[58px] w-full rounded-2xl text-base font-bold shadow-[0_8px_22px_-6px_var(--primary)]"
+            className="press h-[58px] w-full rounded-2xl text-base font-bold shadow-[0_8px_22px_-6px_var(--primary)]"
           >
             {login.isPending && <Loader2 className="size-4 animate-spin" />}
             Sign in

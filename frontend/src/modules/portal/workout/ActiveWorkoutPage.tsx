@@ -66,11 +66,17 @@ function SetRow({
     // because it is history; upcoming keeps full-contrast text because it is still to do; only the
     // active row is outlined. Done and upcoming previously differed by a background one step apart on
     // a dark surface, which made a set the member had not started look like one they had finished.
+    //
+    // The active row now carries three signals at once — a 1.5px volt border, a 4px halo and a
+    // coloured drop shadow — because one of them alone is a border, and a border is what every other
+    // row already has. The width is 1.5px on ALL three states so the stack never reflows by a
+    // half-pixel as the active row moves down it.
     <div
       className={cn(
-        'flex items-center gap-2 rounded-2xl border p-2 transition-colors',
+        'flex items-center gap-2 rounded-2xl border-[1.5px] p-2 transition-all duration-[240ms] ease-[var(--ease-uplift)]',
         done && 'border-transparent bg-muted opacity-60',
-        active && 'border-primary bg-accent',
+        active &&
+          'border-primary bg-accent shadow-[0_0_0_4px_rgb(214_249_74_/_0.10),0_10px_24px_-10px_rgb(214_249_74_/_0.45)]',
         !done && !active && 'border-border',
       )}
     >
@@ -97,8 +103,11 @@ function SetRow({
         placeholder="—"
         onChange={(e) => onChange({ weightKg: e.target.value === '' ? null : Number(e.target.value) })}
         className={cn(
-          'h-12 min-w-0 flex-1 rounded-xl border bg-background px-3 text-center font-display text-lg font-bold tabular-nums outline-none',
-          active ? 'border-primary text-foreground' : 'border-transparent',
+          // 21px/800 on an ink ground: this is read at arm's length, one-handed, mid-set. The active
+          // row's fields take a dim olive border rather than a volt one — the row itself is already
+          // outlined in volt, and a second volt line inside it competes with the first.
+          'h-12 min-w-0 flex-1 rounded-xl border bg-background px-3 text-center font-display text-[21px] font-extrabold tabular-nums outline-none',
+          active ? 'border-[#3A3E1F] text-foreground' : 'border-transparent',
           done ? 'bg-transparent text-muted-foreground' : 'text-foreground',
         )}
       />
@@ -115,8 +124,8 @@ function SetRow({
         value={reps || ''}
         onChange={(e) => onChange({ reps: Number(e.target.value) })}
         className={cn(
-          'h-12 min-w-0 flex-1 rounded-xl border bg-background px-3 text-center font-display text-lg font-bold tabular-nums outline-none',
-          active ? 'border-primary text-foreground' : 'border-transparent',
+          'h-12 min-w-0 flex-1 rounded-xl border bg-background px-3 text-center font-display text-[21px] font-extrabold tabular-nums outline-none',
+          active ? 'border-[#3A3E1F] text-foreground' : 'border-transparent',
           done ? 'bg-transparent text-muted-foreground' : 'text-foreground',
         )}
       />
@@ -127,8 +136,12 @@ function SetRow({
         disabled={done || !active}
         onClick={onComplete}
         className={cn(
-          'flex size-12 shrink-0 items-center justify-center rounded-xl transition-colors',
-          done ? 'bg-success text-success-foreground' : active ? 'bg-primary text-primary-foreground' : 'bg-muted',
+          // Filled at every stage, never an outline. This is the most-tapped control in the product
+          // and it is tapped without looking; an empty circle asks the member to find an edge.
+          // The transition is spelled out rather than using `press`, which would replace the colour
+          // transition with a transform-only one and make the fill snap on log.
+          'flex size-12 shrink-0 items-center justify-center rounded-xl transition-[transform,background-color,color] duration-[120ms] ease-[var(--ease-uplift)] active:scale-[.97]',
+          done ? 'bg-success text-success-foreground' : active ? 'bg-primary text-primary-foreground shadow-volt' : 'bg-muted',
         )}
       >
         {done && <Check className="size-5" />}
@@ -224,7 +237,7 @@ export default function ActiveWorkoutPage() {
   }
 
   if (proposal.isLoading && !running) {
-    return <Skeleton className="h-96 w-full rounded-3xl" />
+    return <Skeleton className="h-96 w-full rounded-3xl shimmer" />
   }
 
   // Nothing to propose — no plan, no history, no catalogue. The manual logger is the honest fallback
@@ -237,7 +250,7 @@ export default function ActiveWorkoutPage() {
         <p className="text-sm text-muted-foreground">
           Once you've logged a session or your trainer sets you a plan, this becomes one tap.
         </p>
-        <Button asChild className="h-12 w-full rounded-2xl">
+        <Button asChild className="press h-12 w-full rounded-2xl shadow-volt">
           <Link to="/log-activity">Log a workout manually</Link>
         </Button>
       </div>
@@ -251,7 +264,7 @@ export default function ActiveWorkoutPage() {
           type="button"
           onClick={quit}
           aria-label="End session without saving"
-          className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground transition-colors hover:text-foreground"
+          className="press flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground edge-light hover:text-foreground"
         >
           <X className="size-5" />
         </button>
@@ -263,8 +276,8 @@ export default function ActiveWorkoutPage() {
         </div>
         {/* Elapsed since the session began — derived from a stored start time, so it stays right
             through a lock screen, a backgrounded tab and a reload. */}
-        <span className="flex shrink-0 items-center gap-2 rounded-xl bg-muted px-3 py-2">
-          <span className="size-2 animate-pulse rounded-full bg-primary" />
+        <span className="flex shrink-0 items-center gap-2 rounded-xl bg-muted px-3 py-2 edge-light">
+          <span className="size-2 animate-pulse rounded-full bg-primary shadow-[0_0_8px_rgb(214_249_74_/_0.7)]" />
           <span className="font-display font-bold tabular-nums">{clock((now - startedAt!) / 1000)}</span>
         </span>
       </div>
@@ -280,9 +293,15 @@ export default function ActiveWorkoutPage() {
                 onClick={() => goToExercise(i)}
                 aria-label={`Go to ${ex.exerciseName}`}
                 aria-current={i === currentIndex ? 'step' : undefined}
+                // Three states, not two: done, being worked, still ahead. The glow is on the current
+                // segment alone — a segment that is merely finished has nothing left to say.
                 className={cn(
                   'h-1.5 w-full rounded-full transition-colors',
-                  complete ? 'bg-primary' : i === currentIndex ? 'bg-primary/40' : 'bg-border',
+                  complete
+                    ? 'bg-primary'
+                    : i === currentIndex
+                      ? 'bg-primary/40 shadow-[0_0_10px_rgb(214_249_74_/_0.45)]'
+                      : 'bg-border',
                 )}
               />
             </li>
@@ -302,7 +321,7 @@ export default function ActiveWorkoutPage() {
           )}
 
           {prInReach && (
-            <div className="mt-3 flex items-center gap-2 rounded-2xl border border-warning/40 bg-warning/10 p-3">
+            <div className="mt-3 flex items-center gap-2 rounded-2xl border border-warning/40 bg-warning/10 p-3 edge-light">
               <ArrowUp className="size-5 shrink-0 text-warning" />
               <p className="text-sm font-medium text-warning">
                 Beat {currentBest}kg to set a personal record.
@@ -334,7 +353,7 @@ export default function ActiveWorkoutPage() {
             <button
               type="button"
               onClick={() => addSet(currentIndex)}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="press flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               <Plus className="size-4" />
               Add set
@@ -345,7 +364,7 @@ export default function ActiveWorkoutPage() {
               the member has to find. The last exercise offers the finish instead. */}
           {activeSetIndex === null && currentIndex < exercises.length - 1 && (
             <Button
-              className="mt-4 h-12 w-full rounded-2xl"
+              className="press mt-4 h-12 w-full rounded-2xl shadow-volt"
               onClick={() => goToExercise(currentIndex + 1)}
             >
               Next: {exercises[currentIndex + 1].exerciseName}
@@ -364,18 +383,27 @@ export default function ActiveWorkoutPage() {
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
       >
         <div className="mx-auto max-w-2xl space-y-3 p-4">
+          {/*
+            No printed denominator beside the countdown. REST_SECONDS is a flat 90s default, not a
+            per-exercise prescription, and "1:12 of 2:00" would dress a constant up as a
+            recommendation. The bar carries the same fraction without claiming to be advice.
+            It slides in ABOVE the finish button rather than replacing it — see the block below.
+          */}
           {resting && (
-            <div>
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-[240ms] ease-[var(--ease-uplift)]">
               <div className="flex items-baseline justify-between">
                 <span className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Rest</span>
-                <span className="font-display text-3xl font-black tracking-tight text-primary tabular-nums">
+                <span className="font-display text-[30px] leading-none font-black tracking-tight text-primary tabular-nums [text-shadow:0_0_26px_rgb(214_249_74_/_0.35)]">
                   {clock(restRemaining)}
                 </span>
               </div>
               <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border">
                 <div
-                  className="h-full rounded-full bg-primary transition-[width] duration-1000 ease-linear"
-                  style={{ width: `${(restRemaining / REST_SECONDS) * 100}%` }}
+                  className="h-full rounded-full transition-[width] duration-1000 ease-linear"
+                  style={{
+                    width: `${(restRemaining / REST_SECONDS) * 100}%`,
+                    background: 'linear-gradient(90deg,#EDFF8A,#B8DC2B)',
+                  }}
                 />
               </div>
             </div>
@@ -383,12 +411,12 @@ export default function ActiveWorkoutPage() {
 
           <div className="flex gap-2">
             {resting && (
-              <Button variant="outline" className="h-12 flex-1 rounded-2xl" onClick={skipRest}>
+              <Button variant="outline" className="press h-12 flex-1 rounded-2xl" onClick={skipRest}>
                 Skip rest
               </Button>
             )}
             <Button
-              className="h-12 flex-1 rounded-2xl font-bold"
+              className="press h-12 flex-1 rounded-2xl font-bold shadow-volt"
               disabled={logWorkout.isPending || entries.length === 0}
               onClick={finish}
             >

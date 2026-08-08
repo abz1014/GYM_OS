@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { Pagination } from '@/shared/components/Pagination'
-import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
+import { ListEmpty, ListError, ListSkeleton, PageHeader, SEVERITY_ROW } from '@/shared/components/console'
 import { useAssetsList, useUpdateAssetStatus, type AssetStatus } from '@/modules/equipment/api/equipmentApi'
 import { CreateAssetDialog } from '@/modules/equipment/components/CreateAssetDialog'
 import { CreateSupplierDialog } from '@/modules/equipment/components/CreateSupplierDialog'
@@ -40,6 +40,16 @@ const STATUS_DOT: Record<AssetStatus, string> = {
   UnderMaintenance: 'bg-warning',
   OutOfService: 'bg-destructive',
   Retired: 'bg-muted-foreground',
+}
+
+/**
+ * The row ground, on the same reasoning as the chip above — and deliberately narrower. Only the two
+ * statuses someone has to do something about get a rail; Active is the healthy majority, and Retired
+ * is history, so a rail on either would be the decoration this list already refuses in its pills.
+ */
+const STATUS_ROW: Partial<Record<AssetStatus, string>> = {
+  UnderMaintenance: SEVERITY_ROW.warning,
+  OutOfService: SEVERITY_ROW.destructive,
 }
 
 function AssetStatusPill({ status }: { status: AssetStatus }) {
@@ -130,7 +140,13 @@ export default function EquipmentPage() {
           {/* Mobile: card list — six columns of tags, suppliers and dates have no room on a phone. */}
           <div className="space-y-2 md:hidden">
             {assets.map((asset) => (
-              <div key={asset.id} className="space-y-2 rounded-2xl border border-border bg-card p-3">
+              <div
+                key={asset.id}
+                className={cn(
+                  'space-y-2 rounded-panel border border-border p-3',
+                  STATUS_ROW[asset.status] ?? 'bg-card edge-light-soft',
+                )}
+              >
                 <div className="flex items-center gap-2 font-medium">
                   <QrCode className="size-4 shrink-0 text-muted-foreground" />
                   <span className="truncate">{asset.name}</span>
@@ -153,7 +169,7 @@ export default function EquipmentPage() {
           </div>
 
           {/* Desktop / tablet: full table */}
-          <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+          <div className="hidden overflow-hidden rounded-panel border border-border bg-card md:block edge-light-soft">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -179,7 +195,7 @@ export default function EquipmentPage() {
               </TableHeader>
               <TableBody>
                 {assets.map((asset) => (
-                  <TableRow key={asset.id}>
+                  <TableRow key={asset.id} className={cn(STATUS_ROW[asset.status])}>
                     <TableCell className="font-medium">
                       <span className="flex items-center gap-2.5">
                         <QrCode className="size-4 shrink-0 text-muted-foreground" />

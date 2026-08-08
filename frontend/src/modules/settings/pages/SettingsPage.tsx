@@ -31,7 +31,7 @@ function BranchesTab() {
         {branches?.map((branch) => (
           <div
             key={branch.id}
-            className={cn('rounded-2xl border border-border bg-card p-5 shadow-sm space-y-1', !branch.isActive && 'opacity-60')}
+            className={cn('rounded-panel border border-border bg-card p-5 edge-light-soft space-y-1', !branch.isActive && 'opacity-60')}
           >
               <div className="flex items-center justify-between gap-2">
                 <p className="font-medium">{branch.name}</p>
@@ -69,7 +69,7 @@ function SystemPreferencesTab() {
       )}
       <div className="space-y-2">
         {preferences?.map((pref) => (
-          <div key={pref.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm flex items-center justify-between gap-3">
+          <div key={pref.id} className="rounded-panel border border-border bg-card p-5 edge-light-soft flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-mono text-sm font-medium">{pref.key}</p>
                 <p className="text-sm text-muted-foreground">{pref.value}</p>
@@ -104,7 +104,7 @@ function AuditLogTab() {
               {/* Mobile: card list */}
               <div className="space-y-2 md:hidden">
                 {data.items.map((entry) => (
-                  <div key={entry.id} className="space-y-1.5 rounded-2xl border border-border bg-card p-3">
+                  <div key={entry.id} className="space-y-1.5 rounded-panel border border-border bg-card p-3 edge-light-soft">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-mono text-xs">{entry.action}</span>
                       <Badge variant="outline" className="shrink-0">
@@ -119,7 +119,7 @@ function AuditLogTab() {
               </div>
 
               {/* Desktop / tablet: full table */}
-              <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+              <div className="hidden overflow-hidden rounded-panel border border-border bg-card md:block edge-light-soft">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -164,7 +164,7 @@ function DataMaintenanceTab() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-3">
+      <div className="rounded-panel border border-border bg-card p-5 edge-light-soft space-y-3">
         <h2 className="font-display text-xl font-bold tracking-tight">Rebuild member experience projections</h2>
           <p className="text-sm text-muted-foreground">
             Recomputes member level/XP totals and exercise mastery from their source history — the XP

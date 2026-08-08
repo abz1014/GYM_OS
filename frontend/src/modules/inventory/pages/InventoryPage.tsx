@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { Pagination } from '@/shared/components/Pagination'
-import { FilterTabs, ListEmpty, ListError, ListSkeleton, PageHeader, type FilterTab } from '@/shared/components/console'
+import { FilterTabs, ListEmpty, ListError, ListSkeleton, PageHeader, SEVERITY_ROW, type FilterTab } from '@/shared/components/console'
 import {
   inventoryCategoryLabel,
   useInventoryItemsList,
@@ -41,6 +41,14 @@ function StockPill({ item }: { item: InventoryItemListItem }) {
 
 const quantityTone = (item: InventoryItemListItem) =>
   item.quantityOnHand === 0 ? 'font-medium text-destructive' : item.isLowStock ? 'font-medium text-warning' : ''
+
+/**
+ * The row's severity ground, on the same two-tier split the pill already makes: out of stock is a
+ * member being turned away at the counter, low is a reorder. A healthy row gets nothing, which is
+ * what leaves the other two visible.
+ */
+const stockRowTone = (item: InventoryItemListItem) =>
+  item.quantityOnHand === 0 ? SEVERITY_ROW.destructive : item.isLowStock ? SEVERITY_ROW.warning : null
 
 export default function InventoryPage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
@@ -127,7 +135,13 @@ export default function InventoryPage() {
               the history dialog inside it, so the card stays a plain container. */}
           <div className="space-y-2 md:hidden">
             {items.map((item) => (
-              <div key={item.id} className="space-y-2 rounded-2xl border border-border bg-card p-3">
+              <div
+                key={item.id}
+                className={cn(
+                  'space-y-2 rounded-panel border border-border p-3',
+                  stockRowTone(item) ?? 'bg-card edge-light-soft',
+                )}
+              >
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate font-medium">{item.name}</p>
                   <StockPill item={item} />
@@ -147,7 +161,7 @@ export default function InventoryPage() {
           </div>
 
           {/* Desktop / tablet: full table */}
-          <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+          <div className="hidden overflow-hidden rounded-panel border border-border bg-card md:block edge-light-soft">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -166,7 +180,7 @@ export default function InventoryPage() {
               </TableHeader>
               <TableBody>
                 {items.map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} className={cn(stockRowTone(item))}>
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell className="text-muted-foreground tabular-nums">{item.sku}</TableCell>
                     <TableCell className="text-muted-foreground">{inventoryCategoryLabel(item.category)}</TableCell>

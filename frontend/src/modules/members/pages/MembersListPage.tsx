@@ -166,7 +166,7 @@ export default function MembersListPage() {
                   key={member.id}
                   type="button"
                   onClick={() => openMember(member.id)}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left active:bg-accent"
+                  className="flex w-full items-center gap-3 rounded-panel border border-border bg-card p-3 text-left active:bg-accent"
                 >
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary font-display text-sm font-black">
                     {member.fullName.charAt(0).toUpperCase()}

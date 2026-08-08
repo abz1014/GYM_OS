@@ -93,7 +93,7 @@ function TrainersTab() {
               key={trainer.id}
               type="button"
               onClick={() => navigate(`/trainers/${trainer.id}`)}
-              className="flex w-full flex-col gap-3 rounded-2xl border border-border bg-card p-5 text-left shadow-sm transition-colors hover:bg-accent active:bg-accent"
+              className="press flex w-full flex-col gap-3 rounded-panel border border-border bg-card p-5 text-left edge-light-soft transition-colors hover:bg-accent active:bg-accent"
             >
               <span className="flex items-start gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary font-display text-sm font-black">
@@ -153,7 +153,7 @@ function PlateausCard() {
   const { data, isLoading } = useCoachingPlateaus()
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-panel border border-border bg-card p-5 edge-light-soft">
       <PanelHeading title="Plateaus" count={data?.length} />
       <div className="mt-4">
         {isLoading ? (
@@ -191,7 +191,7 @@ function ComplianceCard() {
   const { data, isLoading } = useCoachingCompliance()
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-panel border border-border bg-card p-5 edge-light-soft">
       {/*
         No count beside this heading, unlike the two panels either side of it. Their length is the
         finding — how many people have plateaued, how many are at risk. This one's length is just how
@@ -258,7 +258,7 @@ function RisksCard() {
   const { data, isLoading } = useCoachingRisks()
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <section className="rounded-panel border border-border bg-card p-5 edge-light-soft">
       <PanelHeading title="Risks" count={data?.length} />
       <div className="mt-4">
         {isLoading ? (

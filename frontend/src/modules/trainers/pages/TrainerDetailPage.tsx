@@ -74,7 +74,7 @@ function BackToTrainers() {
 /** The row shell every tab panel repeats: one card per assignment, session, slot, rating or record. */
 function Row({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-border bg-card p-4 edge-light-soft">
       {children}
     </div>
   )
@@ -159,7 +159,7 @@ export default function TrainerDetailPage() {
       </div>
 
       {trainer.bio && (
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-panel border border-border bg-card p-5 edge-light-soft">
           <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Bio</p>
           <p className="mt-2 text-sm">{trainer.bio}</p>
         </div>
@@ -273,7 +273,7 @@ export default function TrainerDetailPage() {
             <ListEmpty message="No ratings yet." hint="Clients can be rated against a completed session, or in general." />
           )}
           {trainer.ratings.map((r) => (
-            <div key={r.id} className="space-y-1.5 rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div key={r.id} className="space-y-1.5 rounded-panel border border-border bg-card p-4 edge-light-soft">
               <div className="flex items-center justify-between gap-3">
                 <span className="truncate font-medium">{r.memberName}</span>
                 <span className="flex shrink-0 items-center gap-1 text-warning tabular-nums">

@@ -48,7 +48,7 @@ export default function MigrationListPage() {
             key={job.id}
             type="button"
             onClick={() => navigate(`/migration/${job.id}`)}
-            className="flex w-full flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-accent/50"
+            className="press flex w-full flex-wrap items-center justify-between gap-2 rounded-panel border border-border bg-card p-4 text-left edge-light-soft transition-colors hover:bg-accent/50"
           >
             <div className="min-w-0">
               <p className="truncate font-medium">{job.fileName}</p>

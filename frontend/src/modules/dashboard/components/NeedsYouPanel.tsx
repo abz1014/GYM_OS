@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -12,10 +13,33 @@ import {
 
 type QueueTone = 'critical' | 'warning' | 'neutral'
 
+/**
+ * A 3px inset rail on a tinted ground — the same rail the KPI tiles above carry, so severity reads
+ * the same way in both halves of the screen. It replaces the 4px left BORDER these rows used to
+ * have: a border changes the box's size, which pushed the tinted rows' text 4px right of the
+ * untinted ones, and an inset shadow doesn't.
+ *
+ * The grounds are the console's three tinted surfaces rather than an alpha of the tone. `warning/5`
+ * over white is a different colour from `#FDF6EC` and the two would not have matched the tabs and
+ * badges that already use these exact values elsewhere in the light palette.
+ *
+ * The neutral rail has no `rail-*` utility because there is no neutral SEVERITY — it is the absence
+ * of one, drawn just heavy enough to keep the row's leading edge aligned with the two above it.
+ */
 const TONE_CLASSES: Record<QueueTone, string> = {
-  critical: 'border-l-destructive bg-destructive/5',
-  warning: 'border-l-warning bg-warning/5',
-  neutral: 'border-l-muted-foreground/40 bg-muted/50',
+  critical: 'rail-destructive bg-[#FDF2F2]',
+  warning: 'rail-warning bg-[#FDF6EC]',
+  neutral: 'bg-[#F4F4F0] shadow-[inset_3px_0_0_#8A8A80]',
+}
+
+/**
+ * Hover has to be per-tone now that the ground is: a single `hover:bg-accent` would wash a critical
+ * row back to neutral grey on the way to clicking it. Only rows that actually go somewhere get one.
+ */
+const TONE_HOVER_CLASSES: Record<QueueTone, string> = {
+  critical: 'transition-colors hover:bg-[#FAE8E8]',
+  warning: 'transition-colors hover:bg-[#F9EDDC]',
+  neutral: 'transition-colors hover:bg-[#ECECE6]',
 }
 
 interface QueueRow {
@@ -47,6 +71,12 @@ function plural(count: number, singular: string, pluralForm = `${singular}s`) {
  *
  * The mockup's "Open action queue" footer link is gone with them: there is no action-queue route,
  * and every row already goes to the module that owns the work.
+ *
+ * The uplift pass changed the rows' surface and nothing else: the 4px border became the KPI tiles'
+ * inset rail on a tinted ground, which is tighter and lets six rows sit where three did. Every
+ * headline, every detail line and every destination is the same, and the four rows that carry no
+ * detail still carry none — the facts that would fill them ("N have no renewal booked", "untouched
+ * for 5+ days", per-asset age) all need tracking this product does not do.
  */
 export function NeedsYouPanel({ summary }: { summary: DashboardSummary | undefined }) {
   const hasPermission = useAuthStore((s) => s.hasPermission)
@@ -131,7 +161,7 @@ export function NeedsYouPanel({ summary }: { summary: DashboardSummary | undefin
   const isLoading = !summary || overdue.isLoading || leads.isLoading
 
   return (
-    <section className="flex flex-col rounded-3xl border border-border bg-card p-6 shadow-sm">
+    <section className="flex flex-col rounded-3xl border border-border bg-card p-6 edge-light-soft">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-display text-lg font-bold tracking-tight">Needs you</h2>
         {rows.length > 0 && (
@@ -142,25 +172,31 @@ export function NeedsYouPanel({ summary }: { summary: DashboardSummary | undefin
       </div>
 
       {isLoading ? (
-        <div className="mt-4 space-y-3">
-          <Skeleton className="h-[72px] w-full rounded-2xl" />
-          <Skeleton className="h-[72px] w-full rounded-2xl" />
-          <Skeleton className="h-[72px] w-full rounded-2xl" />
+        <div className="mt-4 space-y-2">
+          {/* Skeletons match the SHAPE of what is loading — same 14px radius, same row height. */}
+          <Skeleton className="h-[68px] w-full rounded-[14px]" />
+          <Skeleton className="h-[68px] w-full rounded-[14px]" />
+          <Skeleton className="h-[68px] w-full rounded-[14px]" />
         </div>
       ) : rows.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">Nothing in the queue right now.</p>
       ) : (
-        <ul className="mt-4 space-y-3">
+        <ul className="mt-4 space-y-2">
           {rows.map((row) => {
             const className = cn(
-              'block rounded-2xl border border-border border-l-4 p-4',
+              'flex items-center gap-2.5 rounded-[14px] py-3.5 pr-4 pl-5',
               TONE_CLASSES[row.tone],
-              row.to && 'transition-colors hover:bg-accent'
+              row.to && TONE_HOVER_CLASSES[row.tone]
             )
             const content = (
               <>
-                <p className="font-display font-bold tracking-tight tabular-nums">{row.headline}</p>
-                {row.detail && <p className="mt-0.5 text-sm text-muted-foreground">{row.detail}</p>}
+                <span className="min-w-0 flex-1">
+                  <span className="block font-display font-bold tracking-tight tabular-nums">{row.headline}</span>
+                  {row.detail && <span className="mt-0.5 block text-sm text-muted-foreground">{row.detail}</span>}
+                </span>
+                {/* The chevron is the only thing distinguishing a row you can open from one you can't,
+                    now that the border is gone. Four of these rows deliberately go nowhere. */}
+                {row.to && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
               </>
             )
 

@@ -180,6 +180,7 @@ export default function DashboardPage() {
             <StatTile
               label="Active members"
               value={summary.activeMembersCount.toLocaleString()}
+              tone="primary"
               caption={
                 summary.newMembersThisMonthCount > 0
                   ? `+${summary.newMembersThisMonthCount} joined this month`
@@ -188,6 +189,9 @@ export default function DashboardPage() {
               captionTone="success"
             />
 
+            {/* No rail on revenue. The other three tiles each name something that is getting worse on
+                its own; today's takings are just today's takings, and a fourth rail would turn the
+                signal back into decoration. */}
             <StatTile
               label="Revenue today"
               value={money(summary.todayRevenue, branch.currency)}
@@ -216,6 +220,7 @@ export default function DashboardPage() {
                 <StatTile
                   label="At risk"
                   value={(atRisk.data?.length ?? 0).toLocaleString()}
+                  tone="warning"
                   caption={quietDays !== null ? `No visit in ${quietDays}+ days${allBranchesNote}` : undefined}
                   captionTone="warning"
                 />
@@ -228,6 +233,7 @@ export default function DashboardPage() {
                 <StatTile
                   label="Overdue invoices"
                   value={(overdueSummary?.count ?? 0).toLocaleString()}
+                  tone="destructive"
                   caption={
                     overdueSummary && overdueSummary.count > 0
                       ? `${

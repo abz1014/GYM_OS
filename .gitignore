@@ -36,3 +36,4 @@ npm-debug.log*
 
 # Design handoff package (screenshots + HTML reference) — spec lives in docs/DESIGN_HANDOFF_REDESIGN.md
 .redesign_extract/
+.uiux_extract/

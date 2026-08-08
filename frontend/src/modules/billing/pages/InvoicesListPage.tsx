@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { Pagination } from '@/shared/components/Pagination'
-import { FilterTabs, ListEmpty, ListError, ListSkeleton, PageHeader, type FilterTab } from '@/shared/components/console'
+import { FilterTabs, ListEmpty, ListError, ListSkeleton, PageHeader, SEVERITY_ROW, type FilterTab } from '@/shared/components/console'
 import { useInvoicesList, type InvoiceStatus } from '@/modules/billing/api/billingApi'
 import { CreateInvoiceDialog } from '@/modules/billing/components/CreateInvoiceDialog'
 
@@ -38,6 +38,31 @@ const currency = (amount: number, code: string) => amount.toLocaleString('en-US'
 /** "PartiallyPaid" is a C# enum name, not something to put in front of a person. */
 const statusLabel = (status: InvoiceStatus) => (status === 'PartiallyPaid' ? 'Part paid' : status)
 
+/**
+ * Uppercase eyebrow column headers — the console's panel vocabulary, shared with every detail route.
+ * Lives here rather than in `components/ui/table` because that primitive is shadcn-generated and is
+ * shared with surfaces that are not console panels.
+ */
+const COLUMN_HEAD = 'text-[10px] font-bold tracking-[0.13em] text-muted-foreground uppercase'
+
+/**
+ * The severity rail, reappearing from the dashboard KPIs on exactly the rows that are escalating.
+ *
+ * Drawn first here, but it now lives in `shared/components/console` because Maintenance, Inventory
+ * and Equipment carry the same signal — a hex copied into four list modules is a hex that drifts.
+ */
+const OVERDUE_ROW = SEVERITY_ROW.destructive
+
+/**
+ * The console's list template, and the pair this page forms with InvoiceDetailPage is the one the
+ * other twelve list/detail modules are meant to copy — Equipment, Maintenance, Inventory, CRM,
+ * Trainers, Memberships, Classes, Workouts, Nutrition, Notifications, Challenges and Migration are
+ * all this screen with different columns.
+ *
+ * Two things it will not grow, both already argued below where they would have gone: per-tab counts
+ * and a stat row. Both need an aggregate `GET /api/invoices` does not return, and the alternatives —
+ * seven extra requests, or summing the visible page — are worse than the absence.
+ */
 export default function InvoicesListPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
@@ -115,7 +140,10 @@ export default function InvoicesListPage() {
                 key={invoice.id}
                 type="button"
                 onClick={() => navigate(`/billing/${invoice.id}`)}
-                className="block w-full space-y-1.5 rounded-2xl border border-border bg-card p-3 text-left active:bg-accent"
+                className={cn(
+                  'block w-full space-y-1.5 rounded-2xl border border-border p-3 text-left active:bg-accent',
+                  invoice.status === 'Overdue' ? OVERDUE_ROW : 'bg-card'
+                )}
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate font-medium tabular-nums">{invoice.invoiceNumber}</p>
@@ -125,7 +153,12 @@ export default function InvoicesListPage() {
                 </div>
                 <p className="truncate text-sm text-muted-foreground">{invoice.memberName}</p>
                 <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-muted-foreground tabular-nums">
+                  <span
+                    className={cn(
+                      'tabular-nums',
+                      invoice.status === 'Overdue' ? 'font-medium text-destructive' : 'text-muted-foreground'
+                    )}
+                  >
                     Due {new Date(invoice.dueDate).toLocaleDateString()}
                   </span>
                   <span
@@ -144,48 +177,59 @@ export default function InvoicesListPage() {
           </div>
 
           {/* Desktop / tablet: full table */}
-          <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+          <div className="hidden overflow-hidden rounded-panel border border-border bg-card edge-light-soft md:block">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Issued</TableHead>
-                  <TableHead>Due</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Outstanding</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className={COLUMN_HEAD}>Invoice #</TableHead>
+                  <TableHead className={COLUMN_HEAD}>Member</TableHead>
+                  <TableHead className={COLUMN_HEAD}>Issued</TableHead>
+                  <TableHead className={COLUMN_HEAD}>Due</TableHead>
+                  <TableHead className={COLUMN_HEAD}>Total</TableHead>
+                  <TableHead className={COLUMN_HEAD}>Outstanding</TableHead>
+                  <TableHead className={COLUMN_HEAD}>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.items.map((invoice) => (
-                  <TableRow
-                    key={invoice.id}
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/billing/${invoice.id}`)}
-                  >
-                    <TableCell className="font-medium tabular-nums">{invoice.invoiceNumber}</TableCell>
-                    <TableCell>{invoice.memberName}</TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">
-                      {new Date(invoice.issueDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">
-                      {new Date(invoice.dueDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="tabular-nums">{currency(invoice.totalAmount, invoice.currency)}</TableCell>
-                    <TableCell
-                      className={cn(
-                        'tabular-nums',
-                        invoice.amountOutstanding > 0 ? 'font-medium text-warning' : 'text-muted-foreground',
-                      )}
+                {data.items.map((invoice) => {
+                  const isOverdue = invoice.status === 'Overdue'
+
+                  return (
+                    <TableRow
+                      key={invoice.id}
+                      className={cn('cursor-pointer', isOverdue && OVERDUE_ROW)}
+                      onClick={() => navigate(`/billing/${invoice.id}`)}
                     >
-                      {currency(invoice.amountOutstanding, invoice.currency)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[invoice.status]}>{statusLabel(invoice.status)}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      <TableCell className="font-medium tabular-nums">{invoice.invoiceNumber}</TableCell>
+                      <TableCell>{invoice.memberName}</TableCell>
+                      <TableCell className="text-muted-foreground tabular-nums">
+                        {new Date(invoice.issueDate).toLocaleDateString()}
+                      </TableCell>
+                      {/* A due date that has passed is the reason the row is red at all, so it says
+                          so itself rather than leaving the rail to carry the whole message. */}
+                      <TableCell
+                        className={cn(
+                          'tabular-nums',
+                          isOverdue ? 'font-medium text-destructive' : 'text-muted-foreground',
+                        )}
+                      >
+                        {new Date(invoice.dueDate).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="tabular-nums">{currency(invoice.totalAmount, invoice.currency)}</TableCell>
+                      <TableCell
+                        className={cn(
+                          'tabular-nums',
+                          invoice.amountOutstanding > 0 ? 'font-medium text-warning' : 'text-muted-foreground',
+                        )}
+                      >
+                        {currency(invoice.amountOutstanding, invoice.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT[invoice.status]}>{statusLabel(invoice.status)}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>

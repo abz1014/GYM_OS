@@ -28,7 +28,7 @@ function MemberAssignedPlans({ memberId }: { memberId: string }) {
       {isLoading && <Skeleton className="h-20 w-full rounded-2xl" />}
       {assignments?.length === 0 && <p className="text-sm text-muted-foreground">No workout plan assigned yet.</p>}
       {assignments?.map((a) => (
-        <div key={a.id} className="space-y-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
+        <div key={a.id} className="space-y-2 rounded-panel border border-border bg-card p-3 edge-light-soft">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">{a.workoutTemplateName}</span>
               <span className="text-muted-foreground">
@@ -69,7 +69,7 @@ function MemberWorkoutLogs() {
         }}
       />
       {!memberId && searchTerm && (
-        <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="divide-y divide-border overflow-hidden rounded-panel border border-border bg-card edge-light-soft">
           {members?.items.length === 0 && <p className="p-3 text-sm text-muted-foreground">No members match.</p>}
           {members?.items.map((m) => (
             <button
@@ -100,7 +100,7 @@ function MemberWorkoutLogs() {
           {isLoading && <Skeleton className="h-24 w-full rounded-2xl" />}
           {logs?.length === 0 && <p className="text-sm text-muted-foreground">No workouts logged yet.</p>}
           {logs?.map((log) => (
-            <div key={log.id} className="space-y-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
+            <div key={log.id} className="space-y-2 rounded-panel border border-border bg-card p-3 edge-light-soft">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">{log.workoutTemplateName ?? log.character}</span>
                   <span className="text-muted-foreground">{new Date(log.loggedAt).toLocaleString()}</span>
@@ -152,7 +152,7 @@ export default function WorkoutsPage() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {exercises?.map((ex) => (
-                <div key={ex.id} className="space-y-1 rounded-2xl border border-border bg-card p-3 shadow-sm">
+                <div key={ex.id} className="space-y-1 rounded-panel border border-border bg-card p-3 edge-light-soft">
                     <p className="font-medium">{ex.name}</p>
                     <div className="flex flex-wrap gap-1">
                       {ex.muscleGroup && <Badge variant="outline">{ex.muscleGroup}</Badge>}
@@ -179,7 +179,7 @@ export default function WorkoutsPage() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {templates?.map((t) => (
-                <div key={t.id} className="space-y-1 rounded-2xl border border-border bg-card p-3 shadow-sm">
+                <div key={t.id} className="space-y-1 rounded-panel border border-border bg-card p-3 edge-light-soft">
                     <p className="font-medium">{t.name}</p>
                     {t.description && <p className="text-sm text-muted-foreground">{t.description}</p>}
                     <Badge variant="outline">{t.exerciseCount} exercises</Badge>

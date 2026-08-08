@@ -17,6 +17,15 @@ interface TrendChartProps {
   showArea?: boolean
   /** Force the Y axis to start at zero. Off by default so weight trends don't flatten into a line. */
   zeroBaseline?: boolean
+  /**
+   * Volt glow on the line, plus a persistent marker on the last non-zero point.
+   *
+   * Opt-in rather than always-on, and deliberately not derived from `colorClassName`: the glow is the
+   * accent's own volt, so switching it on for a `text-chart-2` series (body weight, body fat) would
+   * halo a blue line in yellow-green. It belongs to the member's volume trend, where volt is the
+   * series colour and the latest value is the one figure they opened the page for.
+   */
+  glow?: boolean
   emptyMessage?: string
 }
 
@@ -35,6 +44,7 @@ export function TrendChart({
   height = 200,
   showArea = true,
   zeroBaseline = false,
+  glow = false,
   emptyMessage = 'No data yet.',
 }: TrendChartProps) {
   const gradientId = useId()
@@ -80,6 +90,12 @@ export function TrendChart({
   const active = hoverIndex !== null ? points[hoverIndex] : null
   // Thin X labels the same way SimpleBarChart does, so 30 daily points don't collide.
   const labelStride = Math.max(1, Math.ceil(points.length / 6))
+  /*
+   * The latest value that actually happened. Dense series draw no markers at all — thirty daily
+   * points, most of them rest-day zeros, read as noise — but the member's most recent session is the
+   * one point worth pinning, and pinning a zero would mark a rest day as the story.
+   */
+  const lastNonZeroIndex = glow ? points.reduce((last, p, i) => (p.value > 0 ? i : last), -1) : -1
 
   return (
     <div className={colorClassName}>
@@ -105,7 +121,7 @@ export function TrendChart({
           >
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="currentColor" stopOpacity="0.28" />
+                <stop offset="0%" stopColor="currentColor" stopOpacity="0.34" />
                 <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
               </linearGradient>
             </defs>
@@ -136,6 +152,7 @@ export function TrendChart({
               strokeLinecap="round"
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
+              style={glow ? { filter: 'drop-shadow(0 0 5px rgb(214 249 74 / 0.55))' } : undefined}
             />
 
             {active && (
@@ -160,11 +177,12 @@ export function TrendChart({
             width), and that same non-uniform scale stretches a circle into an ellipse. Positioning
             them in HTML keeps them round at every container size.
             Dense series only get the hovered dot — a marker on all 30 points, most of which are
-            rest-day zeros, reads as noise rather than data.
+            rest-day zeros, reads as noise rather than data — plus, under `glow`, a persistent one on
+            the last real value.
           */}
           <div className="pointer-events-none absolute inset-0">
             {points.map((p, i) =>
-              points.length <= 14 || i === hoverIndex ? (
+              points.length <= 14 || i === hoverIndex || i === lastNonZeroIndex ? (
                 <span
                   key={i}
                   className="absolute rounded-full border-2 border-current bg-background"
@@ -174,6 +192,9 @@ export function TrendChart({
                     width: i === hoverIndex ? 10 : 7,
                     height: i === hoverIndex ? 10 : 7,
                     transform: 'translate(-50%, -50%)',
+                    ...(i === lastNonZeroIndex
+                      ? { boxShadow: '0 0 0 3px rgb(214 249 74 / 0.16), 0 0 10px rgb(214 249 74 / 0.55)' }
+                      : {}),
                   }}
                 />
               ) : null,

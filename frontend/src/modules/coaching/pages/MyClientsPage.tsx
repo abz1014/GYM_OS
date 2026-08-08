@@ -282,7 +282,7 @@ export default function MyClientsPage() {
       />
 
       {notATrainer && (
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-panel border border-border bg-card p-5 shadow-sm">
           <p className="font-medium">This account isn't a trainer</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Coaching threads belong to the coach in them, so this screen only works for an account
@@ -329,7 +329,7 @@ export default function MyClientsPage() {
 
           <div
             className={cn(
-              'min-h-0 flex-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm',
+              'min-h-0 flex-1 overflow-hidden rounded-panel border border-border bg-card shadow-sm',
               !selectedId && 'hidden md:block',
             )}
           >

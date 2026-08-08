@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { ActivityRing } from '@/shared/components/ActivityRing'
+import { Bloom, CountUp, GrainOverlay } from '@/shared/components/uplift'
 import { ConfirmSessionButton } from '@/modules/portal/components/ConfirmSessionButton'
 import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import { WeeklyGoalDialog } from '@/modules/portal/components/WeeklyGoalDialog'
@@ -183,92 +184,78 @@ export default function TodayPage() {
 
       {promptLeadsScreen && <ConfirmSessionButton onLogged={setCelebration} />}
 
-      {/* Hero: the whole "am I on track" answer, without reading a single number twice. */}
-      <Card className="rounded-3xl">
-        <CardContent className="py-6">
-          {/* Ring and streak sit side by side at every width — the two halves of one answer, and
-              stacking them pushed the primary action below the fold on a phone. */}
-          <div className="flex items-center gap-4 sm:justify-center sm:gap-8">
-            {today.isLoading ? (
-              <Skeleton className="size-32 shrink-0 rounded-full" />
-            ) : (
-              <ActivityRing
-                value={sessions}
-                goal={goal}
-                size={132}
-                colorClassName={goalMet ? 'text-success' : 'text-primary'}
-              >
-                <span className="font-display text-4xl leading-none font-black tracking-tight tabular-nums">{sessions}</span>
-                <span className="mt-1 text-[11px] text-muted-foreground">of {goal} sessions</span>
-              </ActivityRing>
-            )}
+      {/*
+        Hero: the whole "am I on track" answer, without reading a single number twice.
 
-            <div className="flex min-w-0 flex-col items-start gap-0.5">
-              <span className="flex items-center gap-2">
-                <Flame className={`size-6 ${streakWeeks > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-                <span className="font-display text-4xl leading-none font-black tracking-tight tabular-nums">{streakWeeks}</span>
+        The ring IS the week now. It used to be a single-value ring beside a streak column, with a
+        separate 7-dot strip underneath drawing the same daysTrainedThisWeek array a second time —
+        two pictures of one fact, costing about 90px of the most valuable screen in the product. One
+        segmented ring carries both the count and the shape of the week, and the streak and goal
+        controls move into a divided footer inside the panel so the hero reads as one object.
+      */}
+      <div
+        className="relative overflow-hidden rounded-3xl border border-border edge-light"
+        style={{ background: 'linear-gradient(160deg,#17190F,#151517 46%,#121214)' }}
+      >
+        <Bloom className="-top-16 left-1/2 size-64 -translate-x-1/2" opacity={0.16} />
+        <GrainOverlay />
+
+        <div className="relative flex justify-center px-5 py-6">
+          {today.isLoading ? (
+            // A ring skeleton is a ring — matching the shape of what is loading, per the kit.
+            <div className="size-[196px] shrink-0 rounded-full border-[13px] border-border shimmer" />
+          ) : (
+            <ActivityRing
+              value={sessions}
+              goal={goal}
+              size={196}
+              segments={daysTrained.length === 7 ? daysTrained : undefined}
+              segmentLabels={WEEKDAY_INITIALS}
+              todayIndex={todayIndexInWeek()}
+            >
+              <CountUp
+                to={sessions}
+                className="font-display text-[56px] leading-none font-black tracking-tight tabular-nums"
+              />
+              <span className="mt-1 text-[11px] text-muted-foreground">of {goal} sessions</span>
+            </ActivityRing>
+          )}
+        </div>
+
+        {/* The divided footer. Streak on the left, goal on the right, one hairline between them —
+            what turns a ring plus a column of controls into a single panel. */}
+        <div className="relative flex items-stretch border-t border-border/70">
+          <div className="flex flex-1 items-center gap-2.5 px-5 py-4">
+            <Flame className={`size-6 shrink-0 ${streakWeeks > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+            <span className="min-w-0">
+              <span className="block font-display text-2xl leading-none font-black tracking-tight tabular-nums">
+                {streakWeeks}
               </span>
-              <span className="text-sm text-muted-foreground">week streak</span>
-              {streakWeeks > 0 && !goalMet && (
-                <span className="text-xs text-muted-foreground">Train this week to keep it alive</span>
-              )}
-              {data && (
-                <Button
-                  variant="ghost"
-                  // Visually secondary, but still a real touch target: everything else a member taps
-                  // in this shell clears 44px, and this sits right beside the ring on a phone.
-                  className="mt-1 h-11 rounded-xl px-3 text-xs text-muted-foreground"
-                  onClick={() => setEditingGoal(true)}
-                >
-                  <Pencil className="size-3.5" />
-                  Goal: {goal}/week
-                </Button>
-              )}
-            </div>
+              <span className="block text-xs text-muted-foreground">week streak</span>
+            </span>
           </div>
 
-          {/*
-            The week at a glance, under the ring that counts it. Same seven days, same rows, same rule
-            (WeeklyGoalPolicy owns both), so a filled cell and the ring's number cannot disagree. The
-            whole week is always drawn — including days not yet lived — because the shape of the week
-            is the point, not a row that grows a cell a day.
-          */}
-          {daysTrained.length === 7 && (
-            <div className="mt-6 border-t border-border pt-4">
-              <ul className="flex items-center justify-between gap-1.5">
-                {daysTrained.map((trained, index) => {
-                  const isToday = index === todayIndexInWeek()
-                  return (
-                    <li key={index} className="flex flex-1 flex-col items-center gap-1.5">
-                      <span
-                        className={cn(
-                          'text-[11px] font-bold tracking-wider uppercase',
-                          isToday ? 'text-primary' : 'text-muted-foreground',
-                        )}
-                      >
-                        {WEEKDAY_INITIALS[index]}
-                      </span>
-                      {/* An untrained day uses the border colour for the same reason the ring's
-                          remainder track does — it is the same idea, and the recessed surface is too
-                          close to the card underneath it to read as a cell at all. */}
-                      <span
-                        className={cn(
-                          'h-9 w-full rounded-xl transition-colors',
-                          trained ? 'bg-primary' : 'bg-border',
-                          isToday && !trained && 'border-2 border-primary bg-transparent',
-                        )}
-                      />
-                    </li>
-                  )
-                })}
-              </ul>
-              <span className="sr-only">
-                {daysTrained.filter(Boolean).length} of 7 days trained this week.
-              </span>
-            </div>
+          {data && (
+            <>
+              <span className="w-px bg-border/70" aria-hidden />
+              <Button
+                variant="ghost"
+                // Visually secondary, but still a real touch target: everything else a member taps
+                // in this shell clears 44px, and this sits right beside the ring on a phone.
+                className="press h-auto shrink-0 rounded-none px-5 text-xs text-muted-foreground"
+                onClick={() => setEditingGoal(true)}
+              >
+                <Pencil className="size-3.5" />
+                Goal {goal}/week
+              </Button>
+            </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {streakWeeks > 0 && !goalMet && (
+        <p className="-mt-1 px-1 text-xs text-muted-foreground">Train this week to keep your streak alive</p>
+      )}
 
       {/* The one action this screen exists for — one tap, not a form. See ConfirmSessionButton.
           Rendered here only when the gym has no record of them today; if it does, it has already
@@ -276,41 +263,56 @@ export default function TodayPage() {
       {!promptLeadsScreen && <ConfirmSessionButton onLogged={setCelebration} />}
 
       {/*
-        Rank comes from the leaderboard the member can actually open; it is only rendered once that
-        query has produced a position for them. A member outside the ranked set (nothing logged in the
-        window) has no rank, and the chip is dropped rather than showing a dash or a guess — which is
-        also why this is one chip rather than the design's pair, since the second was a lifted-tonnage
-        figure with no total behind it.
-      */}
-      {myRank !== null && (
-        <Link
-          to="/leaderboard"
-          className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-accent"
-        >
-          <span>
-            <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Gym rank</span>
-            <span className="font-display text-3xl font-black tracking-tight tabular-nums">#{myRank}</span>
-          </span>
-          <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-        </Link>
-      )}
+        Rank and today's class pair into one 2-up row. Both are single facts and each was taking a
+        full-width bar; pairing them is what buys the insight card its place above the fold.
 
-      {data?.nextClassToday && (
-        <Link
-          to="/my-classes"
-          className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-accent"
-        >
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <CalendarDays className="size-5 text-primary" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Today</span>
-            <span className="block truncate font-medium">
-              {classTimeFormat.format(new Date(data.nextClassToday.startsAt))} · {data.nextClassToday.classTypeName}
-            </span>
-          </span>
-          <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-        </Link>
+        Rank comes from the leaderboard the member can actually open, and is rendered only once that
+        query has produced a position for them. A member outside the ranked set (nothing logged in
+        the window) has no rank, and the chip is dropped rather than showing a dash or a guess —
+        which is also why this is one chip rather than the design's pair, since the second was a
+        lifted-tonnage figure with no total behind it.
+      */}
+      {(myRank !== null || data?.nextClassToday) && (
+        <div className="grid grid-cols-2 gap-3">
+          {myRank !== null && (
+            <Link
+              to="/leaderboard"
+              className="press flex items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4 edge-light transition-colors hover:bg-accent"
+            >
+              <span className="min-w-0">
+                <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+                  Gym rank
+                </span>
+                <span className="font-display text-3xl font-black tracking-tight tabular-nums">#{myRank}</span>
+              </span>
+              <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+            </Link>
+          )}
+
+          {data?.nextClassToday && (
+            <Link
+              to="/my-classes"
+              className={cn(
+                'press flex items-center gap-3 rounded-2xl border border-border bg-card p-4 edge-light transition-colors hover:bg-accent',
+                // Alone in the row it takes the full width rather than leaving a hole beside it.
+                myRank === null && 'col-span-2',
+              )}
+            >
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <CalendarDays className="size-5 text-primary" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+                  Today
+                </span>
+                <span className="block truncate text-sm font-medium tabular-nums">
+                  {classTimeFormat.format(new Date(data.nextClassToday.startsAt))}
+                </span>
+                <span className="block truncate text-sm">{data.nextClassToday.classTypeName}</span>
+              </span>
+            </Link>
+          )}
+        </div>
       )}
 
       {/*
@@ -338,7 +340,12 @@ export default function TodayPage() {
         nobody reads a report before training. Nothing shows when nothing is certain.
       */}
       {data?.insights.map((insight) => (
-        <Card key={insight.kind} className="rounded-2xl">
+        <Card
+          key={insight.kind}
+          className="rounded-2xl border-border edge-light"
+          // Volt-tinted so it reads as the one forward-looking thing on a screen of history.
+          style={{ background: 'linear-gradient(160deg,#1C1A12,#151517)' }}
+        >
           <CardContent className="flex items-start gap-3 py-4">
             <InsightIcon kind={insight.kind} />
             <div className="min-w-0">

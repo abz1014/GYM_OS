@@ -41,6 +41,10 @@ const STATUS_NOTE: Record<string, string> = {
  *   is anything other than Active. That is a fact the API actually returns; "denied" was not.
  * - **A generic failure** is still drawn, but as what it is — the request failed — not dressed up as a
  *   membership verdict we have no way to compute.
+ *
+ * The uplift pass scaled the type up (44px name, 34px verdict, 20px scan placeholder) and gave the
+ * granted verdict its own green surface. It added no new outcome: the four states below are the same
+ * four, and none of them is a denial.
  */
 export function CheckInPanel() {
   const branchId = useUiStore((s) => s.selectedBranchId)
@@ -177,7 +181,7 @@ export function CheckInPanel() {
           Scan a card or type a member name
         </label>
         <div className="relative">
-          <ScanLine className="pointer-events-none absolute top-1/2 left-6 size-7 -translate-y-1/2 text-primary" />
+          <ScanLine className="pointer-events-none absolute top-1/2 left-6 size-6 -translate-y-1/2 text-primary" />
           <Input
             id="front-desk-scan"
             ref={inputRef}
@@ -186,7 +190,7 @@ export function CheckInPanel() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Scan a card or type a name…"
             className={cn(
-              'h-24 rounded-3xl border-2 border-primary bg-card pr-6 pl-18 text-2xl md:text-2xl',
+              'h-[76px] rounded-panel border-2 border-primary bg-card pr-6 pl-16 text-xl md:text-xl',
               'shadow-[0_0_0_6px_color-mix(in_srgb,var(--primary)_14%,transparent)]',
               'focus-visible:border-primary focus-visible:ring-0'
             )}
@@ -217,7 +221,7 @@ export function CheckInPanel() {
       )}
 
       {search.isError && (
-        <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card p-8 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card p-8 text-center edge-light">
           <TriangleAlert className="size-9 text-destructive" />
           <p className="font-display text-2xl font-black tracking-tight">Member lookup failed</p>
           <p className="text-base text-muted-foreground">The desk can't reach the member list right now.</p>
@@ -229,9 +233,9 @@ export function CheckInPanel() {
       )}
 
       {noMatch && (
-        <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card p-8 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card p-8 text-center edge-light">
           <SearchX className="size-9 text-muted-foreground" />
-          <p className="font-display text-3xl font-black tracking-tight">No member found</p>
+          <p className="font-display text-[34px] leading-none font-black tracking-tight">No member found</p>
           <p className="text-lg text-muted-foreground">Nothing matches “{lookup}”. Try their name or member code.</p>
           <Button className="mt-2 h-14 rounded-xl px-8 text-base font-bold" onClick={reset}>
             Next
@@ -242,7 +246,7 @@ export function CheckInPanel() {
       {/* More than one match is the one case a kiosk can't decide by itself, so it asks — big rows,
           because this is still being read across a counter. */}
       {candidates.length > 1 && (
-        <div className="overflow-hidden rounded-3xl border border-border bg-card">
+        <div className="overflow-hidden rounded-3xl border border-border bg-card edge-light">
           <p className="border-b border-border px-6 py-4 text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
             {totalMatches > candidates.length
               ? `${totalMatches} matches — keep typing to narrow it down`
@@ -271,16 +275,18 @@ export function CheckInPanel() {
       )}
 
       {selected && (
-        <div className="rounded-3xl border border-border bg-card p-6 sm:p-8">
-          <div className="flex items-center gap-5">
-            <span className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-primary font-display text-2xl font-black text-primary-foreground">
+        <div className="rounded-[26px] border border-border bg-card p-6 sm:p-8 edge-light">
+          <div className="flex items-center gap-5 sm:gap-[22px]">
+            <span className="flex size-20 shrink-0 items-center justify-center rounded-[30px] bg-primary font-display text-2xl font-black text-primary-foreground sm:size-24 sm:text-[34px]">
               {initials(selected.fullName)}
             </span>
             <div className="min-w-0">
-              <h2 className="truncate font-display text-4xl leading-tight font-black tracking-tight sm:text-5xl">
+              {/* 44px, because this is read standing up on the other side of a counter. The name is
+                  the whole point of the screen; everything else on it is a footnote to "who". */}
+              <h2 className="truncate font-display text-4xl leading-[1.05] font-black tracking-[-0.035em] sm:text-[44px]">
                 {selected.fullName}
               </h2>
-              <p className="mt-1 text-lg text-muted-foreground">
+              <p className="mt-3 text-[17px] text-muted-foreground">
                 {activeMembership
                   ? `${activeMembership.membershipPlanName} · valid until ${kioskDateFormat.format(new Date(activeMembership.endDate))}`
                   : selected.memberCode}
@@ -300,9 +306,9 @@ export function CheckInPanel() {
                 fails there is no verdict to give — saying nothing here would leave the desk looking
                 at a member's name with no indication anything went wrong. */}
             {openVisit.isError ? (
-              <div className="rounded-2xl bg-destructive/10 px-5 py-5">
-                <p className="flex items-center gap-2 font-display text-3xl font-black tracking-tight text-destructive">
-                  <TriangleAlert className="size-7" />
+              <div className="rounded-[22px] border border-destructive/25 bg-destructive/10 px-6 py-6">
+                <p className="flex items-center gap-3 font-display text-[34px] leading-none font-black tracking-[-0.03em] text-destructive">
+                  <TriangleAlert className="size-8 shrink-0" />
                   Couldn't check the visit log
                 </p>
                 <p className="mt-1 text-lg text-muted-foreground">
@@ -310,7 +316,7 @@ export function CheckInPanel() {
                 </p>
               </div>
             ) : checkIn.isPending || (!openVisit.isSuccess && !checkIn.isError) ? (
-              <div className="flex items-center gap-3 rounded-2xl bg-muted px-5 py-6 text-lg text-muted-foreground">
+              <div className="flex items-center gap-3 rounded-[22px] bg-muted px-6 py-7 text-lg text-muted-foreground">
                 <Loader2 className="size-6 animate-spin" />
                 Checking in…
               </div>
@@ -318,9 +324,9 @@ export function CheckInPanel() {
               // Honest about what actually happened: the request failed. Not "access denied" — the
               // API never said that, and inventing a verdict staff would act on is the one thing this
               // screen must not do.
-              <div className="rounded-2xl bg-destructive/10 px-5 py-5">
-                <p className="flex items-center gap-2 font-display text-3xl font-black tracking-tight text-destructive">
-                  <TriangleAlert className="size-7" />
+              <div className="rounded-[22px] border border-destructive/25 bg-destructive/10 px-6 py-6">
+                <p className="flex items-center gap-3 font-display text-[34px] leading-none font-black tracking-[-0.03em] text-destructive">
+                  <TriangleAlert className="size-8 shrink-0" />
                   Check-in didn't save
                 </p>
                 <p className="mt-1 text-lg text-muted-foreground">
@@ -328,29 +334,55 @@ export function CheckInPanel() {
                 </p>
               </div>
             ) : checkIn.isSuccess || alreadyInside ? (
+              /*
+                The granted verdict gets a surface of its own rather than a tint of the panel's — a
+                green ground and a 60px disc are legible from two metres before a single word is
+                read, which is the whole design brief for this screen.
+                "Already inside" keeps the same geometry in amber. It is not a denial and must not
+                look like one: the member IS a member and the door has no opinion either way; the
+                only thing this state says is that a second row would be a duplicate visit.
+              */
               <div
                 className={cn(
-                  'rounded-2xl px-5 py-5',
-                  alreadyInside ? 'bg-warning/10' : 'bg-success/10'
+                  'flex items-center gap-5 rounded-[22px] border px-6 py-6 sm:px-7',
+                  'animate-in fade-in zoom-in-95 duration-[240ms] ease-[var(--ease-uplift)]',
+                  alreadyInside ? 'border-warning/30 bg-warning/10' : 'border-[#2C4A17]'
                 )}
+                style={
+                  alreadyInside ? undefined : { background: 'linear-gradient(120deg,#16260C 0%,#12200C 100%)' }
+                }
               >
-                <p
+                <span
                   className={cn(
-                    'flex items-center gap-2 font-display text-3xl font-black tracking-tight',
-                    alreadyInside ? 'text-warning' : 'text-success'
+                    'flex size-[60px] shrink-0 items-center justify-center rounded-full',
+                    alreadyInside ? 'bg-warning/20 text-warning' : 'bg-success text-success-foreground'
                   )}
                 >
-                  <CircleCheckBig className="size-7" />
-                  {alreadyInside ? 'Already inside' : 'Access granted'}
-                </p>
-                <p className="mt-1 text-lg text-muted-foreground tabular-nums">
-                  {visit ? `Checked in at ${kioskTimeFormat.format(new Date(visit.checkInAt))}` : 'Checked in'}
-                  {/* Real count, straight off the same endpoint's totalCount for this member since the
-                      1st of the month — it includes the check-in that just happened because the
-                      mutation invalidates the query. Rendered only once that query has actually
-                      answered; a "0th visit" would be nonsense and a guess would be worse. */}
-                  {monthVisits.isSuccess && visitsThisMonth > 0 && ` · ${ordinal(visitsThisMonth)} visit this month`}
-                </p>
+                  <CircleCheckBig className="size-8" strokeWidth={2.6} />
+                </span>
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      'font-display text-[34px] leading-none font-black tracking-[-0.03em]',
+                      alreadyInside ? 'text-warning' : 'text-success'
+                    )}
+                  >
+                    {alreadyInside ? 'Already inside' : 'Access granted'}
+                  </p>
+                  <p
+                    className={cn(
+                      'mt-2.5 text-base tabular-nums',
+                      alreadyInside ? 'text-muted-foreground' : 'text-[#8FB86A]'
+                    )}
+                  >
+                    {visit ? `Checked in at ${kioskTimeFormat.format(new Date(visit.checkInAt))}` : 'Checked in'}
+                    {/* Real count, straight off the same endpoint's totalCount for this member since the
+                        1st of the month — it includes the check-in that just happened because the
+                        mutation invalidates the query. Rendered only once that query has actually
+                        answered; a "0th visit" would be nonsense and a guess would be worse. */}
+                    {monthVisits.isSuccess && visitsThisMonth > 0 && ` · ${ordinal(visitsThisMonth)} visit this month`}
+                  </p>
+                </div>
               </div>
             ) : null}
           </div>
@@ -386,7 +418,9 @@ export function CheckInPanel() {
               </Button>
             )}
 
-            <Button onClick={reset} className="ml-auto h-14 rounded-xl px-10 text-base font-bold">
+            {/* The action the desk presses hundreds of times a shift, so it carries the accent's
+                coloured shadow and is the only lit thing in the row. */}
+            <Button onClick={reset} className="ml-auto h-14 rounded-[18px] px-10 text-base font-bold shadow-volt">
               Next
             </Button>
           </div>

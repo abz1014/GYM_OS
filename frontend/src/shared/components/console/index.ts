@@ -6,7 +6,8 @@
  * remaining twelve inherit the same language instead of each re-deriving it from a screenshot.
  */
 export { PageHeader } from './PageHeader'
-export { StatTile, type StatTone } from './StatTile'
+export { StatTile, type StatTone, type StatRailTone } from './StatTile'
 export { FilterTabs, type FilterTab } from './FilterTabs'
 export { SearchField } from './SearchField'
 export { ListError, ListEmpty, ListSkeleton } from './ListStates'
+export { SEVERITY_ROW, type SeverityTone } from './severityRows'

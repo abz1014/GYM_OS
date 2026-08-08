@@ -7,7 +7,9 @@ function Card({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card"
       className={cn(
-        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm',
+        // surface-lift rather than shadow-sm: it carries the same cast shadow plus the inner edge
+        // highlight the dark member surface needs. One edit lifts every card in the product.
+        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 surface-lift',
         className
       )}
       {...props}
