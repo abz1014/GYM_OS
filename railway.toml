@@ -1,0 +1,34 @@
+# Railway service config for the GymOS API.
+#
+# Explicitly DOCKERFILE rather than letting Railway auto-detect. Its Nixpacks builder picks a .NET
+# SDK from its own package set, and this solution targets net10.0 — if that SDK is not in the set the
+# build fails with a version error that reads like a code problem. The Dockerfile pins the exact base
+# images instead, so the build is the same everywhere and does not drift when the builder updates.
+#
+# You do NOT need Docker installed locally: Railway builds the image on its own infrastructure from
+# this Dockerfile. Local Docker is only useful if you want to reproduce a build failure yourself.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+# The web process only serves; it never touches the schema. Apply migrations with the pre-deploy
+# command below so a redeploy cannot reshape the database as a side effect of restarting.
+startCommand = "dotnet GymOS.API.dll"
+
+# Runs once per deploy, before the new container takes traffic. `--migrate` applies pending
+# migrations and exits (see Program.cs). Safe to run repeatedly: EF skips migrations already applied.
+preDeployCommand = ["dotnet", "GymOS.API.dll", "--migrate"]
+
+# Railway probes this before routing traffic. The check verifies the database connection, so a
+# container that starts but cannot reach Postgres is never marked healthy.
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+
+# The SignalR hubs and the fifteen Hangfire recurring jobs both assume a single always-on process.
+# Scaling past one replica needs a Redis backplane for SignalR and Hangfire's distributed locks
+# verified under contention — neither is set up, so this stays at one until that work is done.
+numReplicas = 1
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

@@ -5,16 +5,36 @@ using GymOS.API.Middleware;
 using GymOS.Application;
 using GymOS.Infrastructure;
 using GymOS.Infrastructure.BackgroundJobs;
+using GymOS.Infrastructure.Persistence;
 using GymOS.Infrastructure.RealTime;
 using GymOS.Infrastructure.Seeding;
 using GymOS.Shared;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+/*
+ * Container platforms (Railway, Render, Fly, Cloud Run) hand the app its port in PORT and route
+ * traffic there. Kestrel does not read PORT — it reads ASPNETCORE_URLS — so without this the
+ * container listens on :8080, the platform health-checks the port it assigned, gets nothing, and
+ * reports the deploy as failed with an application log that looks completely healthy.
+ *
+ * 0.0.0.0, not localhost: binding the loopback inside a container makes it unreachable from outside
+ * it, which fails in exactly the same silent way.
+ *
+ * An explicit ASPNETCORE_URLS still wins, so local runs and `dotnet run` are untouched.
+ */
+var platformPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(platformPort) &&
+    string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{platformPort}");
+}
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -134,6 +154,24 @@ builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => poli
     .AllowCredentials()));
 
 var app = builder.Build();
+
+/*
+ * `--migrate` applies pending migrations and exits, matching `--seed`'s shape.
+ *
+ * A container platform gives you one start command and an empty database, so something has to
+ * create the schema. The options were auto-migrating on every boot — which silently reshapes a
+ * production database whenever someone redeploys, and races itself the moment there is more than
+ * one instance — or making it an explicit, separately-invokable step. This is the explicit step:
+ * run it once as a pre-deploy/release command, and the web process never touches the schema.
+ */
+if (args.Contains("--migrate"))
+{
+    using var migrateScope = app.Services.CreateScope();
+    var db = migrateScope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+    await db.Database.MigrateAsync();
+    app.Logger.LogInformation("Migrations applied.");
+    return;
+}
 
 if (args.Contains("--seed"))
 {

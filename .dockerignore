@@ -1,0 +1,23 @@
+# Keeps the build context small and, more importantly, keeps local secrets and stale binaries out of
+# the image. appsettings.Development.json is gitignored but WOULD still be copied into a build
+# context by `COPY backend/src/` — it holds a real local signing key and DB password.
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/*.user
+
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+.git/
+.vs/
+.vscode/
+.idea/
+
+# Test projects are not part of the published API image.
+backend/tests/
+
+frontend/
+docs/
+.uiux_extract/
+**/*.md

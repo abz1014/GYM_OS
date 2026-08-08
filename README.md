@@ -191,6 +191,68 @@ generation, retention), which need a process that stays alive between
 requests. It needs a container or an always-on app service — Railway, Render,
 Fly.io, or Azure App Service.
 
+### Deploying: Railway (API + Postgres) and Vercel (frontend)
+
+Config lives in `railway.toml`, `backend/Dockerfile`, `.dockerignore` and
+`frontend/vercel.json`. **You do not need Docker installed locally** — Railway
+builds the image on its own infrastructure.
+
+**1. Railway — Postgres.** Add a Postgres plugin to the project. Railway
+exposes `DATABASE_URL`, but this app reads `ConnectionStrings__GymOsDb` and
+Npgsql does not accept a `postgres://` URL, so set it in Npgsql's own format:
+
+```
+Host=<PGHOST>;Port=<PGPORT>;Database=<PGDATABASE>;Username=<PGUSER>;Password=<PGPASSWORD>;SSL Mode=Require;Trust Server Certificate=true
+```
+
+**2. Railway — API.** Point the service at this repo. `railway.toml` selects
+the Dockerfile builder, runs `--migrate` as the pre-deploy step, and
+health-checks `/health`. Set these variables:
+
+```
+ASPNETCORE_ENVIRONMENT=Production
+ConnectionStrings__GymOsDb=<as above>
+Jwt__SigningKey=<openssl rand -base64 48>
+Cors__AllowedOrigins__0=https://<your-vercel-domain>
+```
+
+The API refuses to start if the last two are missing or wrong — see the table
+above. Nothing reads `PORT` by hand: Railway injects it and `Program.cs` binds
+`0.0.0.0:$PORT` from it, because Kestrel reads `ASPNETCORE_URLS` and would
+otherwise listen on a port Railway never routes to.
+
+**3. Seed (optional).** The schema is created by the pre-deploy migrate, but
+the database is empty. To load the demo tenant, run once from Railway's shell:
+
+```bash
+dotnet GymOS.API.dll --seed
+```
+
+**4. Vercel — frontend.** Set the project's **Root Directory** to `frontend`.
+`vercel.json` supplies the build command, output directory and the SPA rewrite
+that stops a deep link like `/members/{id}` 404ing. Set one variable:
+
+```
+VITE_API_BASE_URL=https://<your-railway-domain>
+```
+
+This is read at **build** time, not runtime — changing it needs a redeploy,
+not just a restart.
+
+**5. Close the loop.** Vercel gives the real domain only after the first
+deploy, so `Cors__AllowedOrigins__0` will be wrong until you go back and set
+it. Symptom if you forget: every request fails in the browser with the API
+logs looking perfectly healthy.
+
+**Verified:** `--migrate` was run against a real database in both Development
+and Production configurations — it applies pending migrations, is idempotent
+on a second run, and exits without starting the web host. **Not verified:**
+the Docker image build itself, because the local Docker daemon was not
+running. If the base image tags (`mcr.microsoft.com/dotnet/sdk:10.0` /
+`aspnet:10.0`) do not resolve for this preview SDK, that surfaces as a pull
+failure on Railway's first build, and the fix is a tag change in
+`backend/Dockerfile`.
+
 **What this does not cover** — a real deploy still needs a backup/restore
 runbook and production monitoring/alerting, neither of which exist yet
 (tracked in `PHASE9_COMMERCIAL_READINESS.md`'s gap list, not a Foundation-exit
