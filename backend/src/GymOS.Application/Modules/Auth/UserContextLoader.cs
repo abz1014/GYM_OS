@@ -36,6 +36,14 @@ public static class UserContextLoader
             branchIds);
     }
 
+    /// <summary>
+    /// Which branches this user may touch. Shared by BuildAsync (login) and the API's per-request
+    /// PermissionResolutionMiddleware, so the set that drives the DB-level branch filter and the set
+    /// the client is told about at login can never disagree.
+    /// </summary>
+    public static Task<List<Guid>> GetAccessibleBranchIdsAsync(IApplicationDbContext db, Guid userId, CancellationToken cancellationToken)
+        => db.UserBranchAccesses.Where(a => a.UserId == userId).Select(a => a.BranchId).ToListAsync(cancellationToken);
+
     public static Task<List<string>> GetRoleNamesAsync(IApplicationDbContext db, Guid userId, CancellationToken cancellationToken)
         => db.UserRoles.IgnoreQueryFilters().Where(ur => ur.UserId == userId).Select(ur => ur.Role!.Name).ToListAsync(cancellationToken);
 

@@ -197,10 +197,22 @@ public class GymOsDbContext(
     }
 
     /// <summary>
-    /// Tenant isolation is enforced here, model-wide, rather than trusting every handler to
-    /// remember a Where(x => x.TenantId == ...) clause. Branch is deliberately NOT filtered here —
-    /// Owner/Manager can span multiple branches, so branch scoping stays an explicit, optional
-    /// query parameter in Application handlers instead of a blanket DB-level filter.
+    /// Tenant AND branch isolation are enforced here, model-wide, rather than trusting every handler
+    /// to remember a Where clause.
+    ///
+    /// Branch used to be excluded on the grounds that "Owner/Manager can span multiple branches", so
+    /// scoping was left to an explicit query parameter plus a pipeline behaviour. That reasoning does
+    /// not hold: filtering on the SET of accessible branches handles a multi-branch manager fine —
+    /// their set simply contains every branch. And the behaviour could only ever inspect a property
+    /// literally named BranchId on the REQUEST, which meant it protected nothing addressed by its own
+    /// id. Confirmed live: a Receptionist scoped to one branch could not see another branch's member
+    /// in the list, and could read that same member's name, date of birth and home address by
+    /// fetching them by id. The same hole let an Accountant record a payment against another
+    /// branch's invoice.
+    ///
+    /// Doing it here closes reads, reads-by-id and writes-by-id in one place, because a write path
+    /// loads its entity through the same filtered DbSet and now simply cannot find a foreign row —
+    /// it gets a NotFound rather than silently mutating another branch's data.
     /// </summary>
     private void ApplyGlobalQueryFilters(ModelBuilder modelBuilder)
     {
@@ -216,6 +228,29 @@ public class GymOsDbContext(
                 var tenantIdAsNullable = Expression.Convert(tenantIdProperty, typeof(Guid?));
                 var currentTenantId = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
                 filter = Expression.Equal(tenantIdAsNullable, currentTenantId);
+            }
+
+            if (typeof(IBranchScoped).IsAssignableFrom(clrType))
+            {
+                /*
+                 * Reads as: !BranchScopeEnabled || AccessibleBranchIds.Contains(e.BranchId)
+                 *
+                 * Written as a bool flag beside a never-null list rather than a null check on the
+                 * list, because `@list IS NULL` does not survive translation the way it reads in C# —
+                 * SQL's NULL comparison would make the escape hatch silently false and hide every
+                 * row from every background job. The flag parameterises to `NOT @enabled OR ... IN`,
+                 * which short-circuits correctly in SQL.
+                 */
+                var branchIdProperty = Expression.Property(parameter, nameof(IBranchScoped.BranchId));
+                var accessible = Expression.Property(Expression.Constant(this), nameof(CurrentAccessibleBranchIds));
+                var contains = Expression.Call(
+                    typeof(Enumerable), nameof(Enumerable.Contains), [typeof(Guid)], accessible, branchIdProperty);
+
+                var scopeDisabled = Expression.Not(
+                    Expression.Property(Expression.Constant(this), nameof(BranchScopeEnabled)));
+
+                var branchFilter = Expression.OrElse(scopeDisabled, contains);
+                filter = filter is null ? branchFilter : Expression.AndAlso(filter, branchFilter);
             }
 
             if (typeof(ISoftDelete).IsAssignableFrom(clrType))
@@ -234,6 +269,18 @@ public class GymOsDbContext(
 
     // Referenced via reflection (nameof(CurrentTenantId)) inside the query filter expression above.
     private Guid? CurrentTenantId => tenantProvider.TenantId;
+
+    /// <summary>
+    /// False in the system context (background jobs, seeding, unauthenticated) — see
+    /// ITenantProvider.AccessibleBranchIds for why null and empty must not mean the same thing.
+    /// </summary>
+    private bool BranchScopeEnabled => tenantProvider.AccessibleBranchIds is not null;
+
+    /// <summary>
+    /// Never null, so the Contains call in the filter expression is always translatable; when scope
+    /// is disabled the flag above short-circuits it before the contents matter.
+    /// </summary>
+    private IReadOnlyList<Guid> CurrentAccessibleBranchIds => tenantProvider.AccessibleBranchIds ?? [];
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

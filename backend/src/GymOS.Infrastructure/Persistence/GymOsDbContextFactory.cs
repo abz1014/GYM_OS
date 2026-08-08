@@ -43,6 +43,9 @@ public class GymOsDbContextFactory : IDesignTimeDbContextFactory<GymOsDbContext>
     {
         public Guid? TenantId => null;
         public Guid? BranchId => null;
+
+        // Null, not empty: design-time tooling is the system context — see ITenantProvider.
+        public IReadOnlyList<Guid>? AccessibleBranchIds => null;
     }
 
     private class DesignTimeCurrentUserService : ICurrentUserService
@@ -50,6 +53,7 @@ public class GymOsDbContextFactory : IDesignTimeDbContextFactory<GymOsDbContext>
         public Guid? UserId => null;
         public Guid? TenantId => null;
         public Guid? BranchId => null;
+        public IReadOnlyList<Guid>? AccessibleBranchIds => null;
         public string? Email => null;
         public IReadOnlyList<string> Roles => [];
         public IReadOnlyList<string> Permissions => [];

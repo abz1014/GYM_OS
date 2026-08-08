@@ -84,6 +84,77 @@ public class BranchIsolationSecurityTests(GymOsWebApplicationFactory factory) : 
         page!.items.ShouldContain(m => m.fullName.Contains("OwnBranchMember"));
     }
 
+    /*
+     * The three tests above all exercise the LIST. That was the shape of the original finding, and
+     * it is exactly why the next gap survived them: BranchScopeBehavior can only inspect a property
+     * literally named BranchId on the REQUEST, so a request that names an entity by its own id had
+     * nothing for it to check. Confirmed live before the fix — a Receptionist scoped to one branch
+     * could not see another branch's member in the list, and could read that same member's name,
+     * date of birth and home address by fetching them by id.
+     *
+     * These two cover reading and writing by id, which is where a list-shaped test will never look.
+     */
+
+    [Fact]
+    public async Task Staff_cannot_read_a_foreign_branch_member_by_id()
+    {
+        var (tenantId, _, branchBId, staffEmail) = await SeedTwoBranchTenantAsync();
+
+        Guid foreignMemberId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+            var foreign = NewMember(tenantId, branchBId, "ForeignByIdRead");
+            db.Members.Add(foreign);
+            await db.SaveChangesAsync();
+            foreignMemberId = foreign.Id;
+        }
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, staffEmail));
+
+        var response = await client.GetAsync($"/api/members/{foreignMemberId}");
+
+        // NotFound, not Forbidden: a 403 would confirm the id exists in a branch they cannot see.
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Staff_cannot_modify_a_foreign_branch_member_by_id()
+    {
+        var (tenantId, _, branchBId, staffEmail) = await SeedTwoBranchTenantAsync();
+
+        Guid foreignMemberId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+            var foreign = NewMember(tenantId, branchBId, "ForeignByIdWrite");
+            db.Members.Add(foreign);
+            await db.SaveChangesAsync();
+            foreignMemberId = foreign.Id;
+        }
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client, staffEmail));
+
+        var response = await client.PutAsJsonAsync($"/api/members/{foreignMemberId}", new
+        {
+            id = foreignMemberId,
+            firstName = "Overwritten",
+            lastName = "ByForeignStaff",
+            email = "overwritten@example.com",
+            phone = "555-0100",
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        // The status alone is not the assertion that matters — the row must be untouched.
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var stored = await verifyDb.Members.IgnoreQueryFilters().FirstAsync(m => m.Id == foreignMemberId);
+        stored.LastName.ShouldBe("ForeignByIdWrite");
+    }
+
     private static Member NewMember(Guid tenantId, Guid branchId, string lastName) => new()
     {
         TenantId = tenantId,
@@ -127,13 +198,22 @@ public class BranchIsolationSecurityTests(GymOsWebApplicationFactory factory) : 
         db.Roles.Add(role);
         db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
 
-        var permission = await db.Permissions.FirstOrDefaultAsync(p => p.Code == PermissionCodes.Members.View)
-            ?? new Permission { Code = PermissionCodes.Members.View, Module = "members", Description = "View members" };
-        if (db.Entry(permission).State == EntityState.Detached)
+        /*
+         * View AND update. Update matters: without it the write test 403s at the permission policy
+         * and never reaches the branch check, so it would pass while proving nothing — which is
+         * exactly what it did on first run. A security test that cannot reach the code it guards is
+         * worse than no test, because it reads like coverage.
+         */
+        foreach (var code in new[] { PermissionCodes.Members.View, PermissionCodes.Members.Update })
         {
-            db.Permissions.Add(permission);
+            var permission = await db.Permissions.FirstOrDefaultAsync(p => p.Code == code)
+                ?? new Permission { Code = code, Module = "members", Description = code };
+            if (db.Entry(permission).State == EntityState.Detached)
+            {
+                db.Permissions.Add(permission);
+            }
+            db.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = permission.Id });
         }
-        db.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = permission.Id });
 
         await db.SaveChangesAsync();
         return (tenant.Id, branchA.Id, branchB.Id, email);

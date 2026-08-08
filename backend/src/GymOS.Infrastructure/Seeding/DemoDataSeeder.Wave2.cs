@@ -23,10 +23,29 @@ public partial class DemoDataSeeder
 
         for (var i = 0; i < 20; i++)
         {
+            /*
+             * ONE branch per trainer, chosen before the user so the Trainer row and the user's
+             * UserBranchAccess cannot disagree.
+             *
+             * They used to be two independent rng.Next calls, which left 10 of 20 trainers rostered
+             * at a branch they had no access to. That was invisible while branch scoping was
+             * advisory; once it became a real query filter it would have meant a trainer unable to
+             * load their own Trainer row, and so unable to open their client roster at all.
+             */
+            var branch = branches[rng.Next(branches.Count)];
+
             User user;
             if (i == 0)
             {
                 user = demoUsers[RoleNames.Trainer];
+
+                // The demo trainer's access row is seeded with the other demo logins; realign it
+                // rather than adding a second one, so this account matches every generated trainer.
+                var existingAccess = await db.UserBranchAccesses.FirstOrDefaultAsync(a => a.UserId == user.Id, cancellationToken);
+                if (existingAccess is not null)
+                {
+                    existingAccess.BranchId = branch.Id;
+                }
             }
             else
             {
@@ -45,10 +64,8 @@ public partial class DemoDataSeeder
                 await db.SaveChangesAsync(cancellationToken);
 
                 db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = trainerRole.Id });
-                db.UserBranchAccesses.Add(new UserBranchAccess { UserId = user.Id, BranchId = branches[rng.Next(branches.Count)].Id });
+                db.UserBranchAccesses.Add(new UserBranchAccess { UserId = user.Id, BranchId = branch.Id });
             }
-
-            var branch = branches[rng.Next(branches.Count)];
 
             var trainer = new Trainer
             {

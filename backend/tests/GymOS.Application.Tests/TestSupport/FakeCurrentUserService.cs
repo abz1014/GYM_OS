@@ -13,6 +13,12 @@ public class FakeCurrentUserService : ICurrentUserService
 
     public Guid? BranchId { get; set; }
 
+    /// <summary>
+    /// Null by default so existing tests keep the pre-filter behaviour (system context, every
+    /// branch visible). A test exercising branch isolation sets it to the branches its user holds.
+    /// </summary>
+    public IReadOnlyList<Guid>? AccessibleBranchIds { get; set; }
+
     public Guid? UserId { get; set; }
 
     public string? Email { get; set; }

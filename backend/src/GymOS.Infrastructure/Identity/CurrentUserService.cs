@@ -29,5 +29,17 @@ public class CurrentUserService(IHttpContextAccessor httpContextAccessor) : ICur
 
     public IReadOnlyList<string> Permissions => httpContextAccessor.HttpContext?.Items["Permissions"] as List<string> ?? [];
 
+    /// <summary>
+    /// Populated once per authenticated request by PermissionResolutionMiddleware, same channel and
+    /// same reason as Permissions: the branch filter needs this synchronously inside a query-filter
+    /// expression, and UserBranchAccess is a database join.
+    ///
+    /// Null when there is no HTTP request at all (background jobs) or the caller is unauthenticated.
+    /// Unauthenticated is safe to leave unrestricted here because the tenant filter still applies and
+    /// every endpoint requires [Authorize] — nothing reaches a handler to exploit it.
+    /// </summary>
+    public IReadOnlyList<Guid>? AccessibleBranchIds =>
+        httpContextAccessor.HttpContext?.Items["AccessibleBranchIds"] as List<Guid>;
+
     public bool HasPermission(string permissionCode) => Permissions.Contains(permissionCode);
 }
