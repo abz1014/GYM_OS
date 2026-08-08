@@ -108,6 +108,40 @@ if (!placeholderIsAcceptable && !isCliCommand && signingKey.StartsWith("CHANGE_M
         "from appsettings.json. Set the Jwt__SigningKey environment variable to a real secret before deploying.");
 }
 
+/*
+ * Length, not just presence — and this one is checked in EVERY environment, unlike the placeholder
+ * guard above.
+ *
+ * HS256 signs with Encoding.UTF8.GetBytes(SigningKey) and requires 256 bits of key material.
+ * Microsoft.IdentityModel throws IDX10653 for a shorter key and IDX10703 for an empty one, and it
+ * throws at the moment a token is SIGNED — not at startup.
+ *
+ * That timing is what makes it vicious. The app boots clean, /health reports Healthy, a wrong
+ * password returns a correct 401, and a nonexistent account returns a correct 401 — because not one
+ * of those paths signs anything. The single line that does runs immediately AFTER a password is
+ * verified, so the only visible symptom is that correct credentials produce a 500 while incorrect
+ * ones behave perfectly. Every signal a deploy dashboard shows you says the service is fine.
+ *
+ * This is not hypothetical: the first GymOS deployment set Jwt__SigningKey to the literal string
+ * "<your generated secret>" — the instruction, pasted as the value. 23 bytes. It is not null, and it
+ * does not begin with "CHANGE_ME", so both existing guards passed it through, and the only way to
+ * find it was to read a stack trace.
+ *
+ * A secret that cannot sign is as broken in Development as in Production, so there is no environment
+ * in which letting it through helps. CLI commands are exempt on the same reasoning as the guards
+ * above: --migrate and --seed never issue a token, and a migration must not be blocked by a setting
+ * it does not use.
+ */
+var signingKeyBytes = Encoding.UTF8.GetByteCount(signingKey);
+
+if (!isCliCommand && signingKeyBytes < 32)
+{
+    throw new InvalidOperationException(
+        $"Jwt:SigningKey is {signingKeyBytes} bytes; HS256 requires at least 32 (256 bits). " +
+        "Generate one with `openssl rand -base64 48`. A shorter key starts the API successfully and " +
+        "then fails only on the first CORRECT login, which is the hardest possible way to find it.");
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
