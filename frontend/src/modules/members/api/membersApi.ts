@@ -136,6 +136,30 @@ export interface MemberVisit {
  * and React Query matches keys by prefix, so a check-in taken from the detail panel refreshes the
  * panel's own visit numbers without either module knowing about the other's keys.
  */
+export interface MemberTimelineEntry {
+  /** Visit | Workout | Nutrition | Invoice | Payment | Membership | Measurement | Coaching */
+  kind: string
+  at: string
+  title: string
+  detail: string | null
+}
+
+/**
+ * One member's history across every module, newest first.
+ *
+ * The server decides what belongs in it: each source is gated on the caller's own module permission,
+ * so a receptionist's timeline has no training in it and a trainer's has no money. Nothing is
+ * filtered here — the client never learns what it was not sent.
+ */
+export function useMemberTimeline(memberId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['members', 'timeline', memberId],
+    queryFn: async () =>
+      (await apiClient.get<MemberTimelineEntry[]>(`/api/members/${memberId}/timeline`)).data,
+    enabled: enabled && !!memberId,
+  })
+}
+
 export function useMemberVisits(memberId: string | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['attendance', 'member-visits', memberId],

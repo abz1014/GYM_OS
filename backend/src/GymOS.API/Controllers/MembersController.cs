@@ -27,6 +27,19 @@ public class MembersController(ISender mediator) : ControllerBase
     public async Task<ActionResult<MemberDetailDto>> GetById(Guid id, CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMemberByIdQuery(id), cancellationToken));
 
+    /// <summary>
+    /// One member's history across every module, newest first. members.view is the floor to reach it;
+    /// each source inside is gated on its own module permission, so this returns strictly less than
+    /// the caller could already read one screen at a time, never more.
+    /// </summary>
+    [HttpGet("{id:guid}/timeline")]
+    [RequirePermission(PermissionCodes.Members.View)]
+    public async Task<ActionResult<IReadOnlyList<MemberTimelineEntryDto>>> Timeline(
+        Guid id, [FromQuery] int? take, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(
+            take is null ? new GetMemberTimelineQuery(id) : new GetMemberTimelineQuery(id, take.Value),
+            cancellationToken));
+
     [HttpPost]
     [RequirePermission(PermissionCodes.Members.Create)]
     public async Task<ActionResult<Guid>> Create(CreateMemberCommand command, CancellationToken cancellationToken)

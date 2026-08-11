@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  Apple,
   ArrowUpRight,
   Cake,
   CloudOff,
@@ -10,14 +11,17 @@ import {
   Loader2,
   Mail,
   MapPin,
+  MessageSquare,
   Phone,
   QrCode,
   Receipt,
   RotateCw,
+  Ruler,
   StickyNote,
   TriangleAlert,
   UserPlus,
   X,
+  type LucideIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -31,9 +35,11 @@ import {
   useBranches,
   useMember,
   useMemberInvoices,
+  useMemberTimeline,
   useMemberVisitCountSince,
   useMemberVisits,
   type MemberMembership,
+  type MemberTimelineEntry,
 } from '@/modules/members/api/membersApi'
 import { useMemberWorkoutLogs } from '@/modules/workouts/api/workoutsApi'
 import { MemberStatusPill } from '@/modules/members/components/MemberStatusPill'
@@ -127,6 +133,56 @@ function currentMembership(memberships: MemberMembership[]): MemberMembership | 
   )
 }
 
+/**
+ * Which module an event came from, as a colour. Deliberately the same tones the rest of the panel
+ * already uses for these things — green for a visit, red for money owed — so the timeline reads as
+ * the screens it was assembled from rather than a new vocabulary.
+ */
+const TIMELINE_TONE: Record<string, string> = {
+  Visit: 'bg-success/10 text-success',
+  Workout: 'bg-primary/15 text-foreground',
+  Nutrition: 'bg-success/10 text-success',
+  Invoice: 'bg-muted text-muted-foreground',
+  Payment: 'bg-success/10 text-success',
+  Membership: 'bg-primary/15 text-foreground',
+  Measurement: 'bg-muted text-muted-foreground',
+  Coaching: 'bg-warning/10 text-warning',
+}
+
+const TIMELINE_ICON: Record<string, LucideIcon> = {
+  Visit: DoorOpen,
+  Workout: Dumbbell,
+  Nutrition: Apple,
+  Invoice: Receipt,
+  Payment: CreditCard,
+  Membership: CreditCard,
+  Measurement: Ruler,
+  Coaching: MessageSquare,
+}
+
+function TimelineRow({ entry }: { entry: MemberTimelineEntry }) {
+  const Icon = TIMELINE_ICON[entry.kind] ?? StickyNote
+  return (
+    <li className="flex items-start gap-3">
+      <span
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-xl',
+          TIMELINE_TONE[entry.kind] ?? 'bg-muted text-muted-foreground',
+        )}
+      >
+        <Icon className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{entry.title}</p>
+        <p className="text-xs text-muted-foreground">
+          {relativeDay(new Date(entry.at))}
+          {entry.detail ? ` · ${entry.detail}` : ''}
+        </p>
+      </div>
+    </li>
+  )
+}
+
 function StatTile({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-border px-3 py-2.5">
@@ -193,6 +249,11 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
    */
   const canSeeWorkouts = hasPermission('workouts.view')
   const workoutLogsQuery = useMemberWorkoutLogs(canSeeWorkouts ? memberId : undefined)
+
+  // Only fetched while the History tab is open. It is the widest query on the panel and most visits
+  // to a member never ask for it.
+  const [timelineOpened, setTimelineOpened] = useState(false)
+  const timelineQuery = useMemberTimeline(memberId, timelineOpened)
 
   const checkIn = useCheckIn()
 
@@ -425,9 +486,9 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
         checks the trainer↔member pairing first, so a receptionist pressing it would get a 403. It is
         omitted rather than wired to something that only works for one role.
       */}
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue="overview" onValueChange={(v) => v === 'history' && setTimelineOpened(true)}>
         <TabsList className="h-auto w-full justify-start gap-5 rounded-none border-b border-border bg-transparent px-5 py-0">
-          {['Overview', 'Billing', 'Training', 'Notes'].map((label) => (
+          {['Overview', 'Billing', 'Training', 'Notes', 'History'].map((label) => (
             <TabsTrigger
               key={label}
               value={label.toLowerCase()}
@@ -782,6 +843,46 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
               </li>
             ))}
           </ul>
+        </TabsContent>
+
+        {/*
+          One chronology instead of six modules to visit and reconcile from memory. What it contains
+          is the server's decision, not this component's: each source is gated on the caller's own
+          module permission, so a receptionist's history has no training in it and a trainer's has no
+          money, and neither is told the other exists.
+        */}
+        <TabsContent value="history" className="space-y-3 p-5">
+          {timelineQuery.isError ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <CloudOff className="size-7 text-muted-foreground" />
+              <p className="text-sm font-medium">We couldn't load this member's history</p>
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() => timelineQuery.refetch()}
+                disabled={timelineQuery.isFetching}
+              >
+                <RotateCw className={timelineQuery.isFetching ? 'size-4 animate-spin' : 'size-4'} />
+                Try again
+              </Button>
+            </div>
+          ) : timelineQuery.isLoading || !timelineQuery.data ? (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-2xl" />
+              ))}
+            </div>
+          ) : timelineQuery.data.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing recorded for this member yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {timelineQuery.data.map((entry, i) => (
+                // Timeline entries carry no id of their own — they are assembled from six tables that
+                // each have their own — so position within a stable, server-ordered list is the key.
+                <TimelineRow key={`${entry.kind}-${entry.at}-${i}`} entry={entry} />
+              ))}
+            </ul>
+          )}
         </TabsContent>
       </Tabs>
     </div>
