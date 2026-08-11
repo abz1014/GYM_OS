@@ -231,6 +231,7 @@ public class MemberSelfLoggingTests : ApplicationTestBase
         {
             db.DietPlans.Add(new DietPlan
             {
+                TenantId = member.TenantId,
                 MemberId = member.Id, Name = "Lean Muscle",
                 StartDate = DateOnly.FromDateTime(DateTimeProvider.UtcNow.UtcDateTime).AddDays(-30)
             });

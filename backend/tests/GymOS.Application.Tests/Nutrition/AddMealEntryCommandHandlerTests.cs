@@ -72,7 +72,7 @@ public class AddMealEntryCommandHandlerTests : ApplicationTestBase
         };
         db.Members.Add(member);
 
-        var dietPlan = new DietPlan { MemberId = member.Id, Name = "Cutting Phase", StartDate = new DateOnly(2026, 1, 1) };
+        var dietPlan = new DietPlan { TenantId = member.TenantId, MemberId = member.Id, Name = "Cutting Phase", StartDate = new DateOnly(2026, 1, 1) };
         db.DietPlans.Add(dietPlan);
 
         var foodItem = new FoodItem

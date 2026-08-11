@@ -120,7 +120,7 @@ public class CoachingDashboardTests : ApplicationTestBase
             var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
             var food = new FoodItem { TenantId = ctx.TenantId, Name = "Chicken", CaloriesPerServing = 200, ProteinG = 30, CarbsG = 0, FatG = 5, ServingSizeDescription = "100g" };
             db.FoodItems.Add(food);
-            var plan = new DietPlan { MemberId = member, Name = "Cut", StartDate = DateOnly.FromDateTime(Today.UtcDateTime).AddDays(-6) };
+            var plan = new DietPlan { TenantId = ctx.TenantId, MemberId = member, Name = "Cut", StartDate = DateOnly.FromDateTime(Today.UtcDateTime).AddDays(-6) };
             db.DietPlans.Add(plan);
             await db.SaveChangesAsync();
 
@@ -129,6 +129,7 @@ public class CoachingDashboardTests : ApplicationTestBase
             {
                 db.MealEntries.Add(new MealEntry
                 {
+                    TenantId = ctx.TenantId,
                     DietPlanId = plan.Id, FoodItemId = food.Id, MealType = MealType.Lunch,
                     Quantity = 1, ConsumedAt = Today.AddDays(-i)
                 });
@@ -228,13 +229,18 @@ public class CoachingDashboardTests : ApplicationTestBase
     private static void AddWorkoutLog(
         GymOsDbContext db, Guid memberId, Guid exerciseId, DateTimeOffset loggedAt, int setsCompleted, int repsCompleted, decimal weightKg)
     {
+        // Tenant comes from the member the log belongs to — the only source in scope here, and the
+        // same rule the production backfill uses.
+        var tenantId = db.Members.IgnoreQueryFilters().Single(m => m.Id == memberId).TenantId;
+
         db.WorkoutLogs.Add(new WorkoutLog
         {
+            TenantId = tenantId,
             MemberId = memberId,
             LoggedAt = loggedAt,
             Entries =
             [
-                new WorkoutLogEntry { ExerciseId = exerciseId, SetsCompleted = setsCompleted, RepsCompleted = repsCompleted, WeightKg = weightKg }
+                new WorkoutLogEntry { TenantId = tenantId, ExerciseId = exerciseId, SetsCompleted = setsCompleted, RepsCompleted = repsCompleted, WeightKg = weightKg }
             ]
         });
     }

@@ -31,11 +31,11 @@ public class GetMyNutritionSummaryQueryTests : ApplicationTestBase
         {
             var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
             // Consumed today: 2 servings.
-            db.MealEntries.Add(new MealEntry { DietPlanId = dietPlanId, FoodItemId = foodItemId, MealType = MealType.Lunch, Quantity = 2m, ConsumedAt = today });
+            db.MealEntries.Add(new MealEntry { TenantId = tenantId, DietPlanId = dietPlanId, FoodItemId = foodItemId, MealType = MealType.Lunch, Quantity = 2m, ConsumedAt = today });
             // Consumed yesterday — must not count toward today's total.
-            db.MealEntries.Add(new MealEntry { DietPlanId = dietPlanId, FoodItemId = foodItemId, MealType = MealType.Dinner, Quantity = 5m, ConsumedAt = today.AddDays(-1) });
+            db.MealEntries.Add(new MealEntry { TenantId = tenantId, DietPlanId = dietPlanId, FoodItemId = foodItemId, MealType = MealType.Dinner, Quantity = 5m, ConsumedAt = today.AddDays(-1) });
             // Planned but never actually eaten — must not count.
-            db.MealEntries.Add(new MealEntry { DietPlanId = dietPlanId, FoodItemId = foodItemId, MealType = MealType.Snack, Quantity = 9m, ConsumedAt = null });
+            db.MealEntries.Add(new MealEntry { TenantId = tenantId, DietPlanId = dietPlanId, FoodItemId = foodItemId, MealType = MealType.Snack, Quantity = 9m, ConsumedAt = null });
             await db.SaveChangesAsync();
         }
 
@@ -103,6 +103,7 @@ public class GetMyNutritionSummaryQueryTests : ApplicationTestBase
         var today = DateOnly.FromDateTime(DateTimeProvider.UtcNow.UtcDateTime);
         var dietPlan = new DietPlan
         {
+            TenantId = member.TenantId,
             MemberId = member.Id,
             Name = "Cutting Phase",
             TargetCalories = 2000m,

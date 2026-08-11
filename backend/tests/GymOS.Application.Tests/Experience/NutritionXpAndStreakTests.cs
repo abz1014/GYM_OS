@@ -73,8 +73,8 @@ public class NutritionXpAndStreakTests : ApplicationTestBase
         {
             TenantId = ctx.TenantId, BranchId = ctx.BranchId, MemberId = ctx.MemberId, CheckInAt = now, Method = AttendanceMethod.Manual
         });
-        db.WorkoutLogs.Add(new WorkoutLog { MemberId = ctx.MemberId, LoggedAt = now });
-        db.MealEntries.Add(new MealEntry { DietPlanId = ctx.DietPlanId, FoodItemId = ctx.FoodItemId, MealType = MealType.Lunch, Quantity = 1m, ConsumedAt = now });
+        db.WorkoutLogs.Add(new WorkoutLog { TenantId = ctx.TenantId, MemberId = ctx.MemberId, LoggedAt = now });
+        db.MealEntries.Add(new MealEntry { TenantId = ctx.TenantId, DietPlanId = ctx.DietPlanId, FoodItemId = ctx.FoodItemId, MealType = MealType.Lunch, Quantity = 1m, ConsumedAt = now });
 
         await db.SaveChangesAsync();
     }
@@ -116,7 +116,7 @@ public class NutritionXpAndStreakTests : ApplicationTestBase
         };
         db.Members.Add(member);
 
-        var dietPlan = new DietPlan { MemberId = member.Id, Name = "Plan", StartDate = new DateOnly(2025, 1, 1) };
+        var dietPlan = new DietPlan { TenantId = member.TenantId, MemberId = member.Id, Name = "Plan", StartDate = new DateOnly(2025, 1, 1) };
         db.DietPlans.Add(dietPlan);
 
         var food = new FoodItem

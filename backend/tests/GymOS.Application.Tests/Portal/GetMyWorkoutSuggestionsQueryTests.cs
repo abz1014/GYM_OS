@@ -31,12 +31,12 @@ public class GetMyWorkoutSuggestionsQueryTests : ApplicationTestBase
             var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
             var member = await db.Members.SingleAsync(m => m.UserId == userId);
 
-            var older = new WorkoutLog { MemberId = member.Id, LoggedAt = DateTimeProvider.UtcNow.AddDays(-7) };
-            older.Entries.Add(new WorkoutLogEntry { ExerciseId = exerciseId, SetsCompleted = 3, RepsCompleted = 10, WeightKg = 60m });
+            var older = new WorkoutLog { TenantId = member.TenantId, MemberId = member.Id, LoggedAt = DateTimeProvider.UtcNow.AddDays(-7) };
+            older.Entries.Add(new WorkoutLogEntry { TenantId = member.TenantId, ExerciseId = exerciseId, SetsCompleted = 3, RepsCompleted = 10, WeightKg = 60m });
             db.WorkoutLogs.Add(older);
 
-            var newer = new WorkoutLog { MemberId = member.Id, LoggedAt = DateTimeProvider.UtcNow };
-            newer.Entries.Add(new WorkoutLogEntry { ExerciseId = exerciseId, SetsCompleted = 3, RepsCompleted = 10, WeightKg = 60m });
+            var newer = new WorkoutLog { TenantId = member.TenantId, MemberId = member.Id, LoggedAt = DateTimeProvider.UtcNow };
+            newer.Entries.Add(new WorkoutLogEntry { TenantId = member.TenantId, ExerciseId = exerciseId, SetsCompleted = 3, RepsCompleted = 10, WeightKg = 60m });
             db.WorkoutLogs.Add(newer);
 
             await db.SaveChangesAsync();
@@ -64,8 +64,8 @@ public class GetMyWorkoutSuggestionsQueryTests : ApplicationTestBase
             var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
             var member = await db.Members.SingleAsync(m => m.UserId == userId);
 
-            var log = new WorkoutLog { MemberId = member.Id, LoggedAt = DateTimeProvider.UtcNow };
-            log.Entries.Add(new WorkoutLogEntry { ExerciseId = exerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 40m });
+            var log = new WorkoutLog { TenantId = member.TenantId, MemberId = member.Id, LoggedAt = DateTimeProvider.UtcNow };
+            log.Entries.Add(new WorkoutLogEntry { TenantId = member.TenantId, ExerciseId = exerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 40m });
             db.WorkoutLogs.Add(log);
 
             await db.SaveChangesAsync();

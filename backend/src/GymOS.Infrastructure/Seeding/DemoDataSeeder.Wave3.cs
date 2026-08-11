@@ -173,15 +173,15 @@ public partial class DemoDataSeeder
         {
             // Same weight, same reps two sessions running -> ProgressiveOverloadPolicy reads this as
             // a plateau and the portal suggests adding weight next time.
-            var older = new WorkoutLog { MemberId = member.Id, LoggedAt = now.AddDays(-7) };
+            var older = new WorkoutLog { TenantId = member.TenantId, MemberId = member.Id, LoggedAt = now.AddDays(-7) };
             AddVisitFor(older.LoggedAt);
-            older.Entries.Add(new WorkoutLogEntry { ExerciseId = benchPress.Id, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+            older.Entries.Add(new WorkoutLogEntry { TenantId = member.TenantId, ExerciseId = benchPress.Id, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
             older.RaiseLogged();
             db.WorkoutLogs.Add(older);
 
-            var newer = new WorkoutLog { MemberId = member.Id, LoggedAt = now.AddDays(-1) };
+            var newer = new WorkoutLog { TenantId = member.TenantId, MemberId = member.Id, LoggedAt = now.AddDays(-1) };
             AddVisitFor(newer.LoggedAt);
-            newer.Entries.Add(new WorkoutLogEntry { ExerciseId = benchPress.Id, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+            newer.Entries.Add(new WorkoutLogEntry { TenantId = member.TenantId, ExerciseId = benchPress.Id, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
             newer.RaiseLogged();
             db.WorkoutLogs.Add(newer);
         }
@@ -191,21 +191,22 @@ public partial class DemoDataSeeder
         if (squat is not null)
         {
             // Heavier than last time -> reads as already progressing, no nudge needed.
-            var older = new WorkoutLog { MemberId = member.Id, LoggedAt = now.AddDays(-10) };
+            var older = new WorkoutLog { TenantId = member.TenantId, MemberId = member.Id, LoggedAt = now.AddDays(-10) };
             AddVisitFor(older.LoggedAt);
-            older.Entries.Add(new WorkoutLogEntry { ExerciseId = squat.Id, SetsCompleted = 4, RepsCompleted = 6, WeightKg = 80m });
+            older.Entries.Add(new WorkoutLogEntry { TenantId = member.TenantId, ExerciseId = squat.Id, SetsCompleted = 4, RepsCompleted = 6, WeightKg = 80m });
             older.RaiseLogged();
             db.WorkoutLogs.Add(older);
 
-            var newer = new WorkoutLog { MemberId = member.Id, LoggedAt = now.AddDays(-2) };
+            var newer = new WorkoutLog { TenantId = member.TenantId, MemberId = member.Id, LoggedAt = now.AddDays(-2) };
             AddVisitFor(newer.LoggedAt);
-            newer.Entries.Add(new WorkoutLogEntry { ExerciseId = squat.Id, SetsCompleted = 4, RepsCompleted = 6, WeightKg = 85m });
+            newer.Entries.Add(new WorkoutLogEntry { TenantId = member.TenantId, ExerciseId = squat.Id, SetsCompleted = 4, RepsCompleted = 6, WeightKg = 85m });
             newer.RaiseLogged();
             db.WorkoutLogs.Add(newer);
         }
 
         var dietPlan = new DietPlan
         {
+            TenantId = member.TenantId,
             MemberId = member.Id,
             Name = "Lean Muscle Plan",
             TargetCalories = 2400m,
@@ -227,11 +228,11 @@ public partial class DemoDataSeeder
                 .FirstOrDefaultAsync(f => f.TenantId == member.TenantId && f.Name == foodName, cancellationToken);
             if (food is not null)
             {
-                dietPlan.MealEntries.Add(new MealEntry { FoodItemId = food.Id, MealType = mealType, Quantity = quantity, ConsumedAt = now.AddHours(hoursAgo) });
+                dietPlan.MealEntries.Add(new MealEntry { TenantId = member.TenantId, FoodItemId = food.Id, MealType = mealType, Quantity = quantity, ConsumedAt = now.AddHours(hoursAgo) });
             }
         }
 
-        db.WaterLogs.Add(new WaterLog { MemberId = member.Id, AmountMl = 750, LoggedAt = now.AddHours(-3) });
+        db.WaterLogs.Add(new WaterLog { TenantId = member.TenantId, MemberId = member.Id, AmountMl = 750, LoggedAt = now.AddHours(-3) });
 
         // Four consecutive weeks of habit activity so the portal's weekly-streak card reads as a
         // meaningful 4-week streak on all three tracks (check-ins, workouts, nutrition). Subtracting
@@ -247,10 +248,10 @@ public partial class DemoDataSeeder
                 TenantId = member.TenantId, BranchId = member.BranchId, MemberId = member.Id,
                 CheckInAt = at, CheckOutAt = at.AddHours(1), Method = AttendanceMethod.QrSimulated
             });
-            db.WorkoutLogs.Add(new WorkoutLog { MemberId = member.Id, LoggedAt = at });
+            db.WorkoutLogs.Add(new WorkoutLog { TenantId = member.TenantId, MemberId = member.Id, LoggedAt = at });
             if (streakFood is not null)
             {
-                dietPlan.MealEntries.Add(new MealEntry { FoodItemId = streakFood.Id, MealType = MealType.Snack, Quantity = 1m, ConsumedAt = at });
+                dietPlan.MealEntries.Add(new MealEntry { TenantId = member.TenantId, FoodItemId = streakFood.Id, MealType = MealType.Snack, Quantity = 1m, ConsumedAt = at });
             }
         }
 
@@ -258,8 +259,8 @@ public partial class DemoDataSeeder
         // (the member can still log today's from the UI to earn recovery XP live). Seeded directly, so —
         // like the workout logs above — no RaiseLogged()/event fires and no XP is granted at seed time.
         var today = DateOnly.FromDateTime(now.UtcDateTime);
-        db.RecoveryLogs.Add(new RecoveryLog { MemberId = member.Id, LoggedOn = today.AddDays(-3), Kind = RecoveryKind.RestDay, Notes = "Full rest day" });
-        db.RecoveryLogs.Add(new RecoveryLog { MemberId = member.Id, LoggedOn = today.AddDays(-5), Kind = RecoveryKind.ActiveRecovery, Notes = "Light mobility + walk" });
+        db.RecoveryLogs.Add(new RecoveryLog { TenantId = member.TenantId, MemberId = member.Id, LoggedOn = today.AddDays(-3), Kind = RecoveryKind.RestDay, Notes = "Full rest day" });
+        db.RecoveryLogs.Add(new RecoveryLog { TenantId = member.TenantId, MemberId = member.Id, LoggedOn = today.AddDays(-5), Kind = RecoveryKind.ActiveRecovery, Notes = "Light mobility + walk" });
 
         // The Experience Engine now owns everything that used to be hand-written here — mastery,
         // personal records, XP, level and achievements. Those blocks existed because seeding ran
@@ -455,6 +456,7 @@ public partial class DemoDataSeeder
                 var previousStart = today.AddDays(-rng.Next(150, 260));
                 db.WorkoutAssignments.Add(new WorkoutAssignment
                 {
+                    TenantId = tenantId,
                     MemberId = pairing.MemberId,
                     WorkoutTemplateId = templates[rng.Next(templates.Count)].Id,
                     AssignedByUserId = assignedBy,
@@ -465,6 +467,7 @@ public partial class DemoDataSeeder
 
             db.WorkoutAssignments.Add(new WorkoutAssignment
             {
+                TenantId = tenantId,
                 MemberId = pairing.MemberId,
                 WorkoutTemplateId = templates[rng.Next(templates.Count)].Id,
                 AssignedByUserId = assignedBy,
@@ -523,6 +526,7 @@ public partial class DemoDataSeeder
             {
                 db.WorkoutAssignments.Add(new WorkoutAssignment
                 {
+                    TenantId = selfDirected.TenantId,
                     MemberId = selfDirected.Id,
                     WorkoutTemplateId = templates[0].Id,
                     AssignedByUserId = headTrainer?.UserId,
@@ -544,6 +548,7 @@ public partial class DemoDataSeeder
                 var programme = templates.FirstOrDefault(t => t.Name == "Upper Body Strength") ?? templates[0];
                 db.WorkoutAssignments.Add(new WorkoutAssignment
                 {
+                    TenantId = coached.TenantId,
                     MemberId = coached.Id,
                     WorkoutTemplateId = programme.Id,
                     AssignedByUserId = headTrainer?.UserId,

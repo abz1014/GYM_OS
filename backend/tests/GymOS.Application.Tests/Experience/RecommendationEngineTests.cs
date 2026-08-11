@@ -46,8 +46,8 @@ public class RecommendationEngineTests : ApplicationTestBase
             db.SkillNodes.Add(new SkillNode { SkillTreeId = tree.Id, ExerciseId = ctx.ExerciseId, OrderIndex = 0, MinReps = 6, UnlockExplanation = "Bench press node." });
             db.SkillNodes.Add(new SkillNode { SkillTreeId = tree.Id, ExerciseId = nextExercise.Id, OrderIndex = 1, MinReps = 6, UnlockExplanation = "Try Overhead Press next." });
 
-            var log = new WorkoutLog { MemberId = ctx.MemberId, LoggedAt = now.AddDays(-1) };
-            log.Entries.Add(new WorkoutLogEntry { ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+            var log = new WorkoutLog { TenantId = ctx.TenantId, MemberId = ctx.MemberId, LoggedAt = now.AddDays(-1) };
+            log.Entries.Add(new WorkoutLogEntry { TenantId = ctx.TenantId, ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
             db.WorkoutLogs.Add(log);
 
             var template = new WorkoutTemplate { TenantId = ctx.TenantId, Name = "Strength Foundations" };
@@ -56,6 +56,7 @@ public class RecommendationEngineTests : ApplicationTestBase
 
             db.WorkoutAssignments.Add(new WorkoutAssignment
             {
+                TenantId = ctx.TenantId,
                 MemberId = ctx.MemberId, WorkoutTemplateId = template.Id,
                 StartDate = DateOnly.FromDateTime(now.UtcDateTime).AddDays(-1), EndDate = null
             });
@@ -82,12 +83,12 @@ public class RecommendationEngineTests : ApplicationTestBase
             var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
             var now = DateTimeProvider.UtcNow;
 
-            var older = new WorkoutLog { MemberId = ctx.MemberId, LoggedAt = now.AddDays(-7) };
-            older.Entries.Add(new WorkoutLogEntry { ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+            var older = new WorkoutLog { TenantId = ctx.TenantId, MemberId = ctx.MemberId, LoggedAt = now.AddDays(-7) };
+            older.Entries.Add(new WorkoutLogEntry { TenantId = ctx.TenantId, ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
             db.WorkoutLogs.Add(older);
 
-            var newer = new WorkoutLog { MemberId = ctx.MemberId, LoggedAt = now.AddDays(-1) };
-            newer.Entries.Add(new WorkoutLogEntry { ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+            var newer = new WorkoutLog { TenantId = ctx.TenantId, MemberId = ctx.MemberId, LoggedAt = now.AddDays(-1) };
+            newer.Entries.Add(new WorkoutLogEntry { TenantId = ctx.TenantId, ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
             db.WorkoutLogs.Add(newer);
 
             db.ExerciseMasteries.Add(new ExerciseMastery
@@ -131,8 +132,8 @@ public class RecommendationEngineTests : ApplicationTestBase
             await db.SaveChangesAsync();
 
             // Clears node 0 (ctx.ExerciseId / Bench Press, MinReps 6) with an 8-rep set.
-            var log = new WorkoutLog { MemberId = ctx.MemberId, LoggedAt = now.AddDays(-1) };
-            log.Entries.Add(new WorkoutLogEntry { ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+            var log = new WorkoutLog { TenantId = ctx.TenantId, MemberId = ctx.MemberId, LoggedAt = now.AddDays(-1) };
+            log.Entries.Add(new WorkoutLogEntry { TenantId = ctx.TenantId, ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
             db.WorkoutLogs.Add(log);
             await db.SaveChangesAsync();
         }

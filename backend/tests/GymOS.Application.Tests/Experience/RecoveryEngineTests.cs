@@ -72,8 +72,8 @@ public class RecoveryEngineTests : ApplicationTestBase
         var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
         var now = DateTimeProvider.UtcNow;
 
-        var log = new WorkoutLog { MemberId = ctx.MemberId, LoggedAt = now };
-        log.Entries.Add(new WorkoutLogEntry { ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+        var log = new WorkoutLog { TenantId = ctx.TenantId, MemberId = ctx.MemberId, LoggedAt = now };
+        log.Entries.Add(new WorkoutLogEntry { TenantId = ctx.TenantId, ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
         db.WorkoutLogs.Add(log);
 
         db.RecoveryLogs.Add(new RecoveryLog

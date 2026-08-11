@@ -6,6 +6,7 @@ using GymOS.Domain.Members;
 using GymOS.Domain.Tenancy;
 using GymOS.Domain.Workouts;
 using GymOS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 
@@ -193,7 +194,8 @@ public class LoggingCaptureReportTests : ApplicationTestBase
     {
         using var scope = CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
-        db.WorkoutLogs.Add(new WorkoutLog { MemberId = memberId, LoggedAt = at });
+        var tenantId = await db.Members.IgnoreQueryFilters().Where(m => m.Id == memberId).Select(m => m.TenantId).SingleAsync();
+        db.WorkoutLogs.Add(new WorkoutLog { TenantId = tenantId, MemberId = memberId, LoggedAt = at });
         await db.SaveChangesAsync();
     }
 

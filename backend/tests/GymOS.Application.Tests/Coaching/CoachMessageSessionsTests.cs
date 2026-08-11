@@ -114,7 +114,7 @@ public class CoachMessageSessionsTests : ApplicationTestBase
     {
         using var scope = CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
-        var log = new WorkoutLog { MemberId = ctx.MemberId, WorkoutTemplateId = workoutTemplateId, LoggedAt = Now };
+        var log = new WorkoutLog { TenantId = ctx.TenantId, MemberId = ctx.MemberId, WorkoutTemplateId = workoutTemplateId, LoggedAt = Now };
         db.WorkoutLogs.Add(log);
         await db.SaveChangesAsync();
 

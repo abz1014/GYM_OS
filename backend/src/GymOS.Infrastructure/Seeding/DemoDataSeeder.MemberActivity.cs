@@ -146,7 +146,7 @@ public partial class DemoDataSeeder
                     continue;
                 }
 
-                var log = new WorkoutLog { MemberId = member.Id, LoggedAt = checkIn.AddMinutes(rng.Next(30, 80)) };
+                var log = new WorkoutLog { TenantId = tenantId, MemberId = member.Id, LoggedAt = checkIn.AddMinutes(rng.Next(30, 80)) };
                 foreach (var exercise in PickSessionExercises(rng, exercises))
                 {
                     var key = (member.Id, exercise.Id);
@@ -166,6 +166,7 @@ public partial class DemoDataSeeder
 
                     log.Entries.Add(new WorkoutLogEntry
                     {
+                        TenantId = tenantId,
                         ExerciseId = exercise.Id,
                         SetsCompleted = rng.Next(3, 6),
                         RepsCompleted = rng.Next(6, 13),

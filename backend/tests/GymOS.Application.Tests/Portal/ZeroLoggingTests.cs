@@ -251,7 +251,10 @@ public class ZeroLoggingTests : ApplicationTestBase
 
         using var scope = CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
-        (await db.WorkoutLogs.AnyAsync(w => w.Id == theirLog.WorkoutLogId)).ShouldBeTrue();
+        // IgnoreQueryFilters, because the claim is "their row survived", not "I can see their row".
+        // WorkoutLog became ITenantScoped, and this scope is still authenticated as `mine` — so
+        // without the bypass this asserts nothing except that the filter hid it, which it should.
+        (await db.WorkoutLogs.IgnoreQueryFilters().AnyAsync(w => w.Id == theirLog.WorkoutLogId)).ShouldBeTrue();
     }
 
     [Fact]
@@ -289,6 +292,7 @@ public class ZeroLoggingTests : ApplicationTestBase
 
         db.WorkoutAssignments.Add(new WorkoutAssignment
         {
+            TenantId = ctx.TenantId,
             MemberId = ctx.MemberId,
             WorkoutTemplateId = template.Id,
             StartDate = today.AddDays(-30),
@@ -316,6 +320,7 @@ public class ZeroLoggingTests : ApplicationTestBase
         db.WorkoutTemplates.Add(template);
         db.WorkoutAssignments.Add(new WorkoutAssignment
         {
+            TenantId = ctx.TenantId,
             MemberId = ctx.MemberId,
             WorkoutTemplateId = template.Id,
             StartDate = DateOnly.FromDateTime(Thursday.UtcDateTime).AddDays(-startedDaysAgo)

@@ -138,8 +138,8 @@ public class TransformationTimelineTests : ApplicationTestBase
         using var scope = CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
 
-        var log = new WorkoutLog { MemberId = ctx.MemberId, LoggedAt = at };
-        log.Entries.Add(new WorkoutLogEntry { ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
+        var log = new WorkoutLog { TenantId = ctx.TenantId, MemberId = ctx.MemberId, LoggedAt = at };
+        log.Entries.Add(new WorkoutLogEntry { TenantId = ctx.TenantId, ExerciseId = ctx.ExerciseId, SetsCompleted = 3, RepsCompleted = 8, WeightKg = 60m });
         db.WorkoutLogs.Add(log);
 
         var types = new[] { PersonalRecordType.MaxWeight, PersonalRecordType.EstimatedOneRepMax, PersonalRecordType.SessionVolume };

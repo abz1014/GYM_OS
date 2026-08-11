@@ -8,8 +8,19 @@ namespace GymOS.Domain.Experience;
 /// <see cref="RecoveryPolicy"/> reads these as the "rest logged" signal and the Member Experience
 /// Engine awards recovery XP once per logged day.
 /// </summary>
-public class RecoveryLog : AggregateRoot
+public class RecoveryLog : AggregateRoot, ITenantScoped
 {
+    /// <summary>
+    /// Direct tenant scoping, so isolation is a property of the schema rather than of every query
+    /// that happens to start from Member.
+    ///
+    /// This table was reachable only through a tenant-scoped Member, which made it safe in practice
+    /// and unguarded in principle: one future query beginning here instead of at Member would cross
+    /// tenants silently, with nothing failing. Same class of gap as the cross-branch IDOR, same fix —
+    /// enforce it in the model so nobody has to remember.
+    /// </summary>
+    public Guid TenantId { get; set; }
+
     public Guid MemberId { get; set; }
 
     /// <summary>The day being rested — the unit the policy and the XP award are keyed on.</summary>
