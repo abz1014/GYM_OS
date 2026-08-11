@@ -181,6 +181,7 @@ function DeltaChip({ percent }: { percent: number | null }) {
 
 function StrengthTab() {
   const volumeQuery = useMyTrainingVolume(VOLUME_DAYS)
+  const masteryQuery = useMyMastery()
   const volume = volumeQuery.data
 
   /*
@@ -290,6 +291,47 @@ function StrengthTab() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/*
+        Mastery belongs on Strength, not Habits, and not on My Training where it used to live.
+        "How much of my training has gone into each area" is a strength question; a member looking
+        for it will look here, beside volume and personal records. On My Training its thirteen bars
+        were the single largest contributor to a screen a real member called an information bomb.
+
+        Own query rather than a prop, like the volume query above — this tab already owns its data.
+      */}
+      {masteryQuery.data && masteryQuery.data.exercises.length > 0 && (
+        <Card className="rounded-3xl edge-light">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 font-display text-base font-bold">
+              <Dumbbell className="size-4" />
+              Mastery
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              How much of your logged training each area accounts for.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Muscle groups</p>
+              {masteryQuery.data.muscleGroups.map((g: GroupMastery) => (
+                <MasteryBar key={g.name} label={g.name} percent={g.masteryPercent} />
+              ))}
+            </div>
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">Top exercises</p>
+              {masteryQuery.data.exercises.slice(0, 5).map((e) => (
+                <MasteryBar
+                  key={e.exerciseId}
+                  label={e.exerciseName}
+                  percent={e.masteryPercent}
+                  hint={`${e.sessions} session${e.sessions === 1 ? '' : 's'}`}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
@@ -408,7 +450,6 @@ function BodyTab({ photos }: { photos: { id: string; photoUrl: string; takenAt: 
 export default function MyProgressPage() {
   const { data: progress, isLoading, isError } = useMyProgress()
   const { data: timeline } = useMyTimeline()
-  const mastery = useMyMastery()
   const [tab, setTab] = useState<TabKey>('strength')
 
   const openGoals = progress?.goals.filter((g) => !g.isAchieved) ?? []
@@ -498,54 +539,6 @@ export default function MyProgressPage() {
               )}
             </CardContent>
           </Card>
-
-          {/*
-            Mastery moved here from My Training. It answers "how far have I come with this movement",
-            which is a progress question, not a "what do I do today" one — and on the training page
-            its thirteen percentage bars were the single largest contributor to a screen a real member
-            described as an information bomb.
-
-            The muscle-group bars come first and the exercise bars are capped at five, because the
-            point is a sense of where the work has gone, not a full ledger.
-          */}
-          {mastery.isError ? (
-            <MemberLoadError
-              title="We couldn't load your mastery"
-              onRetry={() => void mastery.refetch()}
-              isRetrying={mastery.isFetching}
-            />
-          ) : mastery.data && mastery.data.exercises.length > 0 ? (
-            <Card className="rounded-3xl edge-light">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 font-display text-base font-bold">
-                  <Dumbbell className="size-4" />
-                  Mastery
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  How much of your logged training each area accounts for.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Muscle groups</p>
-                  {mastery.data.muscleGroups.map((g: GroupMastery) => (
-                    <MasteryBar key={g.name} label={g.name} percent={g.masteryPercent} />
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Top exercises</p>
-                  {mastery.data.exercises.slice(0, 5).map((e) => (
-                    <MasteryBar
-                      key={e.exerciseId}
-                      label={e.exerciseName}
-                      percent={e.masteryPercent}
-                      hint={`${e.sessions} session${e.sessions === 1 ? '' : 's'}`}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
 
           {timeline && timeline.length > 0 && (
             <Card className="rounded-3xl edge-light">

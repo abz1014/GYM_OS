@@ -135,11 +135,15 @@ export default function MyTrainingPage() {
             <div className="flex flex-wrap gap-4 text-sm">
               <span>
                 <span className="font-semibold">{recovery.data.sessionsLast7Days}</span>{' '}
-                <span className="text-muted-foreground">sessions / 7d</span>
+                <span className="text-muted-foreground">
+                  {recovery.data.sessionsLast7Days === 1 ? 'session' : 'sessions'} / 7d
+                </span>
               </span>
               <span>
                 <span className="font-semibold">{recovery.data.restDaysLast7Days}</span>{' '}
-                <span className="text-muted-foreground">rest days / 7d</span>
+                <span className="text-muted-foreground">
+                  {recovery.data.restDaysLast7Days === 1 ? 'rest day' : 'rest days'} / 7d
+                </span>
               </span>
               {recovery.data.daysSinceLastWorkout !== null && (
                 <span>

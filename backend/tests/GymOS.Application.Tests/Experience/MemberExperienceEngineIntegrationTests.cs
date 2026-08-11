@@ -54,6 +54,8 @@ public class MemberExperienceEngineIntegrationTests : ApplicationTestBase
         var experience = await SendAsync(new GetMyExperienceQuery());
         var expectedXp =
             (2 * XpPolicy.AwardFor(XpReason.WorkoutCompleted))     // two workouts
+            + (2 * XpPolicy.AwardFor(XpReason.ProgressiveImprovement)) // both set records: #1 is a first
+                                                                   // ever for this exercise, #2 beats it
             + XpPolicy.AwardFor(XpReason.GymVisit)                 // one check-in
             + XpPolicy.AwardFor(XpReason.ChallengeCompleted);      // challenge cleared by workout #2
         experience.TotalXp.ShouldBe(expectedXp);
@@ -214,6 +216,60 @@ public class MemberExperienceEngineIntegrationTests : ApplicationTestBase
         CurrentUser.TenantId = ctx.TenantId;
         CurrentUser.UserId = ctx.StaffUserId;
         CurrentUser.IsAuthenticated = true;
+    }
+
+    /// <summary>
+    /// XpReason.ProgressiveImprovement is worth 30 in XpPolicy and had no call site at all until this
+    /// was wired, so beating a personal best paid nothing. This pins the property that makes the
+    /// wiring correct rather than merely present: ONE award per improving session, not one per record.
+    ///
+    /// It matters because records are written per (exercise, PersonalRecordType) and Beats() compares
+    /// against a prior best of 0 for a movement never logged — so this single first session already
+    /// writes three rows off one lift. Paying per record would make a member's very first visit worth
+    /// more than several workouts, and a first session across five exercises worth fifteen awards.
+    /// </summary>
+    [Fact]
+    public async Task An_improving_session_pays_the_improvement_once_however_many_records_it_sets()
+    {
+        var ctx = await SeedAsync();
+        AsMember(ctx);
+
+        await SendAsync(new LogWorkoutCommand(ctx.MemberId, null, [new WorkoutLogEntryInput(ctx.ExerciseId, 3, 8, 60m)]));
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        var records = await db.PersonalRecords.IgnoreQueryFilters().CountAsync(r => r.MemberId == ctx.MemberId);
+        records.ShouldBeGreaterThan(1, "one first-ever lift sets a record for each PersonalRecordType");
+
+        var awards = await db.XpTransactions.IgnoreQueryFilters()
+            .CountAsync(t => t.MemberId == ctx.MemberId && t.Reason == XpReason.ProgressiveImprovement);
+        awards.ShouldBe(1);
+    }
+
+    /// <summary>
+    /// A session that beats nothing is not an improvement. Beats() is strictly greater, so repeating
+    /// identical numbers sets no record and must pay nothing — which is also precisely the plateau
+    /// ProgressiveOverloadPolicy flags as ReadyToIncreaseWeight, so the two rules agree about what
+    /// "no progress" means.
+    /// </summary>
+    [Fact]
+    public async Task Repeating_the_same_numbers_beats_nothing_and_pays_nothing()
+    {
+        var ctx = await SeedAsync();
+        AsMember(ctx);
+
+        await SendAsync(new LogWorkoutCommand(ctx.MemberId, null, [new WorkoutLogEntryInput(ctx.ExerciseId, 3, 8, 60m)]));
+
+        DateTimeProvider.UtcNow = DateTimeProvider.UtcNow.AddDays(1);
+        await SendAsync(new LogWorkoutCommand(ctx.MemberId, null, [new WorkoutLogEntryInput(ctx.ExerciseId, 3, 8, 60m)]));
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var awards = await db.XpTransactions.IgnoreQueryFilters()
+            .CountAsync(t => t.MemberId == ctx.MemberId && t.Reason == XpReason.ProgressiveImprovement);
+
+        awards.ShouldBe(1, "the second session tied its own best rather than beating it");
     }
 
     private async Task<(Guid TenantId, Guid BranchId, Guid MemberId, Guid ExerciseId, Guid MemberUserId, Guid StaffUserId, Guid ChallengeId)> SeedAsync()

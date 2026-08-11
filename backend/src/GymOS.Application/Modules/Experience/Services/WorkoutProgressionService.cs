@@ -13,7 +13,10 @@ namespace GymOS.Application.Modules.Experience.Services;
 /// </summary>
 public interface IWorkoutProgressionService
 {
-    Task ApplyWorkoutAsync(Guid memberId, Guid workoutLogId, CancellationToken cancellationToken);
+    /// <returns>True if this workout set at least one personal record, so the caller can award the
+    /// improvement XP. Returned rather than awarded here because this service owns projections, not
+    /// rewards — the same separation the WorkoutLogged handlers already keep.</returns>
+    Task<bool> ApplyWorkoutAsync(Guid memberId, Guid workoutLogId, CancellationToken cancellationToken);
 
     /// <summary>Recomputes one (member, exercise) mastery row from that exercise's full logged
     /// history — the exact reduction ApplyWorkoutAsync uses per touched exercise, exposed so a full
@@ -24,14 +27,14 @@ public interface IWorkoutProgressionService
 public class WorkoutProgressionService(IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
     : IWorkoutProgressionService
 {
-    public async Task ApplyWorkoutAsync(Guid memberId, Guid workoutLogId, CancellationToken cancellationToken)
+    public async Task<bool> ApplyWorkoutAsync(Guid memberId, Guid workoutLogId, CancellationToken cancellationToken)
     {
         var tenantId = currentUser.TenantId
             ?? await db.Members.IgnoreQueryFilters().Where(m => m.Id == memberId).Select(m => (Guid?)m.TenantId)
                 .FirstOrDefaultAsync(cancellationToken);
         if (tenantId is null)
         {
-            return;
+            return false;
         }
 
         var log = await db.WorkoutLogs.AsNoTracking()
@@ -44,8 +47,10 @@ public class WorkoutProgressionService(IApplicationDbContext db, ICurrentUserSer
             .FirstOrDefaultAsync(cancellationToken);
         if (log is null)
         {
-            return;
+            return false;
         }
+
+        var setAnyRecord = false;
 
         foreach (var exerciseId in log.Entries.Select(e => e.ExerciseId).Distinct())
         {
@@ -55,15 +60,20 @@ public class WorkoutProgressionService(IApplicationDbContext db, ICurrentUserSer
                 .ToList();
             var session = PersonalRecordPolicy.StatsFor(sessionEntries);
 
-            await AppendPersonalRecordsAsync(tenantId.Value, memberId, exerciseId, session, workoutLogId, log.LoggedAt, cancellationToken);
+            setAnyRecord |= await AppendPersonalRecordsAsync(tenantId.Value, memberId, exerciseId, session, workoutLogId, log.LoggedAt, cancellationToken);
             await RecomputeMasteryAsync(tenantId.Value, memberId, exerciseId, log.LoggedAt, cancellationToken);
         }
+
+        return setAnyRecord;
     }
 
-    private async Task AppendPersonalRecordsAsync(
+    /// <returns>True if any record row was written for this exercise.</returns>
+    private async Task<bool> AppendPersonalRecordsAsync(
         Guid tenantId, Guid memberId, Guid exerciseId, ExerciseSessionStats session, Guid workoutLogId, DateTimeOffset achievedAt,
         CancellationToken cancellationToken)
     {
+        var wrote = false;
+
         foreach (var type in Enum.GetValues<PersonalRecordType>())
         {
             var candidate = PersonalRecordPolicy.ValueFor(session, type);
@@ -88,8 +98,12 @@ public class WorkoutProgressionService(IApplicationDbContext db, ICurrentUserSer
                     WorkoutLogId = workoutLogId,
                     AchievedAt = achievedAt
                 });
+
+                wrote = true;
             }
         }
+
+        return wrote;
     }
 
     public async Task RecomputeMasteryAsync(
