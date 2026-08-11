@@ -1,6 +1,7 @@
 import { AlertTriangle, CloudOff, TrendingUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { anyStale } from '@/shared/lib/queryTrust'
 import { useAuthStore } from '@/stores/authStore'
 import { useMemberVisits } from '@/modules/members/api/membersApi'
 import { useMemberWorkoutAssignments } from '@/modules/workouts/api/workoutsApi'
@@ -108,27 +109,13 @@ export function ClientContextBar({ memberId }: { memberId: string }) {
    * the opposite of the truth. Counted only for queries this account actually fires; a disabled one
    * has no opinion.
    */
-  /*
-   * Three states, not one, and isError is the least likely of them.
-   *
-   * - isError        the query failed outright with nothing cached.
-   * - isRefetchError it failed while refreshing, so what's on screen is from some earlier minute.
-   * - isPaused       React Query could not reach the network at all. This is the one that matters:
-   *                  a paused query reports status 'pending' and isError FALSE, forever, so an
-   *                  isError-only check stays quiet through the whole outage. Caught by probing the
-   *                  live query state after breaking an endpoint — the flags read
-   *                  status:'pending', fetchStatus:'paused', isError:false — and a dropped
-   *                  connection at the gym is far likelier than a 404.
-   */
-  const failed = (q: { isError: boolean; isRefetchError: boolean; isPaused: boolean }) =>
-    q.isError || q.isRefetchError || q.isPaused
-
-  const signalsFailed =
-    failed(compliance) ||
-    failed(risks) ||
-    failed(plateaus) ||
-    (canSeeVisits && failed(visits)) ||
-    (canSeeWorkouts && failed(assignments))
+  const signalsFailed = anyStale(
+    compliance,
+    risks,
+    plateaus,
+    canSeeVisits && visits,
+    canSeeWorkouts && assignments,
+  )
 
   // Nothing known yet and nothing flagged: say nothing rather than draw an empty strip. The header
   // above already carries the member's name, which is the one thing that must always be there.

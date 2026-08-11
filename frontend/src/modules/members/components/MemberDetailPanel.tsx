@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { anyStale } from '@/shared/lib/queryTrust'
 import { useAuthStore } from '@/stores/authStore'
 import { useCheckIn } from '@/modules/attendance/api/attendanceApi'
 import {
@@ -364,7 +365,12 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
 
   // Only sources this account is allowed to see count as failures — a receptionist without
   // billing.view never fires the invoices query, and a disabled query must not read as a broken one.
-  const activityFeedFailed = (canSeeVisits && visitsQuery.isError) || (canSeeBilling && invoicesQuery.isError)
+  const activityFeedFailed = anyStale(canSeeVisits && visitsQuery, canSeeBilling && invoicesQuery)
+
+  // A paused query is stuck at isLoading forever, so an isError-only branch leaves these two
+  // sections spinning through an outage instead of admitting they have nothing.
+  const workoutsUntrustworthy = anyStale(workoutLogsQuery)
+  const timelineUntrustworthy = anyStale(timelineQuery)
 
   if (memberQuery.isError) {
     return (
@@ -567,7 +573,7 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
           */}
           {canSeeVisits && (
             <div className="grid grid-cols-2 gap-2">
-              <StatTile label="Visits · 30d" value={visits30dQuery.isError ? '—' : (visits30dQuery.data ?? '—')} />
+              <StatTile label="Visits · 30d" value={anyStale(visits30dQuery) ? '—' : (visits30dQuery.data ?? '—')} />
               {/* "Never" is a claim about the member, so it needs a query that actually answered —
                   on failure this says nothing rather than telling the desk a regular has never been in. */}
               <StatTile
@@ -764,7 +770,7 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
           {canSeeWorkouts && (
             <div className="space-y-2">
               <Eyebrow>Sessions</Eyebrow>
-              {workoutLogsQuery.isError ? (
+              {workoutsUntrustworthy ? (
                 <p className="flex items-center gap-2 text-sm text-warning">
                   <TriangleAlert className="size-3.5 shrink-0" />
                   Couldn't load this member's sessions.
@@ -871,7 +877,7 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
           money, and neither is told the other exists.
         */}
         <TabsContent value="history" className="space-y-3 p-5">
-          {timelineQuery.isError ? (
+          {timelineUntrustworthy ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
               <CloudOff className="size-7 text-muted-foreground" />
               <p className="text-sm font-medium">We couldn't load this member's history</p>
