@@ -84,6 +84,10 @@ export function CheckInPanel({ onMemberChange }: CheckInPanelProps) {
 
   // Is this person already inside? Answering before stamping a row is what stops a second scan from
   // opening a second visit and quietly inflating the "in the building" count on the rail.
+  //
+  // checkedInOnly returns any visit without a check-out, at any age — and members leave without
+  // checking out constantly, so a row from last week looks identical to one from this morning. The
+  // same-day test below is what separates them; see openVisitToday.
   const openVisit = useAttendanceHistory(
     { branchId, memberId: selected?.id, checkedInOnly: true, page: 1, pageSize: 1 },
     { enabled: !!selected }
@@ -93,6 +97,21 @@ export function CheckInPanel({ onMemberChange }: CheckInPanelProps) {
     { branchId, memberId: selected?.id, fromDate: monthStart(), page: 1, pageSize: 1 },
     { enabled: !!selected }
   )
+
+  /*
+   * The open visit, but only if it started today — the one reading that means "this person is in the
+   * building right now". An unclosed row from an earlier day is a member who left without checking
+   * out, which is the norm rather than the exception, and treating it as presence both refused their
+   * next check-in and put them on the "in the building" count forever.
+   *
+   * Same rule and same reasoning as the member panel beside this one, which had it from the start;
+   * the two now agree, which is what surfaced the difference.
+   */
+  const openVisitRow = openVisit.data?.items[0]
+  const openVisitToday =
+    openVisitRow && new Date(openVisitRow.checkInAt).toDateString() === new Date().toDateString()
+      ? openVisitRow
+      : null
 
   /**
    * A barcode scanner is a keyboard: it types into whatever holds focus and presses Enter. If focus
@@ -139,7 +158,11 @@ export function CheckInPanel({ onMemberChange }: CheckInPanelProps) {
     if (!openVisit.isSuccess) return
 
     attemptedFor.current = selected.id
-    if (openVisit.data.totalCount > 0) return
+    // Only an open visit from TODAY means "they're already in the building". Guarding on
+    // totalCount instead meant one forgotten check-out from any earlier day refused every future
+    // check-in for that member, silently — the scan resolved, the kiosk said "Already inside", and
+    // no row was ever written. Found with a member carrying an unclosed visit from three days back.
+    if (openVisitToday) return
 
     checkIn.mutate(
       { memberId: selected.id, branchId, method: 'QrSimulated' },
@@ -178,8 +201,10 @@ export function CheckInPanel({ onMemberChange }: CheckInPanelProps) {
   const noMatch = !!lookup && !selected && search.isSuccess && search.data.items.length === 0
 
   // The open visit row is the single source for "when did this happen" in both the granted and the
-  // already-inside states — the server's timestamp, never the browser's guess at one.
-  const visit = openVisit.data?.items[0]
+  // already-inside states — the server's timestamp, never the browser's guess at one. Today's row
+  // only: an older unclosed visit is not this visit, and stamping its date on "Checked in at…" after
+  // a successful scan would print a time from days ago.
+  const visit = openVisitToday
   const alreadyInside = !!visit && !checkIn.isSuccess && !checkIn.isPending
   const visitsThisMonth = monthVisits.data?.totalCount ?? 0
 
