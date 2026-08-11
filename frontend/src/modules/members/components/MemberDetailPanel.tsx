@@ -78,13 +78,32 @@ function money(amount: number, currency: string): string {
   return amount.toLocaleString('en-US', { style: 'currency', currency })
 }
 
-/** Staff scan this for recency, not for a timestamp — the exact date only matters once it's old. */
-function relativeDay(value: Date): string {
+/**
+ * Staff scan this for recency, not for a timestamp — the exact date only matters once it's old.
+ *
+ * `withTime` is off for anything whose source recorded a date and no time. Printing "Today, 5:00 AM"
+ * beside a measurement that only ever knew "2026-08-11" states an hour nobody recorded, and staff
+ * read it as fact.
+ */
+function relativeDay(value: Date, withTime = true): string {
   const days = daysBetween(value, new Date())
-  if (days <= 0) return `Today, ${timeFormat.format(value)}`
+  if (days <= 0) return withTime ? `Today, ${timeFormat.format(value)}` : 'Today'
   if (days === 1) return 'Yesterday'
   if (days < 30) return `${days} days ago`
   return dayMonthFormat.format(value)
+}
+
+/**
+ * When to show a timeline entry as happening.
+ *
+ * A date-only entry arrives as midnight UTC. Read naively it drifts by the viewer's offset — east of
+ * UTC it grows a small-hours time, west of it the whole entry slides to the previous day — so its
+ * calendar date is rebuilt from the UTC parts and rendered without an hour.
+ */
+function timelineWhen(entry: MemberTimelineEntry): string {
+  const at = new Date(entry.at)
+  if (!entry.isDateOnly) return relativeDay(at)
+  return relativeDay(new Date(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()), false)
 }
 
 function initials(firstName: string, lastName: string): string {
@@ -175,7 +194,7 @@ function TimelineRow({ entry }: { entry: MemberTimelineEntry }) {
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{entry.title}</p>
         <p className="text-xs text-muted-foreground">
-          {relativeDay(new Date(entry.at))}
+          {timelineWhen(entry)}
           {entry.detail ? ` · ${entry.detail}` : ''}
         </p>
       </div>

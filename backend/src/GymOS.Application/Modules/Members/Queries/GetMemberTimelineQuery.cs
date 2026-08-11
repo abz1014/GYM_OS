@@ -94,6 +94,7 @@ public class GetMemberTimelineQueryHandler(IApplicationDbContext db, ICurrentUse
             entries.AddRange(visits.Select(v => new MemberTimelineEntryDto(
                 "Visit",
                 v.CheckInAt,
+                false,
                 "Checked in",
                 v.CheckOutAt is null
                     ? (v.Method == AttendanceMethod.Manual ? "Recorded at the desk" : "QR scan")
@@ -121,6 +122,7 @@ public class GetMemberTimelineQueryHandler(IApplicationDbContext db, ICurrentUse
             entries.AddRange(workouts.Select(w => new MemberTimelineEntryDto(
                 "Workout",
                 w.LoggedAt,
+                false,
                 w.TemplateName ?? "Workout logged",
                 w.ExerciseCount == 1 ? "1 exercise" : $"{w.ExerciseCount} exercises")));
         }
@@ -137,6 +139,7 @@ public class GetMemberTimelineQueryHandler(IApplicationDbContext db, ICurrentUse
             entries.AddRange(plans.Select(p => new MemberTimelineEntryDto(
                 "Nutrition",
                 AsInstant(p.StartDate),
+                true,
                 $"Diet plan started · {p.Name}",
                 p.TargetCalories is null ? null : $"{p.TargetCalories:0} kcal target")));
         }
@@ -153,6 +156,7 @@ public class GetMemberTimelineQueryHandler(IApplicationDbContext db, ICurrentUse
             entries.AddRange(invoices.Select(i => new MemberTimelineEntryDto(
                 "Invoice",
                 AsInstant(i.IssueDate),
+                true,
                 $"Invoice {i.InvoiceNumber} · {i.Status}",
                 $"{i.TotalAmount:0.00} {i.Currency}")));
 
@@ -166,6 +170,7 @@ public class GetMemberTimelineQueryHandler(IApplicationDbContext db, ICurrentUse
             entries.AddRange(payments.Select(p => new MemberTimelineEntryDto(
                 "Payment",
                 p.PaidAt,
+                false,
                 "Payment received",
                 $"{p.Amount:0.00} {p.Currency} · {p.Method}")));
         }
@@ -182,6 +187,7 @@ public class GetMemberTimelineQueryHandler(IApplicationDbContext db, ICurrentUse
             entries.AddRange(memberships.Select(mm => new MemberTimelineEntryDto(
                 "Membership",
                 AsInstant(mm.StartDate),
+                true,
                 $"{mm.PlanName} started",
                 $"Runs to {mm.EndDate:d MMM yyyy} · {mm.Status}")));
         }
@@ -199,6 +205,7 @@ public class GetMemberTimelineQueryHandler(IApplicationDbContext db, ICurrentUse
         entries.AddRange(measurements.Select(m => new MemberTimelineEntryDto(
             "Measurement",
             AsInstant(m.MeasuredOn),
+            true,
             "Measurement recorded",
             Describe(m.WeightKg, m.BodyFatPercentage))));
 
@@ -214,6 +221,7 @@ public class GetMemberTimelineQueryHandler(IApplicationDbContext db, ICurrentUse
             entries.AddRange(messages.Select(c => new MemberTimelineEntryDto(
                 "Coaching",
                 c.SentAt,
+                false,
                 c.Author == CoachMessageAuthor.Trainer ? "Coach wrote to them" : "They wrote to their coach",
                 // No body, on purpose — see the remarks on this class.
                 null)));

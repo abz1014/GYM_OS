@@ -140,6 +140,12 @@ export interface MemberTimelineEntry {
   /** Visit | Workout | Nutrition | Invoice | Payment | Membership | Measurement | Coaching */
   kind: string
   at: string
+  /**
+   * The source recorded a DATE and no time, so `at` is midnight UTC standing in for one. Render it
+   * without an hour, and read its calendar date off the UTC parts — otherwise a measurement claims
+   * to have been taken at 5am, and lands on the wrong day for anyone west of UTC.
+   */
+  isDateOnly: boolean
   title: string
   detail: string | null
 }
