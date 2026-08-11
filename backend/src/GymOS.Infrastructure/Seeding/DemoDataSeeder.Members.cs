@@ -12,18 +12,32 @@ namespace GymOS.Infrastructure.Seeding;
 
 public partial class DemoDataSeeder
 {
-    private async Task<List<Member>> SeedMembersAsync(Guid tenantId, List<Branch> branches, List<MembershipPlan> plans, CancellationToken cancellationToken)
+    /// <summary>How many members each branch gets on the pilot profile. See <see cref="SeedProfile"/>.</summary>
+    private const int PilotMembersPerBranch = 10;
+
+    private async Task<List<Member>> SeedMembersAsync(
+        Guid tenantId, List<Branch> branches, List<MembershipPlan> plans, SeedProfile profile, CancellationToken cancellationToken)
     {
         var members = new List<Member>();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var rng = new Random(1001);
 
-        for (var i = 1; i <= 300; i++)
+        var isPilot = profile == SeedProfile.Pilot;
+        var total = isPilot ? branches.Count * PilotMembersPerBranch : 300;
+
+        for (var i = 1; i <= total; i++)
         {
             var isMale = rng.Next(2) == 0;
             var firstName = isMale ? _faker.Name.FirstName(Bogus.DataSets.Name.Gender.Male) : _faker.Name.FirstName(Bogus.DataSets.Name.Gender.Female);
             var lastName = _faker.Name.LastName();
-            var branch = branches[rng.Next(branches.Count)];
+            /*
+             * Blocked, not random, on the pilot profile: members 1-10 belong to the first branch,
+             * 11-20 to the second, and so on. "Ten per branch" has to be exactly ten — a random draw
+             * over thirty gives one branch fourteen and another six — and blocking also makes the
+             * member number itself say which branch the account is on, which a tester needs because
+             * the branch filter decides what each login can see.
+             */
+            var branch = isPilot ? branches[(i - 1) / PilotMembersPerBranch] : branches[rng.Next(branches.Count)];
             var joinDate = today.AddDays(-rng.Next(0, 420));
 
             var member = new Member
@@ -43,13 +57,27 @@ public partial class DemoDataSeeder
             };
 
             var statusRoll = rng.Next(100);
-            var status = statusRoll switch
+            var rolledStatus = statusRoll switch
             {
                 < 75 => MemberStatus.Active,
                 < 85 => MemberStatus.Frozen,
                 < 95 => MemberStatus.Expired,
                 _ => MemberStatus.Cancelled
             };
+
+            /*
+             * The first two pilot members are pinned Active. They receive the member@/member2@ logins
+             * and with them the curated portal history — a live check-in streak, a weight trend, a
+             * plateaued lift, a trainer's programme — all of which assume a member who can walk in.
+             * The roll gave the second one Frozen, which reads on screen as a suspended membership
+             * sitting on top of three weeks of attendance. The other twenty-eight keep their rolled
+             * status on purpose: frozen and expired are states worth testing, not noise.
+             *
+             * Overridden here rather than on member.Status alone, because the switch below derives the
+             * membership row's own status and dates from this same value — setting one and not the
+             * other gives an active member a frozen membership.
+             */
+            var status = isPilot && i <= 2 ? MemberStatus.Active : rolledStatus;
             member.Status = status;
 
             var plan = plans[rng.Next(plans.Count)];
@@ -158,7 +186,62 @@ public partial class DemoDataSeeder
         }
 
         await db.SaveChangesAsync(cancellationToken);
+
+        if (isPilot)
+        {
+            await GivePilotMembersLoginsAsync(tenantId, members, cancellationToken);
+        }
+
         return members;
+    }
+
+    /// <summary>
+    /// A login for every member on the pilot profile.
+    ///
+    /// This is the whole reason the profile exists. The demo profile links exactly two of its three
+    /// hundred members to a user, so every member-facing screen — the portal, self-logging, class
+    /// booking, the coaching thread from the member's side — could only ever be tested through those
+    /// two accounts, and only in the states those two happened to be in.
+    ///
+    /// The first two are skipped: they are handed to the existing member@/member2@ logins by
+    /// LinkDemoMemberAccountAsync, which also hangs the curated progress history off the first one.
+    /// Minting a third account for them would strand whichever login lost.
+    /// </summary>
+    private async Task GivePilotMembersLoginsAsync(Guid tenantId, List<Member> members, CancellationToken cancellationToken)
+    {
+        var memberRole = await db.Roles.IgnoreQueryFilters()
+            .FirstAsync(r => r.TenantId == tenantId && r.Name == RoleNames.Member, cancellationToken);
+
+        for (var i = 2; i < members.Count; i++)
+        {
+            var member = members[i];
+            var user = new User
+            {
+                TenantId = tenantId,
+                // Sequential and predictable, matching the member number: member3@ is MBR-00003 and is
+                // on the branch that member's block belongs to. A faker address would be unguessable,
+                // which for a login somebody is meant to type is the one property that matters.
+                Email = $"member{i + 1}@titanfitness.demo",
+                PasswordHash = passwordHasher.Hash(DemoPassword),
+                FirstName = member.FirstName,
+                LastName = member.LastName,
+                IsActive = true
+            };
+            db.Users.Add(user);
+            await db.SaveChangesAsync(cancellationToken);
+
+            db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = memberRole.Id });
+            /*
+             * The member's OWN branch, not a default. A member login whose branch access disagrees
+             * with Member.BranchId loads a portal scoped to a branch its member is not in — the same
+             * class of silent mismatch that left half the seeded trainers rostered where they had no
+             * access, which stayed invisible until branch scoping became a real query filter.
+             */
+            db.UserBranchAccesses.Add(new UserBranchAccess { UserId = user.Id, BranchId = member.BranchId });
+            member.UserId = user.Id;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>
@@ -168,7 +251,13 @@ public partial class DemoDataSeeder
     /// attendance/invoices are seeded so the chosen member demonstrably has both, rather than
     /// guessing a fixed index against the member-seeding RNG's output.
     /// </summary>
-    private async Task LinkDemoMemberAccountAsync(Dictionary<string, User> demoUsers, Guid preferredBranchId, CancellationToken cancellationToken)
+    /// <param name="reserved">
+    /// Pilot profile only: the two members to link, chosen by the caller instead of by the
+    /// eligibility search below. Every pilot member already owns a login, so a search would relink
+    /// one that belongs to somebody and leave that account pointing at no member at all.
+    /// </param>
+    private async Task LinkDemoMemberAccountAsync(
+        Dictionary<string, User> demoUsers, Guid preferredBranchId, IReadOnlyList<Member>? reserved, CancellationToken cancellationToken)
     {
         // Base eligibility: an active member with real attendance + billing history so the portal
         // dashboard has something to show.
@@ -179,7 +268,8 @@ public partial class DemoDataSeeder
 
         // Prefer a member in the branch that actually has group classes, so the demo member can see
         // and book classes; fall back to any eligible member if that branch has none.
-        var candidate = await eligible.Where(m => m.BranchId == preferredBranchId).OrderBy(m => m.MemberCode).FirstOrDefaultAsync(cancellationToken)
+        var candidate = reserved?.FirstOrDefault()
+            ?? await eligible.Where(m => m.BranchId == preferredBranchId).OrderBy(m => m.MemberCode).FirstOrDefaultAsync(cancellationToken)
             ?? await eligible.OrderBy(m => m.MemberCode).FirstOrDefaultAsync(cancellationToken);
 
         if (candidate is null)
@@ -193,10 +283,11 @@ public partial class DemoDataSeeder
         // The second member login gets the next eligible member on the same branch. Deliberately not
         // hand-curated the way the one above is: it should look like an ordinary member of this gym,
         // because the point of it is the trainer's programme rather than a showcase portal.
-        var coached = await eligible
-            .Where(m => m.Id != candidate.Id && m.BranchId == candidate.BranchId)
-            .OrderBy(m => m.MemberCode)
-            .FirstOrDefaultAsync(cancellationToken);
+        var coached = reserved?.Skip(1).FirstOrDefault()
+            ?? await eligible
+                .Where(m => m.Id != candidate.Id && m.BranchId == candidate.BranchId)
+                .OrderBy(m => m.MemberCode)
+                .FirstOrDefaultAsync(cancellationToken);
 
         if (coached is not null)
         {

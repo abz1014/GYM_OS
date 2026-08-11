@@ -326,11 +326,21 @@ public partial class DemoDataSeeder
             .Select(a => a.BranchId)
             .ToListAsync(cancellationToken);
 
-        // Active members only, and skipping the demo member, who already holds a plan from the block
-        // above. Taken from the front of the list rather than at random so the caseload is the same
-        // on every seed and a demo script can name a client.
+        // Anyone who already holds a plan is skipped — on the demo profile that is just the curated
+        // member seeded above, on the pilot profile it is the same one, but the test has to be "has a
+        // plan" rather than "has no login": every pilot member has a login, and filtering on that
+        // left the nutritionist with a caseload of one.
+        var alreadyPlanned = await db.DietPlans.IgnoreQueryFilters()
+            .Where(p => p.TenantId == tenantId)
+            .Select(p => p.MemberId)
+            .ToListAsync(cancellationToken);
+
+        // Taken from the front of the list rather than at random so the caseload is the same on every
+        // seed and a demo script can name a client.
         var candidates = members
-            .Where(m => m.Status == MemberStatus.Active && m.UserId is null && visibleBranchIds.Contains(m.BranchId))
+            .Where(m => m.Status == MemberStatus.Active
+                && !alreadyPlanned.Contains(m.Id)
+                && visibleBranchIds.Contains(m.BranchId))
             .Take(7)
             .ToList();
 

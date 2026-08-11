@@ -14,14 +14,21 @@ namespace GymOS.Infrastructure.Seeding;
 
 public partial class DemoDataSeeder
 {
-    private async Task<List<Trainer>> SeedTrainersAsync(Guid tenantId, List<Branch> branches, Dictionary<string, User> demoUsers, CancellationToken cancellationToken)
+    /// <summary>How many trainers each branch gets on the pilot profile. See <see cref="SeedProfile"/>.</summary>
+    private const int PilotTrainersPerBranch = 2;
+
+    private async Task<List<Trainer>> SeedTrainersAsync(
+        Guid tenantId, List<Branch> branches, Dictionary<string, User> demoUsers, SeedProfile profile, CancellationToken cancellationToken)
     {
         var rng = new Random(4004);
         var trainers = new List<Trainer>();
         var trainerRole = await db.Roles.IgnoreQueryFilters().FirstAsync(r => r.TenantId == tenantId && r.Name == RoleNames.Trainer, cancellationToken);
         var specialties = new[] { "Strength Training", "Cardio & HIIT", "Yoga", "CrossFit", "Bodybuilding", "Functional Fitness", "Pilates" };
 
-        for (var i = 0; i < 20; i++)
+        var isPilot = profile == SeedProfile.Pilot;
+        var total = isPilot ? branches.Count * PilotTrainersPerBranch : 20;
+
+        for (var i = 0; i < total; i++)
         {
             /*
              * ONE branch per trainer, chosen before the user so the Trainer row and the user's
@@ -31,8 +38,12 @@ public partial class DemoDataSeeder
              * at a branch they had no access to. That was invisible while branch scoping was
              * advisory; once it became a real query filter it would have meant a trainer unable to
              * load their own Trainer row, and so unable to open their client roster at all.
+             *
+             * Blocked rather than random on the pilot profile, for the same reason the members are:
+             * "two per branch" has to be exactly two, and a branch that draws none has a roster of
+             * members nobody coaches.
              */
-            var branch = branches[rng.Next(branches.Count)];
+            var branch = isPilot ? branches[i / PilotTrainersPerBranch] : branches[rng.Next(branches.Count)];
 
             User user;
             if (i == 0)
@@ -54,7 +65,12 @@ public partial class DemoDataSeeder
                 user = new User
                 {
                     TenantId = tenantId,
-                    Email = _faker.Internet.Email(firstName, lastName, "titanfitness.demo").ToLowerInvariant(),
+                    // Predictable on the pilot profile — trainer2@ upward, with trainer@ (the standing
+                    // demo login) as number one — because these are accounts somebody signs into by
+                    // hand. A faker address is fine for a name in a list and useless as a credential.
+                    Email = isPilot
+                        ? $"trainer{i + 1}@titanfitness.demo"
+                        : _faker.Internet.Email(firstName, lastName, "titanfitness.demo").ToLowerInvariant(),
                     PasswordHash = passwordHasher.Hash(DemoPassword),
                     FirstName = firstName,
                     LastName = lastName,
@@ -105,8 +121,24 @@ public partial class DemoDataSeeder
 
         foreach (var trainer in trainers)
         {
-            var assignedCount = rng.Next(5, 16);
-            foreach (var member in eligibleMembers.OrderBy(_ => rng.Next()).Take(assignedCount))
+            /*
+             * A trainer coaches members OF THEIR OWN BRANCH.
+             *
+             * This used to draw from every active member in the tenant, which produced pairings the
+             * global branch filter then hid from both sides: the trainer's roster does not list the
+             * client, the client's page does not name the coach, and nothing errors — the assignment
+             * simply exists and is invisible. It was written before branch scoping became a real
+             * query filter, and the demo profile has been quietly generating them ever since (a
+             * trainer at a 10-member branch was showing 14 clients, which is how it surfaced).
+             */
+            var branchMembers = eligibleMembers.Where(m => m.BranchId == trainer.BranchId).ToList();
+            if (branchMembers.Count == 0)
+            {
+                continue; // No active members at this branch — a roster of nobody, honestly empty.
+            }
+
+            var assignedCount = Math.Min(rng.Next(5, 16), branchMembers.Count);
+            foreach (var member in branchMembers.OrderBy(_ => rng.Next()).Take(assignedCount))
             {
                 db.TrainerAssignments.Add(new TrainerAssignment
                 {
@@ -122,7 +154,9 @@ public partial class DemoDataSeeder
                 db.TrainerRatings.Add(new TrainerRating
                 {
                     TrainerId = trainer.Id,
-                    MemberId = eligibleMembers[rng.Next(eligibleMembers.Count)].Id,
+                    // Same branch, same reason: a rating left by someone the trainer has never been
+                    // able to see counts towards an average nobody can trace.
+                    MemberId = branchMembers[rng.Next(branchMembers.Count)].Id,
                     Score = rng.Next(3, 6),
                     Comment = _faker.PickRandom("Great trainer!", "Really pushed me to improve.", "Very knowledgeable.", "Friendly and motivating.", null),
                     RatedAt = DateTimeOffset.UtcNow.AddDays(-rng.Next(1, 120))

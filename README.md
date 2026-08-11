@@ -78,6 +78,33 @@ like "expiring this week" are always populated. Seeding is idempotent — it's a
 no-op if a tenant already exists (drop and recreate the database to reseed
 from scratch).
 
+#### The pilot profile — a gym you can sign into
+
+```bash
+dotnet run --project src/GymOS.API -- --seed --pilot
+```
+
+The demo profile above links exactly **2 of its 300 members** to a login, so
+the member-facing half of the product can only be driven through those two
+accounts. `--pilot` builds a smaller gym where every member has one: **10
+members and 2 trainers per branch**, all on `Demo@12345`, with the other staff
+logins unchanged.
+
+Logins are sequential and match the member code and branch:
+
+| Login | Who |
+|---|---|
+| `member@`, `member2@` | MBR-00001/2, first branch — these two carry the curated portal history |
+| `member3@` … `member10@` | the rest of the first branch |
+| `member11@` … `member20@` | second branch |
+| `member21@` … `member30@` | third branch |
+| `trainer@`, `trainer2@` … `trainer6@` | two per branch, in branch order |
+
+All at `@titanfitness.demo`. Statuses are mixed on purpose past the first two —
+frozen and expired members are states worth testing. Choose the profile when
+you populate an empty database; it is not a runtime setting, and it cannot
+change a database that already has a tenant in it.
+
 ### 5. Run the API
 
 ```bash

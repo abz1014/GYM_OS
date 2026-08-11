@@ -237,7 +237,15 @@ if (args.Contains("--seed"))
 {
     using var seedScope = app.Services.CreateScope();
     var seeder = seedScope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
-    await seeder.SeedAsync();
+
+    /*
+     * `--seed --pilot` builds the small, fully-loginable gym instead of the 300-member sales demo
+     * (see SeedProfile). A flag rather than a config setting: the profile is a property of the one
+     * time you populate a database, not of how the service runs, and a setting left behind in an
+     * environment would silently decide the shape of the NEXT empty database somebody points at it.
+     */
+    var profile = args.Contains("--pilot") ? SeedProfile.Pilot : SeedProfile.Demo;
+    await seeder.SeedAsync(profile);
     await app.DisposeAsync();
     return;
 }
