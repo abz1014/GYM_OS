@@ -42,6 +42,7 @@ import {
 import { SimpleBarChart } from '@/modules/reports/components/SimpleBarChart'
 import { PanelError } from '@/shared/components/console'
 import { useTrainersList } from '@/modules/trainers/api/trainersApi'
+import { isStale, type TrustableQuery } from '@/shared/lib/queryTrust'
 
 function ExportButton({ onExport }: { onExport: () => Promise<void> }) {
   const [isExporting, setIsExporting] = useState(false)
@@ -109,14 +110,14 @@ function CardBody({
   skeletonClassName = 'h-48 w-full',
   children,
 }: {
-  query: { isLoading: boolean; isError: boolean; isFetching: boolean; refetch: () => unknown }
+  query: TrustableQuery & { isLoading: boolean; isFetching: boolean; refetch: () => unknown }
   skeletonClassName?: string
   children: React.ReactNode
 }) {
   if (query.isLoading) {
     return <Skeleton className={skeletonClassName} />
   }
-  if (query.isError) {
+  if (isStale(query)) {
     return <PanelError message="We couldn't load this report." onRetry={() => void query.refetch()} isRetrying={query.isFetching} />
   }
   return <>{children}</>
@@ -583,7 +584,7 @@ function GateMetricsCard() {
    * Without that line the dashes read as "this gym has no data", which is a different and much worse
    * statement than "we couldn't fetch it".
    */
-  const bothFailed = capture.isError && returns.isError
+  const bothFailed = isStale(capture) && isStale(returns)
 
   return (
     <ReportCard title="Gate metrics">
@@ -633,7 +634,7 @@ function GateMetricsCard() {
             />
           </div>
 
-          {capture.isError && (
+          {isStale(capture) && (
             <p className="text-sm text-muted-foreground">
               Capture rate, time-to-log and sessions per member couldn't be loaded — those dashes are
               missing figures, not zeroes.
@@ -667,7 +668,7 @@ function GateMetricsCard() {
             <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
               Return rate after joining
             </p>
-            {returns.isError ? (
+            {isStale(returns) ? (
               <p className="mt-2 text-sm text-muted-foreground">We couldn't load the return rates.</p>
             ) : !returns.data ? (
               <p className="mt-2 text-sm text-muted-foreground">Return figures aren't available right now.</p>

@@ -4,6 +4,7 @@ import { Building2, CloudOff, RotateCw } from 'lucide-react'
 import { useUiStore } from '@/stores/uiStore'
 import { useBranchesQuery } from '@/shared/hooks/useBranches'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { isStale } from '@/shared/lib/queryTrust'
 
 export function BranchSwitcher() {
   const selectedBranchId = useUiStore((s) => s.selectedBranchId)
@@ -41,7 +42,7 @@ export function BranchSwitcher() {
    * request whose failure blocks the rest of the console, so a person needs a way to unblock it that
    * isn't a full page reload.
    */
-  if (branchesQuery.isError) {
+  if (isStale(branchesQuery)) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs text-sidebar-foreground/70">
         <CloudOff className="size-4 shrink-0" aria-hidden />

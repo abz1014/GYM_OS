@@ -22,6 +22,7 @@ import {
   type LeadStage,
 } from '@/modules/crm/api/crmApi'
 import { CreateLeadDialog } from '@/modules/crm/components/CreateLeadDialog'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const STAGE_LABELS: Record<LeadStage, string> = {
   Lead: 'Lead',
@@ -109,7 +110,7 @@ export default function CrmPage() {
       <section className="space-y-3">
         <h2 className="font-display text-xl font-bold tracking-tight">Pipeline</h2>
 
-        {leadsQuery.isError && (
+        {isStale(leadsQuery) && (
           <ListError
             message="We couldn't load the lead pipeline"
             onRetry={() => leadsQuery.refetch()}

@@ -10,6 +10,7 @@ import { useMember, useMembersList, type MemberListItem } from '@/modules/member
 import { useAttendanceHistory, useCheckIn, useCheckOut } from '@/modules/attendance/api/attendanceApi'
 import { initials, kioskDateFormat, kioskTimeFormat, ordinal } from '@/modules/attendance/components/frontDeskFormat'
 import { useUiStore } from '@/stores/uiStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /** First instant of the current month, as the date-only string GET /api/attendance's fromDate wants. */
 function monthStart(): string {
@@ -263,7 +264,7 @@ export function CheckInPanel({ onMemberChange }: CheckInPanelProps) {
         </div>
       )}
 
-      {search.isError && (
+      {isStale(search) && (
         <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card p-8 text-center edge-light">
           <TriangleAlert className="size-9 text-destructive" />
           <p className="font-display text-2xl font-black tracking-tight">Member lookup failed</p>
@@ -348,7 +349,7 @@ export function CheckInPanel({ onMemberChange }: CheckInPanelProps) {
             {/* The visit lookup is what decides whether this scan is a check-in at all, so if it
                 fails there is no verdict to give — saying nothing here would leave the desk looking
                 at a member's name with no indication anything went wrong. */}
-            {openVisit.isError ? (
+            {isStale(openVisit) ? (
               <div className="rounded-[22px] border border-destructive/25 bg-destructive/10 px-6 py-6">
                 <p className="flex items-center gap-3 font-display text-[34px] leading-none font-black tracking-[-0.03em] text-destructive">
                   <TriangleAlert className="size-8 shrink-0" />

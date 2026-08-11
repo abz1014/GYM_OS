@@ -11,6 +11,7 @@ import { CreateAssetDialog } from '@/modules/equipment/components/CreateAssetDia
 import { CreateSupplierDialog } from '@/modules/equipment/components/CreateSupplierDialog'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const STATUSES: AssetStatus[] = ['Active', 'UnderMaintenance', 'OutOfService', 'Retired']
 
@@ -144,7 +145,7 @@ export default function EquipmentPage() {
         nothing on page 2 is a bug staff would report as missing equipment.
       */}
 
-      {assetsQuery.isError && (
+      {isStale(assetsQuery) && (
         <ListError
           message="We couldn't load the equipment list"
           onRetry={() => assetsQuery.refetch()}

@@ -14,6 +14,7 @@ import {
   type MyRank,
   type RankTier,
 } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const promotionDate = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -270,7 +271,7 @@ export default function MyRankPage() {
 
       {experience.isLoading && <Skeleton className="h-64 w-full rounded-3xl" />}
 
-      {experience.isError && (
+      {isStale(experience) && (
         <MemberLoadError
           title="We couldn't load your rank"
           onRetry={() => void experience.refetch()}

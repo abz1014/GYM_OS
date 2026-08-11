@@ -15,6 +15,7 @@ import {
 } from '@/modules/crm/api/crmApi'
 import { AddLeadActivityDialog } from '@/modules/crm/components/AddLeadActivityDialog'
 import { CompleteActivityButton } from '@/modules/crm/components/CompleteActivityButton'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const STAGE_LABELS: Record<LeadStage, string> = {
   Lead: 'Lead',
@@ -66,7 +67,7 @@ export default function LeadDetailPage() {
 
   // This screen used to sit on its skeleton forever when the request failed, because `isLoading ||
   // !lead` cannot tell "still fetching" from "failed for good".
-  if (leadQuery.isError) {
+  if (isStale(leadQuery)) {
     return (
       <div className="space-y-4">
         <BackToCrm />

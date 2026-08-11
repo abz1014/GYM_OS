@@ -9,6 +9,7 @@ import { ListError, PageHeader } from '@/shared/components/console'
 import { useUpdateWorkOrderStatus, useWorkOrder, type WorkOrderStatus } from '@/modules/maintenance/api/maintenanceApi'
 import { VerifyWorkOrderDialog } from '@/modules/maintenance/components/VerifyWorkOrderDialog'
 import { WorkOrderPriorityPill, WorkOrderStatusPill } from '@/modules/maintenance/components/WorkOrderPills'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const dateFormat = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 const dateTimeFormat = new Intl.DateTimeFormat('en-US', {
@@ -72,7 +73,7 @@ export default function WorkOrderDetailPage() {
 
   // Without this branch a failed request left the page on its loading skeleton forever, because
   // `isLoading || !workOrder` cannot tell "still asking" from "asked and got a 500".
-  if (workOrderQuery.isError) {
+  if (isStale(workOrderQuery)) {
     return (
       <div className="space-y-6">
         <BackLink />

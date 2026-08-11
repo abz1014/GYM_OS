@@ -14,6 +14,7 @@ import {
   useMyProfile,
   useMyReferrals,
 } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /**
  * The member's home: who they are, whether their membership is healthy, and what's next.
@@ -31,7 +32,7 @@ export default function MemberPortalPage() {
   const referrals = useMyReferrals()
   const experience = useMyExperience()
 
-  if (profile.isError) {
+  if (isStale(profile)) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
     return (
       <div className="space-y-2">
@@ -95,7 +96,7 @@ export default function MemberPortalPage() {
             label="Visits Logged"
             value={attendance.data ? attendance.data.totalCount.toLocaleString() : '—'}
             icon={CalendarDays}
-            hint={attendance.isError ? "Couldn't load your visits" : undefined}
+            hint={isStale(attendance) ? "Couldn't load your visits" : undefined}
           />
         </div>
       )}
@@ -154,7 +155,7 @@ export default function MemberPortalPage() {
                 loaded by this point, so one dead endpoint takes out one card and not the page. */}
             {classBookings.isLoading ? (
               <Skeleton className="h-24 w-full" />
-            ) : classBookings.isError ? (
+            ) : isStale(classBookings) ? (
               <MemberLoadError
                 title="We couldn't load your classes"
                 hint="Any bookings you've made are still there."
@@ -190,7 +191,7 @@ export default function MemberPortalPage() {
         <SectionCard title="Recent Check-ins">
           {attendance.isLoading ? (
             <Skeleton className="h-40 w-full" />
-          ) : attendance.isError ? (
+          ) : isStale(attendance) ? (
             <MemberLoadError
               title="We couldn't load your check-ins"
               hint="Every visit you've made is still on your record."
@@ -221,7 +222,7 @@ export default function MemberPortalPage() {
             read as an error and will happily send a friend to the desk with. */}
         {referrals.isLoading ? (
           <Skeleton className="h-24 w-full" />
-        ) : referrals.isError ? (
+        ) : isStale(referrals) ? (
           <MemberLoadError
             title="We couldn't load your referral code"
             hint="Ask at the front desk and they can look it up."

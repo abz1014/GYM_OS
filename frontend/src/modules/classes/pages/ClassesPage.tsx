@@ -19,6 +19,7 @@ import { CreateClassScheduleDialog } from '@/modules/classes/components/CreateCl
 import { CreateClassTypeDialog } from '@/modules/classes/components/CreateClassTypeDialog'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
@@ -84,7 +85,7 @@ function ScheduleTab() {
         {canManage && <CreateClassScheduleDialog />}
       </div>
 
-      {schedulesQuery.isError && (
+      {isStale(schedulesQuery) && (
         <ListError
           message="We couldn't load the weekly timetable"
           onRetry={() => schedulesQuery.refetch()}
@@ -163,7 +164,7 @@ function ClassTypesTab() {
         {canManage && <CreateClassTypeDialog />}
       </div>
 
-      {typesQuery.isError && (
+      {isStale(typesQuery) && (
         <ListError
           message="We couldn't load the class types"
           onRetry={() => typesQuery.refetch()}
@@ -248,7 +249,7 @@ function SessionsTab() {
       */}
       <GroupLabel>Upcoming sessions</GroupLabel>
 
-      {sessionsQuery.isError && (
+      {isStale(sessionsQuery) && (
         <ListError
           message="We couldn't load the upcoming sessions"
           onRetry={() => sessionsQuery.refetch()}

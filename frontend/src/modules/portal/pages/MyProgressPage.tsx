@@ -32,6 +32,7 @@ import {
   type MyGoal,
   type TimelineEntryType,
 } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 const fullDateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
@@ -191,7 +192,7 @@ function StrengthTab() {
    * it. Three separate statements that the member has not trained in a month, one of them animated
    * for emphasis. The card is replaced outright rather than zeroed.
    */
-  if (volumeQuery.isError) {
+  if (isStale(volumeQuery)) {
     return (
       <Card className="rounded-3xl edge-light">
         <CardContent className="py-5">
@@ -347,7 +348,7 @@ function BodyTab({ photos }: { photos: { id: string; photoUrl: string; takenAt: 
    * still a claim that the member has never been weighed — and the photo strip below reads as an
    * empty history rather than an unreachable one.
    */
-  if (measurementsQuery.isError) {
+  if (isStale(measurementsQuery)) {
     return (
       <Card className="rounded-3xl edge-light">
         <CardContent className="py-5">

@@ -12,6 +12,7 @@ import {
   type LeaderboardPeriod,
   type LeaderboardRow,
 } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const CATEGORIES: { key: LeaderboardCategory; label: string; unit: string }[] = [
   { key: 'XpEarned', label: 'XP', unit: 'XP' },
@@ -140,7 +141,7 @@ export default function LeaderboardPage() {
 
       {board.isLoading && <Skeleton className="h-64 w-full rounded-3xl" />}
 
-      {board.isError && !data && (
+      {isStale(board) && !data && (
         <MemberEmptyState icon={Trophy} title="We couldn't load the board" hint="Check your connection and try again." />
       )}
 

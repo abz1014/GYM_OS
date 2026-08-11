@@ -13,6 +13,7 @@ import { CreateMaintenanceScheduleDialog } from '@/modules/maintenance/component
 import { CreateWorkOrderDialog } from '@/modules/maintenance/components/CreateWorkOrderDialog'
 import { OverduePill, WorkOrderPriorityPill, WorkOrderStatusPill } from '@/modules/maintenance/components/WorkOrderPills'
 import { useUiStore } from '@/stores/uiStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const dateFormat = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -79,7 +80,7 @@ export default function MaintenancePage() {
         </TabsList>
 
         <TabsContent value="work-orders" className="space-y-4">
-          {workOrdersQuery.isError && (
+          {isStale(workOrdersQuery) && (
             <ListError
               message="We couldn't load the work orders"
               onRetry={() => workOrdersQuery.refetch()}
@@ -195,7 +196,7 @@ export default function MaintenancePage() {
         </TabsContent>
 
         <TabsContent value="schedules" className="space-y-4">
-          {schedulesQuery.isError && (
+          {isStale(schedulesQuery) && (
             <ListError
               message="We couldn't load the recurring schedules"
               onRetry={() => schedulesQuery.refetch()}

@@ -17,6 +17,7 @@ import {
 import { ListError, StatTile } from '@/shared/components/console'
 import { CheckInsByHourPanel } from '@/modules/dashboard/components/CheckInsByHourPanel'
 import { NeedsYouPanel } from '@/modules/dashboard/components/NeedsYouPanel'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const dateHeadingFormat = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -142,7 +143,7 @@ export default function DashboardPage() {
   // `&& !summary` because this query polls every 30s: one failed poll used to replace a working
   // dashboard with an error page. With numbers already on screen the honest thing is to leave them
   // up — the "Updated Ns ago" chip keeps counting, which is what says they have stopped being fresh.
-  if (summaryQuery.isError && !summary) {
+  if (isStale(summaryQuery) && !summary) {
     return (
       <div className="space-y-3">
         <h1 className="font-display text-3xl font-black tracking-tight">{heading}</h1>
@@ -281,7 +282,7 @@ export default function DashboardPage() {
             {hasPermission('reports.view') &&
               (atRisk.isLoading ? (
                 <Skeleton className="h-[132px] w-full rounded-2xl" />
-              ) : atRisk.isError && !atRisk.data ? (
+              ) : isStale(atRisk) && !atRisk.data ? (
                 <StatTile label="At risk" value="—" caption="Couldn't load" />
               ) : (
                 <StatTile
@@ -289,20 +290,20 @@ export default function DashboardPage() {
                   value={(atRisk.data?.length ?? 0).toLocaleString()}
                   tone="warning"
                   caption={
-                    atRisk.isError
+                    isStale(atRisk)
                       ? "Couldn't refresh"
                       : quietDays !== null
                         ? `No visit in ${quietDays}+ days${allBranchesNote}`
                         : undefined
                   }
-                  captionTone={atRisk.isError ? 'muted' : 'warning'}
+                  captionTone={isStale(atRisk) ? 'muted' : 'warning'}
                 />
               ))}
 
             {hasPermission('billing.view') &&
               (overdue.isLoading ? (
                 <Skeleton className="h-[132px] w-full rounded-2xl" />
-              ) : overdue.isError && !overdue.data ? (
+              ) : isStale(overdue) && !overdue.data ? (
                 <StatTile label="Overdue invoices" value="—" caption="Couldn't load" />
               ) : (
                 <StatTile
@@ -310,7 +311,7 @@ export default function DashboardPage() {
                   value={(overdueSummary?.count ?? 0).toLocaleString()}
                   tone="destructive"
                   caption={
-                    overdue.isError
+                    isStale(overdue)
                       ? "Couldn't refresh"
                       : overdueSummary && overdueSummary.count > 0
                         ? `${
@@ -320,7 +321,7 @@ export default function DashboardPage() {
                           }${allBranchesNote}`
                         : undefined
                   }
-                  captionTone={overdue.isError ? 'muted' : 'destructive'}
+                  captionTone={isStale(overdue) ? 'muted' : 'destructive'}
                 />
               ))}
           </>

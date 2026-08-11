@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import { useMyPassport, type MyPassportEntry } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /** Plain words for how long ago, because "41 days" is arithmetic and "6 weeks ago" is a memory. */
 function lastTouched(days: number): string {
@@ -66,7 +67,7 @@ export default function MyPassportPage() {
    * tab bar over a completely blank page, with nothing to read, nothing to press and no indication
    * that anything had gone wrong at all. The narrowing is still needed; the failure now says so.
    */
-  if (passport.isError) {
+  if (isStale(passport)) {
     return (
       <div className="mx-auto max-w-2xl space-y-5">
         <h1 className="text-2xl font-semibold tracking-tight">Gym Passport</h1>

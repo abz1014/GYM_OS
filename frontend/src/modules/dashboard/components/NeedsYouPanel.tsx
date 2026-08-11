@@ -10,6 +10,7 @@ import {
   useOverdueInvoices,
   type DashboardSummary,
 } from '@/modules/dashboard/api/dashboardApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 type QueueTone = 'critical' | 'warning' | 'neutral'
 
@@ -179,12 +180,12 @@ export function NeedsYouPanel({ summary }: { summary: DashboardSummary | undefin
   // `&& !data`: the overdue query polls every 60s, and a failed poll on top of a good answer leaves
   // the row on screen — saying the queue is missing invoices directly above the invoice row would be
   // the panel contradicting itself.
-  if (overdue.isError && !overdue.data) missing.push('overdue invoices')
-  if (leads.isError && !leads.data) missing.push('new leads')
+  if (isStale(overdue) && !overdue.data) missing.push('overdue invoices')
+  if (isStale(leads) && !leads.data) missing.push('new leads')
 
   const retryMissing = () => {
-    if (overdue.isError) void overdue.refetch()
-    if (leads.isError) void leads.refetch()
+    if (isStale(overdue)) void overdue.refetch()
+    if (isStale(leads)) void leads.refetch()
   }
 
   return (

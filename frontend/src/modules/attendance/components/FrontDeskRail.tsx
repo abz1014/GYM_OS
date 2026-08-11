@@ -7,6 +7,7 @@ import { initials, kioskTimeFormat } from '@/modules/attendance/components/front
 import { useClassSessions } from '@/modules/classes/api/classesApi'
 import { ClassRosterDialog } from '@/modules/classes/components/ClassRosterDialog'
 import { useUiStore } from '@/stores/uiStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const EYEBROW = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase'
 
@@ -76,7 +77,7 @@ export function FrontDeskRail({ capacity }: { capacity: number | null }) {
           <h2 className="font-display text-xl font-bold tracking-tight">In the building</h2>
           {inBuilding.isPending ? (
             <Skeleton className="h-9 w-14" />
-          ) : inBuilding.isError ? (
+          ) : isStale(inBuilding) || !inBuilding.data ? (
             <CloudOff className="size-6 text-muted-foreground" />
           ) : (
             <span className="flex items-baseline gap-1.5">
@@ -96,7 +97,7 @@ export function FrontDeskRail({ capacity }: { capacity: number | null }) {
           )}
         </div>
 
-        {capacity !== null && !inBuilding.isPending && !inBuilding.isError && (
+        {capacity !== null && !inBuilding.isPending && !isStale(inBuilding) && inBuilding.data && (
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-border">
             <div
               className={cn(
@@ -118,7 +119,7 @@ export function FrontDeskRail({ capacity }: { capacity: number | null }) {
           </div>
         )}
 
-        {inBuilding.isError && (
+        {isStale(inBuilding) && (
           <p className="mt-2 text-sm text-muted-foreground">Can't reach the desk's records right now.</p>
         )}
       </div>

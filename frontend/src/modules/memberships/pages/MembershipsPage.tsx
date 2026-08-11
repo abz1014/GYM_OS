@@ -8,6 +8,7 @@ import { CreateDiscountDialog } from '@/modules/memberships/components/CreateDis
 import { CreatePlanDialog } from '@/modules/memberships/components/CreatePlanDialog'
 import { discountValueLabel } from '@/modules/memberships/components/discountFormat'
 import { useAuthStore } from '@/stores/authStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /**
  * The console's tab row is an underline strip; shadcn's Tabs ships a pill sitting in a grey tray.
@@ -65,7 +66,7 @@ function PlansTab() {
         {canManagePlans && <CreatePlanDialog />}
       </div>
 
-      {plansQuery.isError && (
+      {isStale(plansQuery) && (
         <ListError
           message="We couldn't load the plan catalogue"
           onRetry={() => plansQuery.refetch()}
@@ -171,7 +172,7 @@ function DiscountsAndCoupons() {
           {canManageDiscounts && <CreateDiscountDialog />}
         </div>
 
-        {discountsQuery.isError && (
+        {isStale(discountsQuery) && (
           <ListError
             message="We couldn't load the discounts"
             onRetry={() => discountsQuery.refetch()}
@@ -217,7 +218,7 @@ function DiscountsAndCoupons() {
           {canManageDiscounts && <CreateCouponDialog />}
         </div>
 
-        {couponsQuery.isError && (
+        {isStale(couponsQuery) && (
           <ListError
             message="We couldn't load the coupons"
             onRetry={() => couponsQuery.refetch()}

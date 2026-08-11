@@ -8,6 +8,7 @@ import type { PagedList } from '@/types/paging'
 import type { InvoiceListItem } from '@/modules/billing/api/billingApi'
 import type { CrmPipelineSummary } from '@/modules/crm/api/crmApi'
 import type { AtRiskMemberRow } from '@/modules/reports/api/reportsApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 export interface DashboardSummary {
   /** Null when this account may not see money — the server gates both figures on billing.view. */
@@ -95,7 +96,7 @@ export function useBranchScope(): BranchScope {
   return {
     branch: data?.find((b) => b.id === branchId) ?? null,
     branchCount: data?.length ?? 0,
-    isError: query.isError,
+    isError: isStale(query),
     isPending: query.isPending,
     isFetching: query.isFetching,
     refetch: () => void query.refetch(),

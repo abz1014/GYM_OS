@@ -10,6 +10,7 @@ import { useImportJob, useRollbackImportJob } from '@/modules/migration/api/migr
 import { CommitImportPanel } from '@/modules/migration/components/CommitImportPanel'
 import { FieldMappingPanel } from '@/modules/migration/components/FieldMappingPanel'
 import { ImportRowsTable } from '@/modules/migration/components/ImportRowsTable'
+import { isStale } from '@/shared/lib/queryTrust'
 
 export default function ImportJobDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -26,7 +27,7 @@ export default function ImportJobDetailPage() {
 
   // Failure and loading were one branch, so an import that 404'd or a dropped connection left the
   // skeleton pulsing with no way forward. Separating them costs nothing and gives staff the retry.
-  if (jobQuery.isError) {
+  if (isStale(jobQuery)) {
     return (
       <div className="space-y-6">
         {backLink}

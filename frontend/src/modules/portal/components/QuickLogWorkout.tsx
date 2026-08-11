@@ -17,6 +17,7 @@ import {
   type MyWorkoutResult,
   type WorkoutEntryInput,
 } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /**
  * Logging built for someone standing at a rack holding a phone, not sitting at a spreadsheet.
@@ -189,7 +190,7 @@ export function QuickLogWorkout() {
   // shortcut; both are shortcuts, and a shortcut that quietly isn't there is survivable. Losing all
   // three leaves a screen with a search box over an empty catalogue and no way to log anything, which
   // is worth saying out loud rather than presenting as a gym with no exercises in it.
-  if (options.isError && usualLifts.length === 0 && proposed.length === 0) {
+  if (isStale(options) && usualLifts.length === 0 && proposed.length === 0) {
     return (
       <MemberLoadError
         title="We couldn't load the exercise list"
@@ -304,7 +305,7 @@ export function QuickLogWorkout() {
               usual lifts above comes from a different query and is frequently still working, and
               logging what you always log is the path most members are on anyway.
             */}
-            {options.isError ? (
+            {isStale(options) ? (
               <MemberLoadError
                 title="We couldn't load the exercise list"
                 hint="This is our connection, not your gym's catalogue — your usual lifts above still work."

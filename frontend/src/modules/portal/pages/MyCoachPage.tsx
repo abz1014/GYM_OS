@@ -15,6 +15,7 @@ import {
   useReadMyCoachMessages,
   type MyCoachMessage,
 } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 function sentWhen(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
@@ -107,7 +108,7 @@ export default function MyCoachPage() {
    * The query sets `retry: false`, so this fires on the first dropped request — which makes the
    * retry button the only way back short of a page reload.
    */
-  if (coach.isError) {
+  if (isStale(coach)) {
     return (
       <div className="mx-auto max-w-2xl space-y-5">
         <h1 className="text-2xl font-semibold tracking-tight">My Coach</h1>

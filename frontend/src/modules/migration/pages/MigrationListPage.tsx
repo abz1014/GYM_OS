@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
 import { useImportJobs, type ImportStatus } from '@/modules/migration/api/migrationApi'
 import { UploadImportDialog } from '@/modules/migration/components/UploadImportDialog'
+import { isStale } from '@/shared/lib/queryTrust'
 
 function statusVariant(status: ImportStatus) {
   if (status === 'Completed') return 'default' as const
@@ -28,7 +29,7 @@ export default function MigrationListPage() {
         actions={<UploadImportDialog />}
       />
 
-      {jobsQuery.isError && (
+      {isStale(jobsQuery) && (
         <ListError
           message="We couldn't load your imports"
           onRetry={() => jobsQuery.refetch()}

@@ -10,6 +10,7 @@ import { CreateTrainerDialog } from '@/modules/trainers/components/CreateTrainer
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useCoachingCompliance, useCoachingPlateaus, useCoachingRisks } from '@/modules/coaching/api/coachingApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /** Two letters at most: "Dana Okonkwo" → DO, "Cher" → C. */
 function initials(fullName: string): string {
@@ -74,7 +75,7 @@ function TrainersTab() {
         )}
       </div>
 
-      {trainersQuery.isError && (
+      {isStale(trainersQuery) && (
         <ListError
           message="We couldn't load the trainer roster"
           onRetry={() => trainersQuery.refetch()}

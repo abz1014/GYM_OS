@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { Bloom, GrainOverlay } from '@/shared/components/uplift'
 import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import { MEMBER_MORE_LINKS, type MemberMoreLink } from '@/shared/nav/memberNav'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const GROUP_ORDER: MemberMoreLink['group'][] = ['Training', 'Community', 'Account']
 const renewalFmt = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
@@ -69,7 +70,7 @@ export default function MorePage() {
         reads as "this app doesn't have a card" rather than "we couldn't fetch it", and leaves a
         member standing at the desk with no code and no idea why. It says so now, in the same slot.
       */}
-      {profile.isError && (
+      {isStale(profile) && (
         <div className="rounded-3xl border border-border bg-card p-2 edge-light">
           <MemberLoadError
             title="We couldn't load your membership card"

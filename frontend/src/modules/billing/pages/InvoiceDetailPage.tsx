@@ -9,6 +9,7 @@ import { ListError, PageHeader } from '@/shared/components/console'
 import { useInvoice } from '@/modules/billing/api/billingApi'
 import { IssueRefundDialog } from '@/modules/billing/components/IssueRefundDialog'
 import { RecordPaymentDialog } from '@/modules/billing/components/RecordPaymentDialog'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const currency = (amount: number, code: string) => amount.toLocaleString('en-US', { style: 'currency', currency: code })
 
@@ -46,7 +47,7 @@ export default function InvoiceDetailPage() {
    * the same trap the dashboard hit on a stale bookmark. They are separate states now, and the
    * failure one offers the retry.
    */
-  if (invoiceQuery.isError) {
+  if (isStale(invoiceQuery)) {
     return (
       <div className="space-y-6">
         {backLink}

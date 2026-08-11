@@ -22,6 +22,7 @@ import {
   useActiveWorkout,
   type ActiveExercise,
 } from '@/modules/portal/workout/activeWorkoutStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /** Ticks once a second so every derived clock on this screen re-reads the wall clock. */
 function useNow(active: boolean): number {
@@ -251,7 +252,7 @@ export default function ActiveWorkoutPage() {
    * proposal IS the screen. The manual logger comes along because the member is in the gym now and a
    * retry that fails twice shouldn't end with them having nowhere to record what they did.
    */
-  if (proposal.isError && !running) {
+  if (isStale(proposal) && !running) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <MemberLoadError

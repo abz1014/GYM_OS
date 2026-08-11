@@ -16,6 +16,7 @@ import { EndAssignmentButton } from '@/modules/trainers/components/EndAssignment
 import { ScheduleSessionDialog } from '@/modules/trainers/components/ScheduleSessionDialog'
 import { SessionActionButtons } from '@/modules/trainers/components/SessionActionButtons'
 import { useAuthStore } from '@/stores/authStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 // USD because TrainerDetail carries no currency code — only a branchId, which this page does not
 // resolve to a branch. Same assumption the page has always made, kept in one place.
@@ -107,7 +108,7 @@ export default function TrainerDetailPage() {
 
   // Without this branch a failed request left the skeleton on screen for good, since `isLoading ||
   // !trainer` cannot tell a request still in flight from one that has already given up.
-  if (trainerQuery.isError) {
+  if (isStale(trainerQuery)) {
     return (
       <div className="space-y-4">
         <BackToTrainers />

@@ -13,6 +13,7 @@ import {
   type MyRecovery,
   type RecoveryStatus,
 } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /**
  * "What should I do today?" — answered at a glance, one-handed, standing on a gym floor.
@@ -354,7 +355,7 @@ export default function MyTrainingPage() {
    * recovery fails to load — and one quiet line says the data is missing rather than inventing a
    * beginner.
    */
-  const failed = workouts.isError || recovery.isError || suggestions.isError
+  const failed = isStale(workouts) || isStale(recovery) || isStale(suggestions)
   const isNewMember = !failed && !workouts.isLoading && sessions.length === 0
   const lighten = status === 'Fatigued'
   const headline = failed ? 'Train today' : isNewMember ? 'First session' : headlineFor(status, targetGroups)

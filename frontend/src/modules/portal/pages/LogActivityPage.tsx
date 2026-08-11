@@ -21,6 +21,7 @@ import {
   useMyNutritionSummary,
   useMyWorkoutLogs,
 } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
 
@@ -41,7 +42,7 @@ function RecentWorkouts() {
           save didn't take will log it again, and the second copy is real. The query is read as a
           whole here rather than destructured, so the failure has something to say and a way back.
         */}
-        {logs.isError ? (
+        {isStale(logs) ? (
           <MemberLoadError
             title="We couldn't load your recent sessions"
             hint="Anything you just logged was saved — this list is what we can't read back."
@@ -135,7 +136,7 @@ function LogNutritionTab() {
             given no way to log the meal they are sitting in front of. The error branch says what
             actually happened and offers the retry that gets the form back.
           */}
-          {optionsQuery.isError ? (
+          {isStale(optionsQuery) ? (
             <MemberLoadError
               title="We couldn't load your meal options"
               hint="Your plan and today's meals are safe — we just can't reach them right now."

@@ -8,6 +8,7 @@ import {
   useHourlyCheckIns,
   type HourlyCheckIns,
 } from '@/modules/dashboard/api/dashboardApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /** The window the chart always draws, widened by any hour that actually has traffic. */
 const DEFAULT_FIRST_HOUR = 6
@@ -93,7 +94,7 @@ export function CheckInsByHourPanel() {
           */}
           {todayQuery.isLoading ? (
             <Skeleton className="mt-2 h-4 w-48" />
-          ) : todayQuery.isError && !todayQuery.data ? null : (
+          ) : isStale(todayQuery) && !todayQuery.data ? null : (
             <p className="mt-1 text-sm text-muted-foreground">
               {totalToday === 0
                 ? 'No check-ins recorded today yet'
@@ -118,7 +119,7 @@ export function CheckInsByHourPanel() {
 
       {todayQuery.isLoading ? (
         <Skeleton className="mt-6 h-56 w-full" />
-      ) : todayQuery.isError && !todayQuery.data ? (
+      ) : isStale(todayQuery) && !todayQuery.data ? (
         <PanelError
           message="We couldn't load today's check-ins."
           onRetry={() => void todayQuery.refetch()}

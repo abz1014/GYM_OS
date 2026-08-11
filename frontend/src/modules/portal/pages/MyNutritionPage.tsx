@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MacroBar, MemberEmptyState, MemberLoadError, SectionCard, dateFormat, dateTimeFormat } from '@/modules/portal/components/portalShared'
 import { useMyDietPlans, useMyNutritionSummary, useMyWaterLogs } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /** Everything food and hydration, split out of the old all-in-one portal page. */
 export default function MyNutritionPage() {
@@ -44,7 +45,7 @@ export default function MyNutritionPage() {
           */}
           {summary.isLoading ? (
             <Skeleton className="h-32 w-full" />
-          ) : summary.isError ? (
+          ) : isStale(summary) ? (
             <MemberLoadError
               title="We couldn't load today's nutrition"
               hint="Anything you've logged today is still recorded — we just can't read it back right now."
@@ -83,7 +84,7 @@ export default function MyNutritionPage() {
           */}
           {dietPlans.isLoading ? (
             <Skeleton className="h-40 w-full" />
-          ) : dietPlans.isError ? (
+          ) : isStale(dietPlans) ? (
             <MemberLoadError
               title="We couldn't load your plans"
               hint="Any plan you've been given is still there — we just can't reach it right now."
@@ -124,7 +125,7 @@ export default function MyNutritionPage() {
           */}
           {waterLogs.isLoading ? (
             <Skeleton className="h-40 w-full" />
-          ) : waterLogs.isError ? (
+          ) : isStale(waterLogs) ? (
             <MemberLoadError
               title="We couldn't load your water log"
               hint="You may already have logged today — check back in a moment rather than logging it twice."

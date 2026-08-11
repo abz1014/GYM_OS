@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { anyStale } from '@/shared/lib/queryTrust'
+import { anyStale, isStale } from '@/shared/lib/queryTrust'
 import { useAuthStore } from '@/stores/authStore'
 import { useCheckIn } from '@/modules/attendance/api/attendanceApi'
 import {
@@ -372,7 +372,7 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
   const workoutsUntrustworthy = anyStale(workoutLogsQuery)
   const timelineUntrustworthy = anyStale(timelineQuery)
 
-  if (memberQuery.isError) {
+  if (isStale(memberQuery)) {
     return (
       <div className="overflow-hidden rounded-3xl border border-border bg-card">
         <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">

@@ -18,6 +18,7 @@ import {
   useMyClients,
   type MyClientRow,
 } from '@/modules/coaching/api/coachingApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const timeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
 const dayFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
@@ -109,7 +110,7 @@ function Thread({ memberId }: { memberId: string }) {
     endRef.current?.scrollIntoView({ block: 'end' })
   }, [conversation.data?.messages.length])
 
-  if (conversation.isError) {
+  if (isStale(conversation)) {
     return (
       <ListError
         message="We couldn't load this conversation"
@@ -267,7 +268,7 @@ export default function MyClientsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const notATrainer =
-    clients.isError && (clients.error as AxiosError | null)?.response?.status === 403
+    isStale(clients) && (clients.error as AxiosError | null)?.response?.status === 403
 
   const selected = clients.data?.find((c) => c.memberId === selectedId) ?? null
   const waiting = clients.data?.filter((c) => c.unreadFromMember > 0).length ?? 0
@@ -295,7 +296,7 @@ export default function MyClientsPage() {
         </div>
       )}
 
-      {clients.isError && !notATrainer && (
+      {isStale(clients) && !notATrainer && (
         <ListError
           message="We couldn't load your clients"
           onRetry={() => clients.refetch()}

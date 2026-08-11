@@ -13,6 +13,7 @@ import { MemberDetailPanel } from '@/modules/members/components/MemberDetailPane
 import { MembersActionBar } from '@/modules/members/components/MembersActionBar'
 import { MemberStatusPill } from '@/modules/members/components/MemberStatusPill'
 import { useAuthStore } from '@/stores/authStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const joinedFormat = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -181,7 +182,7 @@ export default function MembersListPage() {
           }}
         />
 
-        {membersQuery.isError && (
+        {isStale(membersQuery) && (
           <ListError
             message="We couldn't load the member list"
             onRetry={() => membersQuery.refetch()}

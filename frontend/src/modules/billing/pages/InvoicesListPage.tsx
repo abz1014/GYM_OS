@@ -8,6 +8,7 @@ import { Pagination } from '@/shared/components/Pagination'
 import { FilterTabs, ListEmpty, ListError, ListSkeleton, PageHeader, SEVERITY_ROW, type FilterTab } from '@/shared/components/console'
 import { useInvoicesList, type InvoiceStatus } from '@/modules/billing/api/billingApi'
 import { CreateInvoiceDialog } from '@/modules/billing/components/CreateInvoiceDialog'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const STATUS_VARIANT: Record<InvoiceStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   Draft: 'outline',
@@ -114,7 +115,7 @@ export default function InvoicesListPage() {
         }}
       />
 
-      {invoicesQuery.isError && (
+      {isStale(invoicesQuery) && (
         <ListError
           message="We couldn't load the invoice list"
           onRetry={() => invoicesQuery.refetch()}

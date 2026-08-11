@@ -13,6 +13,7 @@ import {
   useScheduledNotifications,
   useTriggerNotificationChecks,
 } from '@/modules/notifications/api/notificationsApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /**
  * The console's tab row is an underline strip; shadcn's Tabs ships a pill sitting in a grey tray.
@@ -84,7 +85,7 @@ function DevMailboxTab() {
 
   return (
     <div className="space-y-2">
-      {logsQuery.isError && (
+      {isStale(logsQuery) && (
         <ListError
           message="We couldn't load the mailbox"
           onRetry={() => logsQuery.refetch()}
@@ -123,7 +124,7 @@ function ScheduledTab() {
 
   return (
     <div className="space-y-2">
-      {scheduledQuery.isError && (
+      {isStale(scheduledQuery) && (
         <ListError
           message="We couldn't load the queue"
           onRetry={() => scheduledQuery.refetch()}
@@ -214,7 +215,7 @@ function TemplatesTab() {
 
   return (
     <div className="space-y-4">
-      {templatesQuery.isError && (
+      {isStale(templatesQuery) && (
         <ListError
           message="We couldn't load the templates"
           onRetry={() => templatesQuery.refetch()}

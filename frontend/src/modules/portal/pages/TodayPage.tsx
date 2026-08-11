@@ -12,6 +12,7 @@ import { ConfirmSessionButton } from '@/modules/portal/components/ConfirmSession
 import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import { WeeklyGoalDialog } from '@/modules/portal/components/WeeklyGoalDialog'
 import { useMyToday, useMyLeaderboard, type MyInsight, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const classTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
 const arrivalTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -129,7 +130,7 @@ export default function TodayPage() {
    * whole motivational weight rests on a streak, inventing a zero is the worst thing it could say,
    * so the page says it doesn't know and offers to retry instead.
    */
-  if (today.isError && !data) {
+  if (isStale(today) && !data) {
     return (
       <div className="mx-auto max-w-2xl space-y-5">
         <h1 className="font-display text-3xl font-black tracking-tight">{greeting()}</h1>

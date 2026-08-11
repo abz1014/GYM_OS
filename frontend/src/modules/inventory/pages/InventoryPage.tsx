@@ -13,6 +13,7 @@ import { CreateInventoryItemDialog } from '@/modules/inventory/components/Create
 import { InventoryItemDetailDialog } from '@/modules/inventory/components/InventoryItemDetailDialog'
 import { StockAdjustButtons } from '@/modules/inventory/components/StockAdjustButtons'
 import { useUiStore } from '@/stores/uiStore'
+import { isStale } from '@/shared/lib/queryTrust'
 
 const HEAD_CLASS = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase'
 
@@ -112,7 +113,7 @@ export default function InventoryPage() {
         }}
       />
 
-      {itemsQuery.isError && (
+      {isStale(itemsQuery) && (
         <ListError
           message="We couldn't load the inventory list"
           onRetry={() => itemsQuery.refetch()}

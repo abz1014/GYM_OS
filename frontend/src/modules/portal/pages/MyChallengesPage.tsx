@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ChallengeRow, MemberLoadError } from '@/modules/portal/components/portalShared'
 import { useMyChallenges } from '@/modules/challenges/api/challengesApi'
+import { isStale } from '@/shared/lib/queryTrust'
 
 /** Community challenges on their own page — they were previously one card among 36. */
 export default function MyChallengesPage() {
@@ -25,7 +26,7 @@ export default function MyChallengesPage() {
           left a failed request rendering the heading and then nothing at all, forever, with no way
           to ask again. A blank page is not a smaller version of a wrong page; it is just a page a
           member has no way to interpret. */}
-      {challenges.isError && (
+      {isStale(challenges) && (
         <Card>
           <CardContent className="py-6">
             <MemberLoadError
