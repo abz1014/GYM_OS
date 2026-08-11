@@ -10,8 +10,9 @@ import type { CrmPipelineSummary } from '@/modules/crm/api/crmApi'
 import type { AtRiskMemberRow } from '@/modules/reports/api/reportsApi'
 
 export interface DashboardSummary {
-  todayRevenue: number
-  todayCashCollected: number
+  /** Null when this account may not see money — the server gates both figures on billing.view. */
+  todayRevenue: number | null
+  todayCashCollected: number | null
   activeMembersCount: number
   newMembersThisMonthCount: number
   expiringMembershipsNext7DaysCount: number

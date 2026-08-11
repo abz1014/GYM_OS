@@ -6,6 +6,7 @@ using GymOS.Domain.Billing;
 using GymOS.Domain.Equipment;
 using GymOS.Domain.Maintenance;
 using GymOS.Domain.Members;
+using GymOS.Shared;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,18 +31,35 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
         // reading company-wide revenue and cash-collected figures with a plain GET, no params.
         var accessibleBranchIds = await BranchAccessResolver.GetAccessibleBranchIdsAsync(db, currentUser, cancellationToken);
 
-        var payments = db.Payments.AsNoTracking()
-            .Where(p => p.Status == PaymentStatus.Completed && p.PaidAt >= todayStart && p.PaidAt < todayEnd
-                && accessibleBranchIds.Contains(p.Invoice!.BranchId));
+        /*
+         * Money is gated on billing.view, not on dashboard.view like everything else here.
+         *
+         * Every staff role holds dashboard.view — including Trainer, Nutritionist and Maintenance,
+         * none of which has a reason to read the gym's takings. /api/reports/revenue already refuses
+         * those roles, so serving the same figure from this endpoint left one door shut and one open;
+         * found live with a Trainer token reading todayRevenue while its reports call returned 403.
+         *
+         * Skipped rather than computed-and-dropped: there is no point summing payments for a caller
+         * who will not be shown them.
+         */
+        decimal? todayRevenue = null;
+        decimal? todayCash = null;
 
-        if (request.BranchId is not null)
+        if (currentUser.HasPermission(PermissionCodes.Billing.View))
         {
-            payments = payments.Where(p => p.Invoice!.BranchId == request.BranchId);
-        }
+            var payments = db.Payments.AsNoTracking()
+                .Where(p => p.Status == PaymentStatus.Completed && p.PaidAt >= todayStart && p.PaidAt < todayEnd
+                    && accessibleBranchIds.Contains(p.Invoice!.BranchId));
 
-        var todayRevenue = await payments.SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
-        var todayCash = await payments.Where(p => p.Method == PaymentMethod.Cash)
-            .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+            if (request.BranchId is not null)
+            {
+                payments = payments.Where(p => p.Invoice!.BranchId == request.BranchId);
+            }
+
+            todayRevenue = await payments.SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+            todayCash = await payments.Where(p => p.Method == PaymentMethod.Cash)
+                .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+        }
 
         var members = db.Members.AsNoTracking().Where(m => accessibleBranchIds.Contains(m.BranchId));
         if (request.BranchId is not null)

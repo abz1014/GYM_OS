@@ -81,6 +81,7 @@ function plural(count: number, singular: string, pluralForm = `${singular}s`) {
  */
 export default function DashboardPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
+  const roles = useAuthStore((s) => s.user?.roles)
 
   const summaryQuery = useDashboardSummary()
   useDashboardHub()
@@ -100,7 +101,7 @@ export default function DashboardPage() {
   // isLoading/!data never distinguished "still fetching" from "failed for good". Same fix
   // HomeRedirect already uses: send the user to whatever their permissions actually allow.
   if (!hasPermission('dashboard.view')) {
-    return <Navigate to={resolveLandingRoute(hasPermission)} replace />
+    return <Navigate to={resolveLandingRoute(hasPermission, roles ?? [])} replace />
   }
 
   const heading = dateHeadingFormat.format(new Date())
@@ -230,16 +231,23 @@ export default function DashboardPage() {
 
             {/* No rail on revenue. The other three tiles each name something that is getting worse on
                 its own; today's takings are just today's takings, and a fourth rail would turn the
-                signal back into decoration. */}
-            <StatTile
-              label="Revenue today"
-              value={money(summary.todayRevenue, branch.currency)}
-              caption={
-                summary.todayCashCollected > 0
-                  ? `${money(summary.todayCashCollected, branch.currency)} of it in cash`
-                  : undefined
-              }
-            />
+                signal back into decoration.
+
+                Gated on the value being present rather than on the permission, so the server stays
+                the single authority on who sees money: it sends null to anyone without billing.view,
+                and a trainer gets a shorter row instead of a $0.00 they'd have no way to read as
+                "withheld". */}
+            {summary.todayRevenue !== null && (
+              <StatTile
+                label="Revenue today"
+                value={money(summary.todayRevenue, branch.currency)}
+                caption={
+                  summary.todayCashCollected !== null && summary.todayCashCollected > 0
+                    ? `${money(summary.todayCashCollected, branch.currency)} of it in cash`
+                    : undefined
+                }
+              />
+            )}
 
             {/*
               Both cards below are gated on the permission their endpoint needs rather than rendered
