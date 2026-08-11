@@ -24,11 +24,29 @@ public class GetMemberByIdQueryHandler(IApplicationDbContext db) : IRequestHandl
             .FirstOrDefaultAsync(m => m.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Member), request.Id);
 
+        /*
+         * The active coaching pairing, newest first when several are open. Its own query rather than
+         * another Include because assignments hang off Trainer, not Member. The name comes from the
+         * trainer's linked User — the same resolution GetMyCoachQuery uses — and the Trainer join
+         * carries the global branch filter, so a cross-branch pairing resolves to null here exactly
+         * as it does everywhere else.
+         */
+        var coach = await db.TrainerAssignments.AsNoTracking()
+            .Where(a => a.MemberId == member.Id && a.IsActive)
+            .OrderByDescending(a => a.StartDate)
+            .Select(a => new
+            {
+                a.TrainerId,
+                TrainerName = a.Trainer!.User!.FirstName + " " + a.Trainer.User.LastName
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
         return new MemberDetailDto(
             member.Id, member.MemberCode, member.FirstName, member.LastName, member.DateOfBirth,
             member.Gender, member.Email, member.Phone, member.Address, member.ProfilePhotoUrl,
             member.JoinDate, member.Status, member.QrCodeToken, member.BranchId,
             member.ReferredByMemberId, member.ReferredByMember?.FullName,
+            coach?.TrainerId, coach?.TrainerName,
             member.EmergencyContacts.Select(c => new EmergencyContactDto(c.Id, c.Name, c.Relationship, c.Phone, c.Email)).ToList(),
             member.MedicalNotes.Select(n => new MedicalNoteDto(n.Id, n.Note, n.RecordedByUserId, n.RecordedAt)).ToList(),
             member.Measurements.Select(x => new MemberMeasurementDto(

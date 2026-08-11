@@ -8,6 +8,7 @@ import { AttendanceHistoryPanel } from '@/modules/attendance/components/Attendan
 import { CheckInPanel } from '@/modules/attendance/components/CheckInPanel'
 import { FrontDeskRail } from '@/modules/attendance/components/FrontDeskRail'
 import { kioskTimeFormat } from '@/modules/attendance/components/frontDeskFormat'
+import { MemberDetailPanel } from '@/modules/members/components/MemberDetailPanel'
 import { Bloom, GrainOverlay } from '@/shared/components/uplift'
 import { useUiStore } from '@/stores/uiStore'
 
@@ -60,6 +61,17 @@ export default function AttendancePage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
   const now = useKioskClock()
   const [view, setView] = useState<'checkin' | 'history'>('checkin')
+
+  /*
+   * The member the kiosk has resolved. While one is on screen, the right rail stops being ambient
+   * (who's inside, next classes) and becomes THAT member's workspace — plan, billing, notes, actions
+   * — because the person the rail could help with is standing at the counter right now. The kiosk's
+   * Next button clears it and the ambient rail returns.
+   *
+   * This is the audit's front-desk finding closed at its root: the workspace existed, but only on
+   * screens the receptionist had to leave the desk view to reach.
+   */
+  const [workspaceMemberId, setWorkspaceMemberId] = useState<string | null>(null)
 
   // Same query key as the branch switcher in the top bar, so the name is read out of a cache that is
   // already populated rather than fetched a second time.
@@ -126,9 +138,19 @@ export default function AttendancePage() {
       {view === 'checkin' ? (
         <div className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_420px]">
           <div className="flex min-w-0 items-center px-6">
-            <CheckInPanel />
+            <CheckInPanel onMemberChange={setWorkspaceMemberId} />
           </div>
-          <FrontDeskRail capacity={branch?.capacity ?? null} />
+          {workspaceMemberId ? (
+            <aside className="min-h-0 overflow-y-auto border-border p-4 lg:h-full lg:border-l">
+              <MemberDetailPanel
+                memberId={workspaceMemberId}
+                variant="rail"
+                onClose={() => setWorkspaceMemberId(null)}
+              />
+            </aside>
+          ) : (
+            <FrontDeskRail capacity={branch?.capacity ?? null} />
+          )}
         </div>
       ) : (
         // Wrapped only to give it a stacking context above the bloom, which is absolutely

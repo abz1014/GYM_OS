@@ -44,6 +44,11 @@ public record MemberDetailDto(
     Guid BranchId,
     Guid? ReferredByMemberId,
     string? ReferredByName,
+    // The member's ACTIVE coaching pairing, or null when they train on their own. Part of the member's
+    // service profile rather than the trainer module's roster — the front desk answers "who coaches
+    // me?" under members.view without needing trainers.view.
+    Guid? AssignedTrainerId,
+    string? AssignedTrainerName,
     IReadOnlyList<EmergencyContactDto> EmergencyContacts,
     IReadOnlyList<MedicalNoteDto> MedicalNotes,
     IReadOnlyList<MemberMeasurementDto> Measurements,

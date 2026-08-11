@@ -46,7 +46,17 @@ const STATUS_NOTE: Record<string, string> = {
  * granted verdict its own green surface. It added no new outcome: the four states below are the same
  * four, and none of them is a denial.
  */
-export function CheckInPanel() {
+interface CheckInPanelProps {
+  /**
+   * Fires whenever the kiosk resolves a scan to a member, and again with null when the desk presses
+   * Next. The page uses it to swap the right rail to that member's workspace, so the receptionist
+   * can answer "when does my plan end / do I owe anything" without leaving the screen — the whole
+   * reason the workspace exists lands on the screen where members actually stand.
+   */
+  onMemberChange?: (memberId: string | null) => void
+}
+
+export function CheckInPanel({ onMemberChange }: CheckInPanelProps) {
   const branchId = useUiStore((s) => s.selectedBranchId)
 
   // What's in the field, vs. what we're actually resolving. Keeping them separate is what lets the
@@ -103,6 +113,14 @@ export function CheckInPanel() {
     document.addEventListener('pointerdown', restoreFocus)
     return () => document.removeEventListener('pointerdown', restoreFocus)
   }, [])
+
+  // Mirrored as an effect rather than called at each setSelected site, so the three places a
+  // selection changes (auto-resolve, candidate click, reset) can't drift out of sync with the page.
+  useEffect(() => {
+    onMemberChange?.(selected?.id ?? null)
+    // onMemberChange is a stable setter from the page; depending on it would re-fire per render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id])
 
   // An unambiguous match resolves itself. Asking staff to confirm the one and only result is the
   // second click a kiosk exists to remove.

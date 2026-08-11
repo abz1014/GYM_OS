@@ -50,6 +50,9 @@ export interface MemberDetail extends MemberListItem {
   branchId: string
   referredByMemberId: string | null
   referredByName: string | null
+  /** The active coaching pairing, or null when the member trains on their own. */
+  assignedTrainerId: string | null
+  assignedTrainerName: string | null
   emergencyContacts: { id: string; name: string; relationship: string; phone: string; email: string | null }[]
   medicalNotes: { id: string; note: string; recordedAt: string }[]
   measurements: { id: string; measuredOn: string; weightKg: number | null; bodyFatPercentage: number | null }[]

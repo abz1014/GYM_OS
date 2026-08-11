@@ -6,6 +6,7 @@ import {
   CloudOff,
   CreditCard,
   DoorOpen,
+  Dumbbell,
   Loader2,
   Mail,
   MapPin,
@@ -14,6 +15,7 @@ import {
   Receipt,
   RotateCw,
   StickyNote,
+  TriangleAlert,
   UserPlus,
   X,
 } from 'lucide-react'
@@ -33,6 +35,7 @@ import {
   useMemberVisits,
   type MemberMembership,
 } from '@/modules/members/api/membersApi'
+import { useMemberWorkoutLogs } from '@/modules/workouts/api/workoutsApi'
 import { MemberStatusPill } from '@/modules/members/components/MemberStatusPill'
 import { AddEmergencyContactDialog } from '@/modules/members/components/AddEmergencyContactDialog'
 import { AddMeasurementDialog } from '@/modules/members/components/AddMeasurementDialog'
@@ -183,6 +186,14 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
   const invoicesQuery = useMemberInvoices(memberId, canSeeBilling)
   const branchesQuery = useBranches()
 
+  /*
+   * Session history for the Training tab. Gated on workouts.view — the endpoint's own permission —
+   * rather than fetched-and-403'd: a receptionist doesn't hold it, and for them the tab keeps its
+   * measurements and photos, which members.view already covers.
+   */
+  const canSeeWorkouts = hasPermission('workouts.view')
+  const workoutLogsQuery = useMemberWorkoutLogs(canSeeWorkouts ? memberId : undefined)
+
   const checkIn = useCheckIn()
 
   const branchName = branchesQuery.data?.find((b) => b.id === member?.branchId)?.name
@@ -270,6 +281,10 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
 
     return entries.sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 8)
   }, [member, visitsQuery.data, invoicesQuery.data])
+
+  // Only sources this account is allowed to see count as failures — a receptionist without
+  // billing.view never fires the invoices query, and a disabled query must not read as a broken one.
+  const activityFeedFailed = (canSeeVisits && visitsQuery.isError) || (canSeeBilling && invoicesQuery.isError)
 
   if (memberQuery.isError) {
     return (
@@ -462,8 +477,17 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
           */}
           {canSeeVisits && (
             <div className="grid grid-cols-2 gap-2">
-              <StatTile label="Visits · 30d" value={visits30dQuery.data ?? '—'} />
-              <StatTile label="Last visit" value={<span className="text-base">{lastVisitAt ? relativeDay(lastVisitAt) : 'Never'}</span>} />
+              <StatTile label="Visits · 30d" value={visits30dQuery.isError ? '—' : (visits30dQuery.data ?? '—')} />
+              {/* "Never" is a claim about the member, so it needs a query that actually answered —
+                  on failure this says nothing rather than telling the desk a regular has never been in. */}
+              <StatTile
+                label="Last visit"
+                value={
+                  <span className="text-base">
+                    {lastVisitAt ? relativeDay(lastVisitAt) : visitsQuery.isSuccess ? 'Never' : '—'}
+                  </span>
+                }
+              />
             </div>
           )}
 
@@ -482,7 +506,17 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
                   </div>
                 </li>
               ))}
-              {activity.length === 0 && <li className="text-sm text-muted-foreground">Nothing recorded yet.</li>}
+              {activity.length === 0 && !activityFeedFailed && (
+                <li className="text-sm text-muted-foreground">Nothing recorded yet.</li>
+              )}
+              {/* The feed merges several sources, so one failed query doesn't blank it — but it must
+                  not pass off the surviving entries as the whole story either. */}
+              {activityFeedFailed && (
+                <li className="flex items-center gap-2 text-sm text-warning">
+                  <TriangleAlert className="size-3.5 shrink-0" />
+                  Some activity couldn't be loaded — this list may be incomplete.
+                </li>
+              )}
             </ul>
           </div>
 
@@ -508,6 +542,14 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
               <p className="flex items-center gap-2 text-sm">
                 <Cake className="size-3.5 shrink-0 text-muted-foreground" />
                 {dayMonthFormat.format(parseDateOnly(member.dateOfBirth))}
+              </p>
+            )}
+            {/* The active pairing only — the DTO resolves null for a member who trains on their own,
+                and "no coach" is normal rather than a gap, so the line simply isn't there. */}
+            {member.assignedTrainerName && (
+              <p className="flex items-center gap-2 text-sm">
+                <Dumbbell className="size-3.5 shrink-0 text-muted-foreground" />
+                Coached by {member.assignedTrainerName}
               </p>
             )}
             {member.referredByName && (
@@ -622,7 +664,50 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
         </TabsContent>
 
         <TabsContent value="training" className="space-y-4 p-5">
-          <div className="flex items-center justify-between gap-2">
+          {/*
+            The tab used to open on measurements and photos — record-keeping — while the member's
+            actual training lived only in the Workouts module. Sessions come first now: they are what
+            "Training" means to the person being asked about it. Gated on workouts.view, the
+            endpoint's own permission, so a receptionist keeps the tab without a section that could
+            only 403 (their view starts at Measurements below).
+          */}
+          {canSeeWorkouts && (
+            <div className="space-y-2">
+              <Eyebrow>Sessions</Eyebrow>
+              {workoutLogsQuery.isError ? (
+                <p className="flex items-center gap-2 text-sm text-warning">
+                  <TriangleAlert className="size-3.5 shrink-0" />
+                  Couldn't load this member's sessions.
+                </p>
+              ) : workoutLogsQuery.isLoading ? (
+                <Skeleton className="h-24 w-full rounded-2xl" />
+              ) : (workoutLogsQuery.data ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No sessions logged yet.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {(workoutLogsQuery.data ?? []).slice(0, 6).map((log) => (
+                    <li key={log.id} className="rounded-xl border border-border px-3 py-2 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-medium">{log.workoutTemplateName ?? log.character}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {relativeDay(new Date(log.loggedAt))}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {log.entries.length} exercise{log.entries.length === 1 ? '' : 's'}
+                        {log.entries
+                          .slice(0, 3)
+                          .map((e) => ` · ${e.exerciseName}`)
+                          .join('')}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          <div className={cn('flex items-center justify-between gap-2', canSeeWorkouts && 'border-t border-border pt-4')}>
             <Eyebrow>Measurements</Eyebrow>
             {canUpdate && <AddMeasurementDialog memberId={member.id} />}
           </div>
