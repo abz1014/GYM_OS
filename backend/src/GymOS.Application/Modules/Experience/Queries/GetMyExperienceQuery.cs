@@ -15,7 +15,8 @@ namespace GymOS.Application.Modules.Experience.Queries;
 /// </summary>
 public record GetMyExperienceQuery : IQuery<MyExperienceDto>;
 
-public class GetMyExperienceQueryHandler(IApplicationDbContext db, ICurrentUserService currentUser)
+public class GetMyExperienceQueryHandler(
+    IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
     : IRequestHandler<GetMyExperienceQuery, MyExperienceDto>
 {
     private const int RecentCount = 8;
@@ -48,6 +49,45 @@ public class GetMyExperienceQueryHandler(IApplicationDbContext db, ICurrentUserS
             .Select(t => new MyXpEntryDto(t.Amount, t.Reason.ToString(), t.OccurredAt))
             .ToList();
 
-        return new MyExperienceDto(level, totalXp, xpIntoLevel, xpForNextLevel, recent);
+        /*
+         * Days since the member was last seen, for the demotion side of the ladder.
+         *
+         * "Seen" is the LATEST of a logged workout and a gym visit, not workouts alone. A member who
+         * comes in three times a week and never opens the logger is training, and telling them they
+         * had slipped would be the app calling them absent for not doing paperwork.
+         *
+         * Read off the XP ledger rather than joining WorkoutLogs and AttendanceRecords, because every
+         * one of those actions already writes a transaction here — so this is one list already in
+         * memory, and it stays correct automatically if a new earning action is added later.
+         */
+        var lastEarnedAt = all.Count == 0 ? (DateTimeOffset?)null : all.Max(t => t.OccurredAt);
+        var daysSinceLastActivity = lastEarnedAt is null
+            ? (int?)null
+            : Math.Max(0, (int)(dateTimeProvider.UtcNow - lastEarnedAt.Value).TotalDays);
+
+        var standing = RankPolicy.StandingFor(totalXp, daysSinceLastActivity);
+        var (intoTier, tierSpan) = RankPolicy.ProgressWithin(totalXp);
+        var nextTier = RankPolicy.NextTierAfter(standing.Peak);
+
+        // How long until absence costs another rung. Null inside the grace period and for a member who
+        // has never trained — a countdown to a punishment nobody is facing is just an alarming number.
+        int? daysUntilNextDemotion = null;
+        if (daysSinceLastActivity is int away && away > RankPolicy.GraceDays && standing.Current != RankTier.Newcomer)
+        {
+            var beyondGrace = away - RankPolicy.GraceDays;
+            daysUntilNextDemotion = RankPolicy.DaysPerTierLost - (beyondGrace % RankPolicy.DaysPerTierLost);
+        }
+
+        var rank = new MyRankDto(
+            standing.Peak.ToString(),
+            standing.Current.ToString(),
+            standing.TiersLostToAbsence,
+            nextTier?.ToString(),
+            intoTier,
+            tierSpan,
+            nextTier is null ? 0 : Math.Max(0, RankPolicy.XpRequiredFor(nextTier.Value) - totalXp),
+            daysUntilNextDemotion);
+
+        return new MyExperienceDto(level, totalXp, xpIntoLevel, xpForNextLevel, recent, rank);
     }
 }

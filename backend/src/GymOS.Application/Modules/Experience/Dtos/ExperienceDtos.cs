@@ -7,7 +7,35 @@ public record MyExperienceDto(
     long TotalXp,
     long XpIntoLevel,
     long XpForNextLevel,
-    IReadOnlyList<MyXpEntryDto> Recent);
+    IReadOnlyList<MyXpEntryDto> Recent,
+    MyRankDto Rank);
+
+/// <summary>
+/// A member's standing on the named ladder — the thing "Level 7" could never say.
+///
+/// Peak and Current are separate because they answer different questions. Peak is what you reached
+/// and cannot be taken back; Current is where you stand and falls with absence. They are equal for
+/// anyone who has trained in the last fortnight, which is most people most of the time.
+/// </summary>
+/// <param name="Peak">Highest tier ever held.</param>
+/// <param name="Current">Tier held today.</param>
+/// <param name="TiersLostToAbsence">Rungs absence has cost; 0 when Peak and Current agree.</param>
+/// <param name="Next">The rung above Peak, or null at Legend.</param>
+/// <param name="XpIntoTier">XP earned into the current band.</param>
+/// <param name="TierSpan">Size of that band, so a bar can be drawn without the client knowing the
+/// thresholds. 0 at Legend, where there is nothing left to fill.</param>
+/// <param name="XpToNextTier">XP still needed to reach <paramref name="Next"/>; 0 at Legend.</param>
+/// <param name="DaysUntilNextDemotion">Days until absence costs another rung, or null while the
+/// member is inside the grace period or has never trained. Shown so a drop is never a surprise.</param>
+public record MyRankDto(
+    string Peak,
+    string Current,
+    int TiersLostToAbsence,
+    string? Next,
+    long XpIntoTier,
+    long TierSpan,
+    long XpToNextTier,
+    int? DaysUntilNextDemotion);
 
 public record MyXpEntryDto(int Amount, string Reason, DateTimeOffset OccurredAt);
 

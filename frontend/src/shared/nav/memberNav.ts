@@ -1,4 +1,4 @@
-import { Apple, CalendarDays, Dumbbell, Home, LayoutGrid, MapPin, MessageCircle, NotebookPen, Trophy, TrendingUp, UserCircle, ShieldCheck, Flag, type LucideIcon } from 'lucide-react'
+import { Apple, CalendarDays, Dumbbell, Home, LayoutGrid, MapPin, MessageCircle, NotebookPen, Shield, Trophy, TrendingUp, UserCircle, ShieldCheck, Flag, type LucideIcon } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/authStore'
 
@@ -47,7 +47,12 @@ export const MEMBER_TABS: MemberTab[] = [
   // different job and now lives under More — a member tapping the big button mid-session wants to
   // record the set they just did, not fill in a form about a workout that already ended.
   { label: 'Log', path: '/workout', icon: NotebookPen },
-  { label: 'Progress', path: '/my-progress', icon: TrendingUp },
+  // Rank, not Progress, and the swap is forced rather than preferred: the bar holds four flat tabs
+  // around the centre action, and a fifth would push that action off-centre — the one layout rule
+  // this file already defends. Rank wins the slot because it answers "where do I stand" in one look,
+  // which is the question a member opens the app with; Progress is a sit-down-and-study screen, which
+  // is exactly what a More destination is for. It is linked prominently from the top of Rank.
+  { label: 'Rank', path: '/my-rank', icon: Shield },
   {
     label: 'More',
     path: '/more',
@@ -57,7 +62,7 @@ export const MEMBER_TABS: MemberTab[] = [
     // where the member was, and aria-current went with it. (/my-training is absent on purpose: it is
     // its own tab now, and listing it here would light two tabs at once.)
     alsoMatches: [
-      '/my-nutrition', '/my-classes', '/my-coach', '/my-passport',
+      '/my-nutrition', '/my-classes', '/my-coach', '/my-passport', '/my-progress',
       '/my-challenges', '/leaderboard', '/membership', '/account', '/log-activity',
     ],
   },
@@ -84,6 +89,9 @@ export const MEMBER_MORE_LINKS: MemberMoreLink[] = [
   // Reachable from here since the centre action became the live session. Everything recorded after
   // the fact — a workout you didn't log at the time, a meal, a measurement — is one job, one screen.
   { group: 'Training', label: 'Log something else', description: 'A past workout, a meal or your measurements', path: '/log-activity', icon: NotebookPen },
+  // Left the tab bar when Rank took the slot. Still a first-class destination — the charts, goals,
+  // measurements, mastery and timeline all live here, and Rank links straight to it.
+  { group: 'Training', label: 'Progress', description: 'Volume, records, measurements and your story', path: '/my-progress', icon: TrendingUp },
   { group: 'Community', label: 'Leaderboard', description: 'How you rank against your gym', path: '/leaderboard', icon: Trophy },
   { group: 'Community', label: 'Challenges', description: 'Join a challenge and compete', path: '/my-challenges', icon: Flag },
   { group: 'Account', label: 'Membership', description: 'Your plan, member code and referrals', path: '/membership', icon: UserCircle },

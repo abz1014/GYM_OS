@@ -246,12 +246,31 @@ export interface MyXpEntry {
   occurredAt: string
 }
 
+export type RankTier =
+  | 'Newcomer' | 'Regular' | 'Committed' | 'Strong'
+  | 'Relentless' | 'Elite' | 'Titan' | 'Legend'
+
+/** Named standing on the ladder. `peak` never falls; `current` drops with absence and returns on the
+    first session back. They are equal for anyone who trained in the last fortnight. */
+export interface MyRank {
+  peak: RankTier
+  current: RankTier
+  tiersLostToAbsence: number
+  next: RankTier | null
+  xpIntoTier: number
+  tierSpan: number
+  xpToNextTier: number
+  /** Days until absence costs another rung; null inside the grace period or before a first session. */
+  daysUntilNextDemotion: number | null
+}
+
 export interface MyExperience {
   level: number
   totalXp: number
   xpIntoLevel: number
   xpForNextLevel: number
   recent: MyXpEntry[]
+  rank: MyRank
 }
 
 export function useMyExperience() {
