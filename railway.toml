@@ -41,7 +41,16 @@ startCommand = "dotnet GymOS.API.dll"
 #
 # A seed failure blocks the release, same as a migration failure. That is correct: the demo is the
 # product here, and shipping the app without its data would be shipping nothing.
-preDeployCommand = '/bin/sh -c "dotnet GymOS.API.dll --migrate && dotnet GymOS.API.dll --seed"'
+# `--pilot` selects the seed profile that gives EVERY member a login (10 members and 2 trainers per
+# branch — see SeedProfile and the README). The deployed instance is the one a person signs into by
+# hand, and the 300-member sales profile links only two of its members to an account, so on this
+# environment it is the wrong shape: most of the product cannot be reached from it at all.
+#
+# Changing this flag does NOT reshape the live database. The seeder still no-ops while a tenant
+# exists, so the profile only decides what gets built the next time this points at an EMPTY database.
+# Drop `--pilot` to go back to the sales dataset — and note that switching either way needs the
+# database emptied first, which is a deliberate, manual act.
+preDeployCommand = '/bin/sh -c "dotnet GymOS.API.dll --migrate && dotnet GymOS.API.dll --seed --pilot"'
 
 # Railway probes this before routing traffic. The check verifies the database connection, so a
 # container that starts but cannot reach Postgres is never marked healthy.
