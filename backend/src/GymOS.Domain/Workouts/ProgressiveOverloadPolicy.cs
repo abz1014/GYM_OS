@@ -57,6 +57,29 @@ public static class ProgressiveOverloadPolicy
         return OverloadSuggestion.ReadyToIncreaseWeight;
     }
 
+    /// <summary>
+    /// How much a verdict deserves to be the ONE thing a member is told, lowest first.
+    ///
+    /// The member screen shows a single headline suggestion, so something has to choose it, and
+    /// choosing by recency — which is how the list was ordered — surfaces whatever they trained last
+    /// rather than whatever is worth doing. That is a coaching judgement, so it lives here beside the
+    /// rule that produces the verdicts rather than in a component.
+    ///
+    /// ReadyToIncreaseWeight leads because it is the only verdict that names a specific action with a
+    /// number attached: add 2.5% to a stalled lift. ConsiderDeload matters but is a caution rather
+    /// than a plan, and it is the noisiest of the four — <see cref="Evaluate"/> raises it on ANY drop
+    /// between two sessions, which ordinary day-to-day variation produces constantly. Leading with it
+    /// would tell a healthy member to back off most weeks, and would contradict a recovery panel
+    /// saying they are fresh. Progressing is reassurance, and InsufficientData has nothing to say.
+    /// </summary>
+    public static int LeadPriority(OverloadSuggestion suggestion) => suggestion switch
+    {
+        OverloadSuggestion.ReadyToIncreaseWeight => 0,
+        OverloadSuggestion.ConsiderDeload => 1,
+        OverloadSuggestion.Progressing => 2,
+        _ => 3
+    };
+
     /// <summary>Rounded to the nearest 0.5 kg — matches how gym plates/dumbbells actually increment.</summary>
     public static decimal SuggestedNextWeightKg(decimal currentWeightKg)
         => Math.Round(currentWeightKg * (1 + SuggestedIncreaseFraction) * 2, MidpointRounding.AwayFromZero) / 2;

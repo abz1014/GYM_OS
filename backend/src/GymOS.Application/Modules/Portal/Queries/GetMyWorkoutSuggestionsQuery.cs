@@ -76,6 +76,12 @@ public class GetMyWorkoutSuggestionsQueryHandler(IApplicationDbContext db, ICurr
                 last.MaxWeightKg > 0 ? last.MaxWeightKg : null, last.TotalReps, suggestedNextWeight, last.LoggedAt));
         }
 
-        return results.OrderByDescending(r => r.LastLoggedAt).ToList();
+        // Most useful first, then most recent within a verdict. Recency alone put whatever the member
+        // trained last at the top, which is fine for a list of six and wrong for a screen that shows
+        // one — the headline would be an arbitrary exercise rather than the one worth acting on.
+        return results
+            .OrderBy(r => ProgressiveOverloadPolicy.LeadPriority(r.Suggestion))
+            .ThenByDescending(r => r.LastLoggedAt)
+            .ToList();
     }
 }

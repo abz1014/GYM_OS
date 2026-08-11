@@ -6,16 +6,83 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LogRecoveryDialog, RecoveryLoggedToday } from '@/modules/portal/components/LogRecoveryDialog'
-import { MasteryBar, MemberEmptyState, MemberLoadError, RECOMMENDATION_STYLE, RECOVERY_STYLE, SUGGESTION_CONFIG, SectionCard, dateFormat } from '@/modules/portal/components/portalShared'
+import { MemberEmptyState, MemberLoadError, RECOMMENDATION_STYLE, RECOVERY_STYLE, SUGGESTION_CONFIG, SectionCard, dateFormat } from '@/modules/portal/components/portalShared'
 import {
-  useMyMastery,
   useMyRecommendations,
   useMyRecovery,
   useMyWorkoutAssignments,
   useMyWorkoutLogs,
   useMyWorkoutSuggestions,
-  type GroupMastery,
+  type MyExerciseSuggestion,
 } from '@/modules/portal/api/portalApi'
+
+/**
+ * The last performance, said in a way that is true of the exercise it describes.
+ *
+ * The list this replaces printed "Last: — kg x 33 reps" for a plank and "best 0kg" for a push-up,
+ * because it ran every exercise through a template that assumes external weight. A dash and a zero
+ * are not the same claim as "this is a bodyweight movement", and both read as broken data.
+ *
+ * Reps are a TOTAL across the session's sets, which the old wording also hid: "60 reps" of tricep
+ * pushdown reads as one absurd set unless it says so.
+ */
+function lastPerformance(s: MyExerciseSuggestion) {
+  const reps = `${s.lastTotalReps} reps total`
+  return s.lastWeightKg === null ? `Bodyweight · ${reps}` : `${s.lastWeightKg} kg · ${reps}`
+}
+
+/**
+ * One suggestion, with the rest reachable.
+ *
+ * Six equally-weighted suggestions is a menu, and a menu is work: the member has to read all of them
+ * and decide which matters before they can act. The server now returns them worst-first by
+ * ProgressiveOverloadPolicy.LeadPriority, so the first is the one worth doing something about and the
+ * others are context rather than competition.
+ *
+ * The remainder stay on the page behind a disclosure instead of being deleted — they are real, and a
+ * member mid-session may well want them. They just should not shout.
+ */
+function SuggestionList({ suggestions }: { suggestions: MyExerciseSuggestion[] }) {
+  const [lead, ...rest] = suggestions
+  const config = SUGGESTION_CONFIG[lead.suggestion]
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-panel border border-border bg-muted/30 p-4">
+        <Badge variant={config.variant}>{config.label}</Badge>
+        <p className="mt-2 text-lg font-semibold tracking-tight">{lead.exerciseName}</p>
+        <p className="text-sm text-muted-foreground">Last time: {lastPerformance(lead)}</p>
+        {lead.suggestedNextWeightKg && (
+          <p className="mt-1 text-sm font-medium text-primary">Try {lead.suggestedNextWeightKg} kg today</p>
+        )}
+      </div>
+
+      {rest.length > 0 && (
+        <details className="group">
+          <summary className="cursor-pointer list-none text-sm text-muted-foreground hover:text-foreground">
+            {rest.length} other exercise{rest.length === 1 ? '' : 's'} with a suggestion
+            <span className="ml-1 inline-block transition-transform duration-(--duration-micro) group-open:rotate-90">
+              ›
+            </span>
+          </summary>
+          <ul className="mt-2 space-y-2">
+            {rest.map((s) => (
+              <li key={s.exerciseId} className="flex items-start justify-between gap-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{s.exerciseName}</p>
+                  <p className="text-xs text-muted-foreground">{lastPerformance(s)}</p>
+                </div>
+                <Badge variant={SUGGESTION_CONFIG[s.suggestion].variant} className="shrink-0">
+                  {SUGGESTION_CONFIG[s.suggestion].label}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  )
+}
 
 /**
  * "How should I train, and how did I train?" — the coaching half of the member portal: recovery
@@ -26,7 +93,6 @@ export default function MyTrainingPage() {
   const recovery = useMyRecovery()
   const recommendations = useMyRecommendations()
   const suggestions = useMyWorkoutSuggestions()
-  const mastery = useMyMastery()
   const assignments = useMyWorkoutAssignments()
   const workouts = useMyWorkoutLogs()
 
@@ -139,7 +205,7 @@ export default function MyTrainingPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Workout Suggestions</CardTitle>
+            <CardTitle className="text-base">What to train today</CardTitle>
           </CardHeader>
           <CardContent>
             {/*
@@ -158,75 +224,12 @@ export default function MyTrainingPage() {
                 isRetrying={suggestions.isFetching}
               />
             ) : suggestions.data && suggestions.data.length > 0 ? (
-              <ul className="space-y-2.5">
-                {suggestions.data.slice(0, 6).map((s) => {
-                  const config = SUGGESTION_CONFIG[s.suggestion]
-                  return (
-                    <li key={s.exerciseId} className="flex items-start justify-between gap-2 text-sm">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{s.exerciseName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Last: {s.lastWeightKg ?? '—'} kg × {s.lastTotalReps} reps
-                          {s.suggestedNextWeightKg ? ` → try ${s.suggestedNextWeightKg} kg` : ''}
-                        </p>
-                      </div>
-                      <Badge variant={config.variant} className="shrink-0">
-                        {config.label}
-                      </Badge>
-                    </li>
-                  )
-                })}
-              </ul>
+              <SuggestionList suggestions={suggestions.data} />
             ) : (
               <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
                 <Dumbbell className="size-6" />
                 Log a couple of sessions to start getting suggestions.
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Dumbbell className="size-4" />
-              Mastery
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/*
-              Mastery is computed from the same sessions the member can see listed two cards down, so
-              a failed fetch put "Train an exercise to build mastery." directly beside the evidence
-              that they have. That line is only true of someone who has never trained.
-            */}
-            {mastery.isError ? (
-              <MemberLoadError
-                title="We couldn't load your mastery"
-                onRetry={() => void mastery.refetch()}
-                isRetrying={mastery.isFetching}
-              />
-            ) : mastery.data && mastery.data.exercises.length > 0 ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Muscle groups</p>
-                  {mastery.data.muscleGroups.map((g: GroupMastery) => (
-                    <MasteryBar key={g.name} label={g.name} percent={g.masteryPercent} />
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Top exercises</p>
-                  {mastery.data.exercises.slice(0, 5).map((e) => (
-                    <MasteryBar
-                      key={e.exerciseId}
-                      label={e.exerciseName}
-                      percent={e.masteryPercent}
-                      hint={`${e.sessions} session${e.sessions === 1 ? '' : 's'} · best ${e.bestWeightKg}kg`}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="py-6 text-center text-sm text-muted-foreground">Train an exercise to build mastery.</p>
             )}
           </CardContent>
         </Card>
