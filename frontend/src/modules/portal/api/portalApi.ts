@@ -252,6 +252,14 @@ export type RankTier =
 
 /** Named standing on the ladder. `peak` never falls; `current` drops with absence and returns on the
     first session back. They are equal for anyone who trained in the last fortnight. */
+/** One rung reached, and when. `seen` is false until the member has actually been shown it. */
+export interface MyRankPromotion {
+  id: string
+  tier: RankTier
+  achievedAt: string
+  seen: boolean
+}
+
 export interface MyRank {
   peak: RankTier
   current: RankTier
@@ -262,6 +270,25 @@ export interface MyRank {
   xpToNextTier: number
   /** Days until absence costs another rung; null inside the grace period or before a first session. */
   daysUntilNextDemotion: number | null
+  /** Every rung reached, highest first. */
+  promotions: MyRankPromotion[]
+  /** The highest rung not yet shown, or null. Drives the celebration. */
+  unseen: MyRankPromotion | null
+}
+
+/**
+ * Marks a rank-up as shown. Invalidates experience so the celebration disappears from the next read
+ * rather than being hidden by local state that a refresh would forget.
+ */
+export function useAcknowledgeRankPromotion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (promotionId: string) =>
+      (await apiClient.post(`/api/me/rank/promotions/${promotionId}/seen`)).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portal', 'experience'] })
+    },
+  })
 }
 
 export interface MyExperience {

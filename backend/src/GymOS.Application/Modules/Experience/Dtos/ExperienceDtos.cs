@@ -35,7 +35,13 @@ public record MyRankDto(
     long XpIntoTier,
     long TierSpan,
     long XpToNextTier,
-    int? DaysUntilNextDemotion);
+    int? DaysUntilNextDemotion,
+    IReadOnlyList<MyRankPromotionDto> Promotions,
+    MyRankPromotionDto? Unseen);
+
+/// <summary>One rung reached, and when. Kept so a member can look back at the climb rather than
+/// catching a banner once and never seeing it again.</summary>
+public record MyRankPromotionDto(Guid Id, string Tier, DateTimeOffset AchievedAt, bool Seen);
 
 public record MyXpEntryDto(int Amount, string Reason, DateTimeOffset OccurredAt);
 

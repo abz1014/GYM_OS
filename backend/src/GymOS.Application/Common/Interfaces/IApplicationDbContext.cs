@@ -189,6 +189,9 @@ public interface IApplicationDbContext
 
     DbSet<MemberAchievement> MemberAchievements { get; }
 
+    /// <summary>Append-only record of every rung a member has reached; unique per (member, tier).</summary>
+    DbSet<RankPromotion> RankPromotions { get; }
+
     DbSet<RecoveryLog> RecoveryLogs { get; }
 
     DbSet<SkillTree> SkillTrees { get; }

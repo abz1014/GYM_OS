@@ -78,6 +78,30 @@ public class GetMyExperienceQueryHandler(
             daysUntilNextDemotion = RankPolicy.DaysPerTierLost - (beyondGrace % RankPolicy.DaysPerTierLost);
         }
 
+        /*
+         * The climb, and whether the top of it has been shown yet.
+         *
+         * Unseen is the HIGHEST unseen rung, not the oldest and not a list. A member who earned two
+         * rungs from one challenge should be congratulated on where they arrived, not walked through
+         * an interstitial per rung — and the ones below it are still in Promotions, so nothing is
+         * hidden, it simply is not queued up as a sequence of interruptions.
+         */
+        var promotionRows = await db.RankPromotions.AsNoTracking()
+            .Where(r => r.MemberId == memberId)
+            .Select(r => new { r.Id, r.Tier, r.AchievedAt, r.Seen })
+            .ToListAsync(cancellationToken);
+
+        var promotions = promotionRows
+            .OrderByDescending(r => r.Tier)
+            .Select(r => new MyRankPromotionDto(r.Id, r.Tier.ToString(), r.AchievedAt, r.Seen))
+            .ToList();
+
+        var unseen = promotionRows
+            .Where(r => !r.Seen)
+            .OrderByDescending(r => r.Tier)
+            .Select(r => new MyRankPromotionDto(r.Id, r.Tier.ToString(), r.AchievedAt, r.Seen))
+            .FirstOrDefault();
+
         var rank = new MyRankDto(
             standing.Peak.ToString(),
             standing.Current.ToString(),
@@ -86,7 +110,9 @@ public class GetMyExperienceQueryHandler(
             intoTier,
             tierSpan,
             nextTier is null ? 0 : Math.Max(0, RankPolicy.XpRequiredFor(nextTier.Value) - totalXp),
-            daysUntilNextDemotion);
+            daysUntilNextDemotion,
+            promotions,
+            unseen);
 
         return new MyExperienceDto(level, totalXp, xpIntoLevel, xpForNextLevel, recent, rank);
     }

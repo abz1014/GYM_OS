@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Clock, Lock, TrendingUp, Trophy } from 'lucide-react'
+import { Check, Clock, Lock, TrendingUp, Trophy } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -7,7 +7,15 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { CountUp } from '@/shared/components/uplift'
 import { MemberLoadError } from '@/modules/portal/components/portalShared'
-import { useMyExperience, type MyRank, type RankTier } from '@/modules/portal/api/portalApi'
+import { RankUpCelebration } from '@/modules/portal/components/RankUpCelebration'
+import {
+  useAcknowledgeRankPromotion,
+  useMyExperience,
+  type MyRank,
+  type RankTier,
+} from '@/modules/portal/api/portalApi'
+
+const promotionDate = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
 /**
  * The ladder, in the order RankPolicy defines it. Kept as a plain list rather than derived from the
@@ -196,6 +204,42 @@ function Ladder({ rank, totalXp }: { rank: MyRank; totalXp: number }) {
 }
 
 /**
+ * The climb, kept.
+ *
+ * The point of recording promotions rather than flashing them: a member can come back months later
+ * and see the dates they crossed each rung. A celebration you cannot revisit is a celebration that,
+ * for anyone who had the app closed when it fired, never happened at all.
+ */
+function PromotionHistory({ rank }: { rank: MyRank }) {
+  if (rank.promotions.length === 0) {
+    return null
+  }
+
+  return (
+    <Card className="rounded-3xl edge-light">
+      <CardContent className="py-4">
+        <p className="mb-3 text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+          Your climb
+        </p>
+        <ul className="space-y-2">
+          {rank.promotions.map((p) => (
+            <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex min-w-0 items-center gap-2">
+                <Check className={cn('size-4 shrink-0', TIER_STYLE[p.tier])} />
+                <span className={cn('truncate font-medium', TIER_STYLE[p.tier])}>{p.tier}</span>
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {promotionDate.format(new Date(p.achievedAt))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
  * "Where do I stand?" — the member's status home.
  *
  * It replaced My Progress in the tab bar rather than joining it, because the bar carries four flat
@@ -205,9 +249,20 @@ function Ladder({ rank, totalXp }: { rank: MyRank; totalXp: number }) {
  */
 export default function MyRankPage() {
   const experience = useMyExperience()
+  const acknowledge = useAcknowledgeRankPromotion()
+  const unseen = experience.data?.rank.unseen ?? null
 
   return (
     <div className="space-y-4">
+      {/* Server-owned, not local state: the promotion row carries `seen`, so closing the app before
+          dismissing means the celebration is still waiting next time rather than silently spent. */}
+      {unseen && (
+        <RankUpCelebration
+          promotion={unseen}
+          onDismiss={() => acknowledge.mutate(unseen.id)}
+        />
+      )}
+
       <div>
         <h1 className="font-display text-2xl font-black tracking-tight">Rank</h1>
         <p className="text-sm text-muted-foreground">What you have reached, and what is next.</p>
@@ -243,6 +298,8 @@ export default function MyRankPage() {
           )}
 
           <Ladder rank={experience.data.rank} totalXp={experience.data.totalXp} />
+
+          <PromotionHistory rank={experience.data.rank} />
 
           <Button asChild variant="outline" className="w-full">
             <Link to="/my-progress">

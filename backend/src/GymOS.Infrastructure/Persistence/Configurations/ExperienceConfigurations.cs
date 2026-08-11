@@ -98,3 +98,19 @@ public class ChallengeParticipantConfiguration : IEntityTypeConfiguration<Challe
         builder.HasIndex(p => new { p.ChallengeId, p.MemberId }).IsUnique();
     }
 }
+
+public class RankPromotionConfiguration : IEntityTypeConfiguration<RankPromotion>
+{
+    public void Configure(EntityTypeBuilder<RankPromotion> builder)
+    {
+        // The idempotency guarantee, enforced by the database rather than by a check-then-insert in
+        // the handler. A tier is reached exactly once in a member's life because PeakXp ratchets, so
+        // the handler can run on every XP award and simply insert what is missing — two concurrent
+        // awards racing to record the same promotion collide here instead of double-celebrating.
+        builder.HasIndex(r => new { r.MemberId, r.Tier }).IsUnique();
+
+        // The unseen queue is read on every portal load; this keeps it off a table scan as the record
+        // grows with every member's whole history.
+        builder.HasIndex(r => new { r.MemberId, r.Seen });
+    }
+}

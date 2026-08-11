@@ -272,6 +272,16 @@ public class PortalController(ISender mediator) : ControllerBase
     public async Task<ActionResult<Guid>> LogRecovery(LogMyRecoveryCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
 
+    // Dismisses a rank-up once the member has actually been shown it. A POST rather than a GET side
+    // effect, because it changes what the app will say to them next.
+    [HttpPost("rank/promotions/{id:guid}/seen")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> AcknowledgeRankPromotion(Guid id, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new AcknowledgeRankPromotionCommand(id), cancellationToken);
+        return NoContent();
+    }
+
     // Recommendations: plateau/focus/volume/recovery/skill-tree nudges, each always explained.
     [HttpGet("recommendations")]
     [RequirePermission(PermissionCodes.Portal.View)]

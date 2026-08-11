@@ -147,6 +147,8 @@ public class GymOsDbContext(
     public DbSet<PersonalRecord> PersonalRecords => Set<PersonalRecord>();
     public DbSet<ExerciseMastery> ExerciseMasteries => Set<ExerciseMastery>();
     public DbSet<MemberAchievement> MemberAchievements => Set<MemberAchievement>();
+
+    public DbSet<RankPromotion> RankPromotions => Set<RankPromotion>();
     public DbSet<RecoveryLog> RecoveryLogs => Set<RecoveryLog>();
     public DbSet<SkillTree> SkillTrees => Set<SkillTree>();
     public DbSet<SkillNode> SkillNodes => Set<SkillNode>();
