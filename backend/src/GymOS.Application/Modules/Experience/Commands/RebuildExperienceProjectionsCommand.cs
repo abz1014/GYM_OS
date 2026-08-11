@@ -73,7 +73,10 @@ public class RebuildExperienceProjectionsCommandHandler(
                 db.MemberProgressions.Add(progression);
             }
 
-            progression.SetTotalXp(totalXp);
+            // RebuildTo, not SetTotalXp: this is the one caller permitted to lower a level. SetTotalXp
+            // ratchets the peak so an undo can never demote anybody, and that same ratchet would make
+            // an INFLATED projection permanent — the drift would survive the tool built to repair it.
+            progression.RebuildTo(totalXp);
             progression.UpdatedAt = now;
             progressionsRebuilt++;
         }

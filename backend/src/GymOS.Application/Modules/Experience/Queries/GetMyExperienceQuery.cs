@@ -24,9 +24,12 @@ public class GetMyExperienceQueryHandler(IApplicationDbContext db, ICurrentUserS
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
 
+        // PeakXp, not TotalXp. The two differ only after an undo, and this is the member-facing
+        // number: a mis-tap corrected within the undo window must not visibly cost someone a level
+        // they had already reached. TotalXp remains the ledger's honest sum for anything auditing it.
         var totalXp = await db.MemberProgressions.AsNoTracking()
             .Where(p => p.MemberId == memberId)
-            .Select(p => (long?)p.TotalXp)
+            .Select(p => (long?)p.PeakXp)
             .FirstOrDefaultAsync(cancellationToken) ?? 0L;
 
         var (level, xpIntoLevel, xpForNextLevel) = XpPolicy.LevelForXp(totalXp);
