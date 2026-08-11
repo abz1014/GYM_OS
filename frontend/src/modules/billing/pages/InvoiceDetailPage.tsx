@@ -10,6 +10,7 @@ import { useInvoice } from '@/modules/billing/api/billingApi'
 import { IssueRefundDialog } from '@/modules/billing/components/IssueRefundDialog'
 import { RecordPaymentDialog } from '@/modules/billing/components/RecordPaymentDialog'
 import { isStale } from '@/shared/lib/queryTrust'
+import { useAuthStore } from '@/stores/authStore'
 
 const currency = (amount: number, code: string) => amount.toLocaleString('en-US', { style: 'currency', currency: code })
 
@@ -30,6 +31,12 @@ const COLUMN_HEAD = 'text-[10px] font-bold tracking-[0.13em] text-muted-foregrou
  * before any table is read, and the totals stack ends in the one line somebody opened the page for.
  */
 export default function InvoiceDetailPage() {
+  // Reading an invoice and acting on one are different grants. Each control below is gated on the
+  // permission its own endpoint enforces, so this screen never offers a button that can only 403.
+  const hasPermission = useAuthStore((s) => s.hasPermission)
+  const canRecordPayment = hasPermission('billing.record_payment')
+  const canIssueRefund = hasPermission('billing.issue_refund')
+
   const { id } = useParams<{ id: string }>()
   const invoiceQuery = useInvoice(id)
   const invoice = invoiceQuery.data
@@ -91,6 +98,7 @@ export default function InvoiceDetailPage() {
           </span>
         }
         actions={
+          canRecordPayment &&
           invoice.amountOutstanding > 0 && (
             <RecordPaymentDialog invoiceId={invoice.id} amountOutstanding={invoice.amountOutstanding} />
           )
@@ -191,7 +199,11 @@ export default function InvoiceDetailPage() {
                     <Badge variant="outline">{p.status}</Badge>
                   </TableCell>
                   <TableCell>
-                    {p.status === 'Completed' && (
+                    {/* A Receptionist holds billing.view, create_invoice and record_payment but
+                        NOT issue_refund — reaching this screen is normal for them, refunding is not.
+                        Absent rather than present-and-403, which is the difference between a role
+                        boundary and a broken button. */}
+                    {canIssueRefund && p.status === 'Completed' && (
                       <IssueRefundDialog invoiceId={invoice.id} paymentId={p.id} maxAmount={p.amount} />
                     )}
                   </TableCell>

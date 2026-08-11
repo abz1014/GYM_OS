@@ -10,6 +10,7 @@ import { FrontDeskRail } from '@/modules/attendance/components/FrontDeskRail'
 import { kioskTimeFormat } from '@/modules/attendance/components/frontDeskFormat'
 import { MemberDetailPanel } from '@/modules/members/components/MemberDetailPanel'
 import { Bloom, GrainOverlay } from '@/shared/components/uplift'
+import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 
 interface Branch {
@@ -60,7 +61,16 @@ function useKioskClock(): Date {
 export default function AttendancePage() {
   const branchId = useUiStore((s) => s.selectedBranchId)
   const now = useKioskClock()
-  const [view, setView] = useState<'checkin' | 'history'>('checkin')
+
+  /*
+   * This screen is reached on attendance.view, which is a READING grant — a Trainer holds it to see
+   * whether their clients have been in, and does not hold attendance.check_in. Without this the
+   * kiosk opened for them anyway: a scan field, a resolved member, and a check-in that 403s at the
+   * counter. They keep the half they are entitled to (History) and are never shown the half they
+   * are not, rather than being handed a till they have no key for.
+   */
+  const canCheckIn = useAuthStore((s) => s.hasPermission)('attendance.check_in')
+  const [view, setView] = useState<'checkin' | 'history'>(canCheckIn ? 'checkin' : 'history')
 
   /*
    * The member the kiosk has resolved. While one is on screen, the right rail stops being ambient
@@ -105,7 +115,9 @@ export default function AttendancePage() {
         )}
 
         <div className="ml-auto flex items-center gap-4">
-          <div className="flex rounded-xl border border-border p-1">
+          {/* One view and no toggle when only one is permitted — a two-button switch with a dead
+              half is worse than no switch. */}
+          <div className={cn('flex rounded-xl border border-border p-1', !canCheckIn && 'hidden')}>
             {(
               [
                 ['checkin', 'Check in'],

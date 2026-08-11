@@ -9,6 +9,7 @@ import { FilterTabs, ListEmpty, ListError, ListSkeleton, PageHeader, SEVERITY_RO
 import { useInvoicesList, type InvoiceStatus } from '@/modules/billing/api/billingApi'
 import { CreateInvoiceDialog } from '@/modules/billing/components/CreateInvoiceDialog'
 import { isStale } from '@/shared/lib/queryTrust'
+import { useAuthStore } from '@/stores/authStore'
 
 const STATUS_VARIANT: Record<InvoiceStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   Draft: 'outline',
@@ -65,6 +66,7 @@ const OVERDUE_ROW = SEVERITY_ROW.destructive
  * seven extra requests, or summing the visible page — are worse than the absence.
  */
 export default function InvoicesListPage() {
+  const canCreateInvoice = useAuthStore((s) => s.hasPermission)('billing.create_invoice')
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<InvoiceStatus | 'all'>('all')
@@ -96,7 +98,7 @@ export default function InvoicesListPage() {
       <PageHeader
         title="Billing"
         description={data ? `${data.totalCount.toLocaleString()} invoices` : undefined}
-        actions={<CreateInvoiceDialog />}
+        actions={canCreateInvoice ? <CreateInvoiceDialog /> : undefined}
       />
 
       {/*
