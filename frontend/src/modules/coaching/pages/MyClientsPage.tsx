@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
+import { ClientContextBar } from '@/modules/coaching/components/ClientContextBar'
 import { useCoachingHub } from '@/shared/hooks/useCoachingHub'
 import { SessionChip, SessionPicker, toAttachable } from '@/shared/components/coaching/SessionAttachment'
 import { useMemberWorkoutLogs } from '@/modules/workouts/api/workoutsApi'
@@ -150,6 +151,9 @@ function Thread({ memberId }: { memberId: string }) {
             This pairing has ended. You can read the history but not send anything new.
           </p>
         )}
+        {/* Why to write, above what was written. Everything it shows already existed behind
+            endpoints this page never called — see ClientContextBar. */}
+        <ClientContextBar memberId={memberId} />
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
