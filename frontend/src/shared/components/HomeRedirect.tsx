@@ -7,5 +7,6 @@ import { resolveLandingRoute } from '@/shared/nav/landingRoute'
  * a hardcoded /dashboard that 403s for roles (e.g. Member) that don't hold dashboard.view. */
 export function HomeRedirect() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
-  return <Navigate to={resolveLandingRoute(hasPermission)} replace />
+  const roles = useAuthStore((s) => s.user?.roles)
+  return <Navigate to={resolveLandingRoute(hasPermission, roles ?? [])} replace />
 }

@@ -67,7 +67,7 @@ export default function LoginPage() {
         onSuccess: (data) => {
           setSession(data)
           toast.success(`Welcome back, ${data.user.firstName}`)
-          navigate(resolveLandingRoute((code) => data.user.permissions.includes(code)))
+          navigate(resolveLandingRoute((code) => data.user.permissions.includes(code), data.user.roles))
         },
         onError: (error) => {
           const problem = (error as AxiosError<{ title?: string }>).response?.data
