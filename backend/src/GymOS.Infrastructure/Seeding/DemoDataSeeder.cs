@@ -97,6 +97,9 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         await SeedMemberActivityAsync(tenant.Id, members, curatedMember?.Id, cancellationToken);
         // Must run after both libraries above — it looks up exercises/food items by name.
         await SeedDemoMemberIntelligenceDataAsync(demoUsers, cancellationToken);
+        // Must run after the food library — gives the Nutritionist login a real roster to open on,
+        // which is derived from plan authorship and would otherwise be empty for every user.
+        await SeedNutritionCaseloadAsync(tenant.Id, members, demoUsers, cancellationToken);
         // Must run after the intelligence data above — its "already in progress" participant counts
         // the demo member's just-seeded workout history.
         await SeedCommunityChallengesAsync(demoUsers, cancellationToken);

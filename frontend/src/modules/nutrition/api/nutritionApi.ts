@@ -75,6 +75,35 @@ export interface WaterLog {
   loggedAt: string
 }
 
+export interface NutritionClientRow {
+  memberId: string
+  memberName: string
+  memberCode: string
+  planName: string
+  startDate: string
+  endDate: string | null
+  /** False once the plan's end date has passed — the row stays, because the member has not. */
+  planIsActive: boolean
+  lastMealLoggedAt: string | null
+  mealsLoggedLast7Days: number
+}
+
+export interface MyNutritionClients {
+  clients: NutritionClientRow[]
+  activeMembersWithoutAPlan: number
+}
+
+/**
+ * Who this nutritionist is responsible for, derived from the plans they wrote. The trainer has had a
+ * roster since the coaching inbox landed; this is the same idea for the other specialist.
+ */
+export function useMyNutritionClients() {
+  return useQuery({
+    queryKey: ['nutrition-my-clients'],
+    queryFn: async () => (await apiClient.get<MyNutritionClients>('/api/nutrition/my-clients')).data,
+  })
+}
+
 export function useMemberDietPlans(memberId: string | undefined) {
   return useQuery({
     queryKey: ['diet-plans', memberId],
@@ -106,7 +135,11 @@ export function useCreateDietPlan() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: CreateDietPlanInput) => (await apiClient.post<string>('/api/nutrition/diet-plans', input)).data,
-    onSuccess: (_, variables) => queryClient.invalidateQueries({ queryKey: ['diet-plans', variables.memberId] }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['diet-plans', variables.memberId] })
+      // Writing a plan is what puts a member on the roster, so the roster is now wrong.
+      queryClient.invalidateQueries({ queryKey: ['nutrition-my-clients'] })
+    },
   })
 }
 

@@ -1,6 +1,7 @@
 using GymOS.Domain.Attendance;
 using GymOS.Domain.Experience;
 using GymOS.Domain.Identity;
+using GymOS.Domain.Members;
 using GymOS.Domain.Nutrition;
 using GymOS.Domain.Trainers;
 using GymOS.Domain.Workouts;
@@ -208,6 +209,10 @@ public partial class DemoDataSeeder
         {
             TenantId = member.TenantId,
             MemberId = member.Id,
+            // Authored, not anonymous. CreatedByUserId is what the nutritionist's roster is derived
+            // from, so a plan with no author belongs to nobody and the specialist who is supposed to
+            // be looking after this member never sees them.
+            CreatedByUserId = demoUsers[RoleNames.Nutritionist].Id,
             Name = "Lean Muscle Plan",
             TargetCalories = 2400m,
             TargetProteinG = 180m,
@@ -272,6 +277,109 @@ public partial class DemoDataSeeder
         // rules the moment either side changes, and they were already colliding with the computed rows
         // on the one-row-per-member-per-exercise index. What the demo shows is now what the engine
         // actually calculated.
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The nutritionist's caseload.
+    ///
+    /// Their roster is derived from the plans they authored (GetMyNutritionClientsQuery), which means
+    /// an unattributed seed leaves the specialist looking at an empty screen and the demo unable to
+    /// show the one workflow that module is for. Every other role's work is seeded; this is the same
+    /// courtesy.
+    ///
+    /// The shape matters as much as the volume. A roster where every row is healthy shows nothing,
+    /// so the seed deliberately includes the two states the screen was built to surface: a plan that
+    /// has run out, and a client who has never logged a thing against theirs.
+    ///
+    /// Must run after SeedFoodLibraryAsync — the meals reference real food items by name.
+    /// </summary>
+    private async Task SeedNutritionCaseloadAsync(
+        Guid tenantId, List<Member> members, Dictionary<string, User> demoUsers, CancellationToken cancellationToken)
+    {
+        var nutritionist = demoUsers[RoleNames.Nutritionist];
+        var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+
+        var foods = await db.FoodItems.IgnoreQueryFilters()
+            .Where(f => f.TenantId == tenantId)
+            .OrderBy(f => f.Name)
+            .ToListAsync(cancellationToken);
+        if (foods.Count == 0)
+        {
+            return; // Food library missing — a plan with nothing loggable against it is worse than none.
+        }
+
+        /*
+         * Only members the nutritionist can actually see.
+         *
+         * A non-leadership demo login holds one branch (SeedDemoUsersAsync), and the global branch
+         * filter drops every row outside it — so a caseload seeded across all three branches gives a
+         * nutritionist who has written seven plans a roster showing one. It looks like a broken
+         * query and is in fact correct isolation being fed the wrong data. Same trap as the
+         * cross-branch trainer assignment: writing the relationship succeeds and neither side ever
+         * sees it.
+         */
+        var visibleBranchIds = await db.UserBranchAccesses.IgnoreQueryFilters()
+            .Where(a => a.UserId == nutritionist.Id)
+            .Select(a => a.BranchId)
+            .ToListAsync(cancellationToken);
+
+        // Active members only, and skipping the demo member, who already holds a plan from the block
+        // above. Taken from the front of the list rather than at random so the caseload is the same
+        // on every seed and a demo script can name a client.
+        var candidates = members
+            .Where(m => m.Status == MemberStatus.Active && m.UserId is null && visibleBranchIds.Contains(m.BranchId))
+            .Take(7)
+            .ToList();
+
+        // (plan name, days since it started, days until it ends or null for open-ended, meals logged
+        // in the last week). The two ended plans and the two silent clients are the point.
+        var caseload = new (string Name, int StartedDaysAgo, int? EndsInDays, int MealsThisWeek)[]
+        {
+            ("Cutting Phase — 12 week", 40, 44, 5),
+            ("High Protein Rebuild", 25, 65, 3),
+            ("Marathon Fuelling", 60, 30, 0),
+            ("Post-Injury Recovery Plan", 120, -14, 0),
+            ("Weight Loss — Phase 1", 200, -60, 2),
+            ("Vegetarian Macro Split", 10, null, 4),
+            ("Pre-Competition Peak", 5, 51, 1),
+        };
+
+        for (var i = 0; i < candidates.Count && i < caseload.Length; i++)
+        {
+            var member = candidates[i];
+            var (name, startedDaysAgo, endsInDays, mealsThisWeek) = caseload[i];
+
+            var plan = new DietPlan
+            {
+                TenantId = tenantId,
+                MemberId = member.Id,
+                CreatedByUserId = nutritionist.Id,
+                Name = name,
+                TargetCalories = 1800m + i * 150m,
+                TargetProteinG = 120m + i * 10m,
+                StartDate = today.AddDays(-startedDaysAgo),
+                EndDate = endsInDays is null ? null : today.AddDays(endsInDays.Value)
+            };
+
+            for (var m = 0; m < mealsThisWeek; m++)
+            {
+                plan.MealEntries.Add(new MealEntry
+                {
+                    TenantId = tenantId,
+                    FoodItemId = foods[(i + m) % foods.Count].Id,
+                    MealType = (MealType)(m % 4),
+                    Quantity = 1m,
+                    // Spread back across the week, never forward, and never so far back that a meal
+                    // meant to be "this week" falls outside the 7-day window the roster counts.
+                    ConsumedAt = now.AddDays(-(m % 6)).AddHours(-2)
+                });
+            }
+
+            db.DietPlans.Add(plan);
+        }
 
         await db.SaveChangesAsync(cancellationToken);
     }

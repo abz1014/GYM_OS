@@ -7,6 +7,16 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <NoWarn>CS1591</NoWarn>
+
+    <!--
+      Source files are UTF-8 and none of them carry a BOM, so without this the compiler falls back to
+      the machine's default codepage to decode them. On Windows that is CP1252 and on the Linux build
+      image it is UTF-8, which means a non-ASCII string literal produces DIFFERENT DATA on the two
+      platforms rather than a build error. Found via a seeded diet plan named "Cutting Phase — 12 week"
+      coming back from the API as "Cutting Phase â€" 12 week" locally while being correct in the
+      container. Pinning it makes the build read what is actually on disk, everywhere.
+    -->
+    <CodePage>65001</CodePage>
   </PropertyGroup>
 
 </Project>
