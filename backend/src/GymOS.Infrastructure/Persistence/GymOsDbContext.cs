@@ -226,6 +226,29 @@ public class GymOsDbContext(
 
             if (typeof(ITenantScoped).IsAssignableFrom(clrType))
             {
+                /*
+                 * FAILS CLOSED, AND DELIBERATELY UNLIKE THE BRANCH FILTER BELOW.
+                 *
+                 * With no tenant context CurrentTenantId is null, so this compares TenantId to null and
+                 * matches nothing. That is the intended behaviour, and it is worth stating because the
+                 * branch filter immediately below does the opposite — it carries an explicit flag so
+                 * that no branch context means ALL branches — and the asymmetry looks like an oversight
+                 * until you see why it isn't.
+                 *
+                 * Within a tenant, a background job legitimately works across every branch, so
+                 * fail-open is convenient and harmless there. Across tenants it is neither. A job that
+                 * forgot to scope would go from returning nothing — an obvious bug the first time
+                 * anyone runs it — to silently reading and writing every customer's data. The cheap
+                 * failure is the one worth keeping.
+                 *
+                 * Background jobs therefore do NOT get an escape hatch here. They do what every job in
+                 * BackgroundJobs/ already does: enumerate tenants and scope each pass explicitly with
+                 * IgnoreQueryFilters(), which is a visible decision at the call site rather than an
+                 * ambient default nobody reads.
+                 *
+                 * TenantIsolationTests pins both halves of this so neither can be "tidied up" into the
+                 * other.
+                 */
                 var tenantIdProperty = Expression.Property(parameter, nameof(ITenantScoped.TenantId));
                 var tenantIdAsNullable = Expression.Convert(tenantIdProperty, typeof(Guid?));
                 var currentTenantId = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));

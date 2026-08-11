@@ -55,6 +55,59 @@ public class TenantIsolationTests : ApplicationTestBase
         visibleMembers[0].Email.ShouldBe("bob@b.example.com");
     }
 
+    /// <summary>
+    /// The tenant filter FAILS CLOSED, and this test exists because the opposite is a tempting fix.
+    ///
+    /// With no tenant context the filter matches nothing. Someone reading GymOsDbContext will notice
+    /// the branch filter beside it doing the reverse — no branch context means every branch — and may
+    /// reasonably conclude the tenant one is missing the same escape hatch. It is not. Within a tenant,
+    /// a job working across all branches is convenient; across tenants it is a data breach. A job that
+    /// forgets to scope should return nothing and be obviously broken, not quietly read everybody.
+    ///
+    /// If this test ever fails, an escape hatch has been added and the isolation boundary is open.
+    /// </summary>
+    [Fact]
+    public async Task With_no_tenant_context_a_tenant_scoped_query_returns_nothing()
+    {
+        var (tenantA, branchA) = await SeedTenantAsync();
+        await SeedMemberAsync(tenantA.Id, branchA.Id, "alice@a.example.com");
+
+        // The system context: a background job, a seeder, an unauthenticated request.
+        CurrentUser.TenantId = null;
+        CurrentUser.IsAuthenticated = false;
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        (await db.Members.ToListAsync()).ShouldBeEmpty("no tenant context must reveal no tenant's rows");
+
+        // And the supported way through, which every job in BackgroundJobs/ already uses: opt out
+        // explicitly at the call site and scope by hand.
+        var viaExplicitOptOut = await db.Members.IgnoreQueryFilters().Where(m => m.TenantId == tenantA.Id).ToListAsync();
+        viaExplicitOptOut.ShouldHaveSingleItem();
+    }
+
+    /// <summary>
+    /// The other half of the asymmetry, pinned so the pair stays deliberate: branch scope is
+    /// fail-OPEN. A context with no accessible-branch list sees every branch, because a job running
+    /// inside one tenant has legitimate business across all of its branches.
+    /// </summary>
+    [Fact]
+    public async Task With_no_branch_context_branch_scope_does_not_hide_rows()
+    {
+        var (tenant, branch) = await SeedTenantAsync();
+        await SeedMemberAsync(tenant.Id, branch.Id, "alice@a.example.com");
+
+        CurrentUser.TenantId = tenant.Id;
+        CurrentUser.IsAuthenticated = true;
+        CurrentUser.AccessibleBranchIds = null; // null, not empty — the two must not mean the same thing
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        (await db.Members.ToListAsync()).ShouldHaveSingleItem();
+    }
+
     [Fact]
     public async Task Soft_deleted_members_are_filtered_out_but_still_physically_present()
     {
