@@ -102,6 +102,29 @@
   --success-foreground: #0B0B0C;
   --warning: #FBBF24;
   --warning-foreground: #0B0B0C;
+
+  /*
+   * Member-surface depth steps, from the My Training handoff.
+   *
+   * Named rather than scattered as literals because several of them have to AGREE across components
+   * that never see each other: --surface-rested is the body map's rested fill and the legend swatch
+   * beside it, and the design is explicit that a member reading the legend must be matching the same
+   * colour they see on the map. One constant, two consumers.
+   *
+   * These sit between --card and --background — a recessed step the semantic tokens have no name for,
+   * because "quieter than a card" is a spatial idea rather than a role. Deliberately NOT --chart-5
+   * (#57574F), which measures 2.5:1 on --card and fails AA; where a third step of hierarchy is needed
+   * the design reduces size or weight, never lightness.
+   */
+  --surface-recessed: #101012;    /* detail tiles, desktop reference rail */
+  --surface-dimmed: #0E0E10;      /* revealed rows behind the +N disclosure */
+  --surface-cell: #191A1C;        /* untrained day cell */
+  --surface-rested: #41414A;      /* body-map rested fill AND its legend swatch */
+  --border-quiet: #1E1E22;        /* borders inside recessed panels */
+  --border-chip: #26262A;         /* status chip, body-map head */
+  --border-outline: #3A3A40;      /* outline button, sheet grabber */
+  --border-ghost: #2E2E34;        /* week-one dashed map stroke */
+  --body-copy: #C9C9C2;           /* prose inside sheets */
 }
 
 @theme inline {
@@ -141,6 +164,18 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+
+  /* Member-surface depth steps — usable as bg-surface-recessed, border-border-quiet, etc., so the
+     values stay in one place instead of becoming hex literals in a dozen className strings. */
+  --color-surface-recessed: var(--surface-recessed);
+  --color-surface-dimmed: var(--surface-dimmed);
+  --color-surface-cell: var(--surface-cell);
+  --color-surface-rested: var(--surface-rested);
+  --color-border-quiet: var(--border-quiet);
+  --color-border-chip: var(--border-chip);
+  --color-border-outline: var(--border-outline);
+  --color-border-ghost: var(--border-ghost);
+  --color-body-copy: var(--body-copy);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
