@@ -36,6 +36,8 @@ public abstract class ApplicationTestBase : IDisposable
 
     protected FakeCoachingNotifier CoachingNotifier { get; }
 
+    protected FakePaymentGateway PaymentGateway { get; }
+
     protected ApplicationTestBase()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
@@ -45,6 +47,7 @@ public abstract class ApplicationTestBase : IDisposable
         DateTimeProvider = new FakeDateTimeProvider();
         DashboardNotifier = new FakeDashboardNotifier();
         CoachingNotifier = new FakeCoachingNotifier();
+        PaymentGateway = new FakePaymentGateway();
 
         var services = new ServiceCollection();
 
@@ -55,6 +58,7 @@ public abstract class ApplicationTestBase : IDisposable
         services.AddSingleton<IDateTimeProvider>(DateTimeProvider);
         services.AddSingleton<IDashboardNotifier>(DashboardNotifier);
         services.AddSingleton<ICoachingNotifier>(CoachingNotifier);
+        services.AddSingleton<IPaymentGateway>(PaymentGateway);
 
         services.AddDbContext<GymOsDbContext>(o => o.UseSqlite(_connection));
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<GymOsDbContext>());
