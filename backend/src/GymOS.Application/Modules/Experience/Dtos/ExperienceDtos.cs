@@ -63,7 +63,21 @@ public record MyRecoveryDto(
     int SessionsLast7Days,
     int RestDaysLast7Days,
     int? DaysSinceLastWorkout,
-    IReadOnlyList<MuscleRecoveryDto> MuscleGroups);
+    IReadOnlyList<MuscleRecoveryDto> MuscleGroups,
+    MyRecoveryTodayDto? Today);
+
+/// <summary>
+/// What the member logged for recovery today, or null if they have not logged one.
+///
+/// Exists because <see cref="MyRecoveryDto"/> could previously report "2 rest days / 7d" without ever
+/// saying whether one of them was TODAY — and LogMyRecoveryCommand allows only one log per day,
+/// returning the existing row for a second attempt. The screen therefore kept offering "Log recovery
+/// day" to someone who already had, and reported success each time, for a record it did not create.
+///
+/// Kind and Notes are both surfaced because both are stored and neither was ever readable: the member
+/// could write a note and never see it again.
+/// </summary>
+public record MyRecoveryTodayDto(string Kind, string? Notes);
 
 public record MuscleRecoveryDto(
     string MuscleGroup,

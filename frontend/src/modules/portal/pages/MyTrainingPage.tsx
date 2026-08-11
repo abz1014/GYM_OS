@@ -1,14 +1,13 @@
 import { Link } from 'react-router-dom'
-import { ClipboardList, Dumbbell, HeartPulse, Lightbulb, Moon, NotebookPen } from 'lucide-react'
-import { toast } from 'sonner'
+import { ClipboardList, Dumbbell, HeartPulse, Lightbulb, NotebookPen } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LogRecoveryDialog, RecoveryLoggedToday } from '@/modules/portal/components/LogRecoveryDialog'
 import { MasteryBar, MemberEmptyState, MemberLoadError, RECOMMENDATION_STYLE, RECOVERY_STYLE, SUGGESTION_CONFIG, SectionCard, dateFormat } from '@/modules/portal/components/portalShared'
 import {
-  useLogMyRecovery,
   useMyMastery,
   useMyRecommendations,
   useMyRecovery,
@@ -30,7 +29,6 @@ export default function MyTrainingPage() {
   const mastery = useMyMastery()
   const assignments = useMyWorkoutAssignments()
   const workouts = useMyWorkoutLogs()
-  const logRecovery = useLogMyRecovery()
 
   return (
     <div className="space-y-6">
@@ -60,23 +58,14 @@ export default function MyTrainingPage() {
               </CardTitle>
               <p className="text-sm text-muted-foreground">{recovery.data.reason}</p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0"
-              disabled={logRecovery.isPending}
-              onClick={() =>
-                logRecovery.mutate(
-                  { kind: 'RestDay', notes: null },
-                  { onSuccess: () => toast.success('Recovery day logged.') },
-                )
-              }
-            >
-              <Moon className="mr-1 size-4" />
-              {logRecovery.isPending ? 'Logging…' : 'Log recovery day'}
-            </Button>
+            {/* Absent, not disabled, once today is logged — the server accepts one log per day and
+                silently returns the existing row, so offering the button again invites a tap that
+                confirms success without creating anything. What was logged is shown below instead. */}
+            {!recovery.data.today && <LogRecoveryDialog />}
           </CardHeader>
           <CardContent className="space-y-3">
+            {recovery.data.today && <RecoveryLoggedToday today={recovery.data.today} />}
+
             <div className="flex flex-wrap gap-4 text-sm">
               <span>
                 <span className="font-semibold">{recovery.data.sessionsLast7Days}</span>{' '}

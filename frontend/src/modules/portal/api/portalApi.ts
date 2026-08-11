@@ -353,6 +353,12 @@ export interface MuscleRecovery {
   daysSinceLastTrained: number | null
 }
 
+/** What the member logged today, or null if they haven't. Only one log per day can exist. */
+export interface MyRecoveryToday {
+  kind: RecoveryKind
+  notes: string | null
+}
+
 export interface MyRecovery {
   status: RecoveryStatus
   reason: string
@@ -360,6 +366,9 @@ export interface MyRecovery {
   restDaysLast7Days: number
   daysSinceLastWorkout: number | null
   muscleGroups: MuscleRecovery[]
+  /** Non-null once today's recovery day is logged — the server refuses a second one, so the UI must
+      stop offering it rather than reporting success for a record it did not create. */
+  today: MyRecoveryToday | null
 }
 
 export function useMyRecovery() {

@@ -37,9 +37,20 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
                 .Where(w => w.MemberId == memberId).Select(w => w.LoggedAt).ToListAsync(cancellationToken))
             .Select(d => GymDay.Of(d, zone)).Distinct().ToList();
 
-        var restDates = (await db.RecoveryLogs.AsNoTracking()
-                .Where(r => r.MemberId == memberId).Select(r => r.LoggedOn).ToListAsync(cancellationToken))
-            .Distinct().ToList();
+        // Kind and Notes come along for the ride rather than in a second round trip: the same rows
+        // answer both "how many rest days this week" and "what did I log today", and one query that
+        // returns three columns beats two queries over the same table.
+        var recoveryRows = await db.RecoveryLogs.AsNoTracking()
+            .Where(r => r.MemberId == memberId)
+            .Select(r => new { r.LoggedOn, r.Kind, r.Notes })
+            .ToListAsync(cancellationToken);
+
+        var restDates = recoveryRows.Select(r => r.LoggedOn).Distinct().ToList();
+
+        // Only one log per day can exist — LogMyRecoveryCommand returns the existing row instead of
+        // adding a second — so this is a lookup, not a pick-the-latest.
+        var todayRow = recoveryRows.FirstOrDefault(r => r.LoggedOn == today);
+        var todayLog = todayRow is null ? null : new MyRecoveryTodayDto(todayRow.Kind.ToString(), todayRow.Notes);
 
         var sessionsLast7 = workoutDates.Count(d => d >= windowStart);
         var restLast7 = restDates.Count(d => d >= windowStart);
@@ -83,6 +94,7 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
                 .ToList();
         }
 
-        return new MyRecoveryDto(overallStatus.ToString(), overallReason, sessionsLast7, restLast7, daysSinceLastWorkout, muscleGroups);
+        return new MyRecoveryDto(
+            overallStatus.ToString(), overallReason, sessionsLast7, restLast7, daysSinceLastWorkout, muscleGroups, todayLog);
     }
 }
