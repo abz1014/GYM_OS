@@ -346,8 +346,18 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
 
   return (
     <div className="overflow-hidden rounded-3xl border border-border bg-card">
-      {/* Ink header — the one dark block on a light screen, per the redesign. */}
-      <div className="bg-sidebar p-5 text-sidebar-foreground">
+      {/*
+        Ink header — the one dark block on a light screen, per the redesign.
+
+        Except on the front desk, which is the single staff screen that runs dark, and where the
+        trick stops working: --sidebar is DEFINED as --background there (#0B0B0C both), so the ink
+        block came out the exact colour of the page behind it — 1.08 contrast against the card body,
+        an anchor doing nothing. Measured, not guessed; the pane won't screenshot in this setup.
+
+        In dark it takes the card surface and earns its edge from a rule instead, which is how a
+        header separates from a body on a dark ground anyway. Light is untouched.
+      */}
+      <div className="bg-sidebar p-5 text-sidebar-foreground dark:border-b dark:border-border dark:bg-card">
         <div className="flex items-start gap-3">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary font-display text-lg font-black text-primary-foreground">
             {initials(member.firstName, member.lastName)}
