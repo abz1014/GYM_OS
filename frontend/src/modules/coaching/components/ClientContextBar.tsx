@@ -1,4 +1,4 @@
-import { AlertTriangle, TrendingUp } from 'lucide-react'
+import { AlertTriangle, CloudOff, TrendingUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -100,9 +100,40 @@ export function ClientContextBar({ memberId }: { memberId: string }) {
     })),
   ]
 
+  /*
+   * A failed query and a member with nothing to report look identical from here — both arrive as an
+   * absent value — and the difference matters more on this bar than anywhere else in the product:
+   * NO RISK FLAG IS ITSELF A SIGNAL. A coach reading a clean context bar concludes their client is
+   * fine and moves on, so a risks call that quietly 500s doesn't withhold information, it asserts
+   * the opposite of the truth. Counted only for queries this account actually fires; a disabled one
+   * has no opinion.
+   */
+  /*
+   * Three states, not one, and isError is the least likely of them.
+   *
+   * - isError        the query failed outright with nothing cached.
+   * - isRefetchError it failed while refreshing, so what's on screen is from some earlier minute.
+   * - isPaused       React Query could not reach the network at all. This is the one that matters:
+   *                  a paused query reports status 'pending' and isError FALSE, forever, so an
+   *                  isError-only check stays quiet through the whole outage. Caught by probing the
+   *                  live query state after breaking an endpoint — the flags read
+   *                  status:'pending', fetchStatus:'paused', isError:false — and a dropped
+   *                  connection at the gym is far likelier than a 404.
+   */
+  const failed = (q: { isError: boolean; isRefetchError: boolean; isPaused: boolean }) =>
+    q.isError || q.isRefetchError || q.isPaused
+
+  const signalsFailed =
+    failed(compliance) ||
+    failed(risks) ||
+    failed(plateaus) ||
+    (canSeeVisits && failed(visits)) ||
+    (canSeeWorkouts && failed(assignments))
+
   // Nothing known yet and nothing flagged: say nothing rather than draw an empty strip. The header
   // above already carries the member's name, which is the one thing that must always be there.
-  if (facts.length === 0 && flags.length === 0) return null
+  // A failure is NOT nothing, so it survives this guard — silence is the one thing it must not be.
+  if (facts.length === 0 && flags.length === 0 && !signalsFailed) return null
 
   return (
     <div className="mt-2 space-y-1.5">
@@ -130,6 +161,13 @@ export function ClientContextBar({ memberId }: { memberId: string }) {
           {f.text}
         </p>
       ))}
+
+      {signalsFailed && (
+        <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+          <CloudOff className="mt-0.5 size-3.5 shrink-0" />
+          Some signals couldn't be loaded — treat this as incomplete, not clear.
+        </p>
+      )}
     </div>
   )
 }
