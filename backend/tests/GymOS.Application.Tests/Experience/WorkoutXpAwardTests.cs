@@ -34,27 +34,33 @@ public class WorkoutXpAwardTests : ApplicationTestBase
         {
             var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
 
+            // Two awards, not one: the workout itself (50) plus the improvement (30), because a
+            // first-ever lift on this exercise beats a prior best of 0 and therefore sets records.
+            // Both are keyed on the same WorkoutLog and separated by Reason.
             var progression = await db.MemberProgressions.SingleAsync(p => p.MemberId == ctx.MemberId);
-            progression.TotalXp.ShouldBe(XpPolicy.AwardFor(XpReason.WorkoutCompleted)); // 50
-            progression.Level.ShouldBe(1);
+            progression.TotalXp.ShouldBe(
+                XpPolicy.AwardFor(XpReason.WorkoutCompleted) + XpPolicy.AwardFor(XpReason.ProgressiveImprovement)); // 80
+            progression.Level.ShouldBe(1); // 80 is still short of the 100 that opens level 2
 
             var ledger = await db.XpTransactions.Where(t => t.MemberId == ctx.MemberId).ToListAsync();
-            ledger.ShouldHaveSingleItem();
-            ledger[0].Reason.ShouldBe(XpReason.WorkoutCompleted);
-            ledger[0].SourceType.ShouldBe(XpSourceType.WorkoutLog);
+            ledger.Count.ShouldBe(2);
+            ledger.ShouldAllBe(t => t.SourceType == XpSourceType.WorkoutLog);
+            ledger.Select(t => t.Reason).ShouldBe(
+                [XpReason.WorkoutCompleted, XpReason.ProgressiveImprovement], ignoreOrder: true);
         }
 
-        // A second, distinct workout is a distinct source, so it awards again — and 100 XP crosses
-        // into level 2 (cumulative threshold for level 2 is 100).
+        // A second, distinct workout is a distinct source, so it awards again — 62kg beats 60kg, so
+        // it improves too, and the running total of 160 crosses into level 2 (threshold 100).
         await SendAsync(new LogWorkoutCommand(ctx.MemberId, null,
             [new WorkoutLogEntryInput(ctx.ExerciseId, 3, 8, 62m)]));
 
         using var verify = CreateScope();
         var verifyDb = verify.ServiceProvider.GetRequiredService<GymOsDbContext>();
         var after = await verifyDb.MemberProgressions.SingleAsync(p => p.MemberId == ctx.MemberId);
-        after.TotalXp.ShouldBe(100);
+        after.TotalXp.ShouldBe(2 * (XpPolicy.AwardFor(XpReason.WorkoutCompleted)
+            + XpPolicy.AwardFor(XpReason.ProgressiveImprovement))); // 160
         after.Level.ShouldBe(2);
-        (await verifyDb.XpTransactions.CountAsync(t => t.MemberId == ctx.MemberId)).ShouldBe(2);
+        (await verifyDb.XpTransactions.CountAsync(t => t.MemberId == ctx.MemberId)).ShouldBe(4);
     }
 
     [Fact]

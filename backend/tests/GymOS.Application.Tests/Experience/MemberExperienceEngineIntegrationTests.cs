@@ -200,8 +200,12 @@ public class MemberExperienceEngineIntegrationTests : ApplicationTestBase
         var codes = await db.MemberAchievements.Where(a => a.MemberId == ctx.MemberId).Select(a => a.Code).ToListAsync();
         codes.ShouldBeUnique();
 
-        // The only XP delta is the third workout itself.
-        (final.TotalXp - afterCompletion.TotalXp).ShouldBe(XpPolicy.AwardFor(XpReason.WorkoutCompleted));
+        // The only XP delta is the third workout itself — which at 70kg beats the 65kg before it, so
+        // "the workout itself" is the session award plus the improvement award, and nothing else.
+        // That it is exactly this and not more is the point: the re-join and the already-completed
+        // challenge contributed nothing.
+        (final.TotalXp - afterCompletion.TotalXp).ShouldBe(
+            XpPolicy.AwardFor(XpReason.WorkoutCompleted) + XpPolicy.AwardFor(XpReason.ProgressiveImprovement));
     }
 
     private void AsMember((Guid TenantId, Guid BranchId, Guid MemberId, Guid ExerciseId, Guid MemberUserId, Guid StaffUserId, Guid ChallengeId) ctx)
