@@ -162,6 +162,9 @@ public interface IApplicationDbContext
     // Workouts (Wave 3)
     DbSet<Exercise> Exercises { get; }
 
+    /// <summary>Which muscle groups each movement works, primary and secondary. See ExerciseMuscle.</summary>
+    DbSet<ExerciseMuscle> ExerciseMuscles { get; }
+
     DbSet<WorkoutTemplate> WorkoutTemplates { get; }
 
     DbSet<WorkoutTemplateExercise> WorkoutTemplateExercises { get; }

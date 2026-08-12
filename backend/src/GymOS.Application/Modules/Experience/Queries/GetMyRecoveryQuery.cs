@@ -72,6 +72,33 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
         if (entryRows.Count > 0)
         {
             var exerciseIds = entryRows.Select(r => r.ExerciseId).Distinct().ToList();
+
+            /*
+             * EVERY group a movement works, not just the one it is filed under.
+             *
+             * This read used Exercise.MuscleGroup — one label per movement — and so believed a
+             * deadlift trained only the back. The morning after heavy deadlifts the screen told the
+             * member their legs were "fully rested — a good target for your next session", which is
+             * the app making a claim about somebody's body that their body could contradict. Same
+             * class of defect as the fabricated rep count, and more directly wrong: acting on it
+             * means training a fatigued muscle.
+             *
+             * Secondary work counts as WORK here and nowhere else. For "has this been trained
+             * recently" the honest answer for a deadlift-worked back is yes; for anything measuring
+             * HOW MUCH, counting it would need an intensity model the app does not have. See
+             * ExerciseMuscle for the full line.
+             */
+            var musclesByExercise = (await db.ExerciseMuscles.AsNoTracking()
+                    .Where(m => exerciseIds.Contains(m.ExerciseId))
+                    .Select(m => new { m.ExerciseId, m.MuscleGroupKey, m.Role })
+                    .ToListAsync(cancellationToken))
+                .GroupBy(m => m.ExerciseId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Movements with no muscle rows yet — created by a gym before this table existed, or by
+            // the create form, which writes the primary only — still report their single group, so a
+            // catalogue that has not been backfilled degrades to exactly the old behaviour rather
+            // than to silence.
             var groupByExercise = (await db.Exercises.AsNoTracking()
                     .Where(x => exerciseIds.Contains(x.Id) && x.MuscleGroup != null)
                     .Select(x => new { x.Id, x.MuscleGroup })
@@ -93,23 +120,53 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
              * The DISPLAY name is the vocabulary's too, so "Quads" and "quadriceps" both read "Legs"
              * instead of two rows for one leg.
              */
+            // One row per (group, day, role) the entry touches. A session with a squat AND a deadlift
+            // hits legs twice on one day, which is why the dates are DISTINCTed below — "times in the
+            // last 7 days" has always meant days trained, not movements performed.
             muscleGroups = entryRows
-                .Where(r => groupByExercise.ContainsKey(r.ExerciseId))
-                .Select(r => new
+                .SelectMany(r =>
                 {
-                    Group = MuscleGroupVocabulary.Resolve(groupByExercise[r.ExerciseId]),
-                    Date = GymDay.Of(r.LoggedAt, zone)
+                    var date = GymDay.Of(r.LoggedAt, zone);
+
+                    if (musclesByExercise.TryGetValue(r.ExerciseId, out var muscles))
+                    {
+                        return muscles.Select(m => new
+                        {
+                            Group = MuscleGroupVocabulary.All.FirstOrDefault(v => v.Key == m.MuscleGroupKey)
+                                    ?? MuscleGroupVocabulary.Other,
+                            Date = date,
+                            Primary = m.Role == MuscleRole.Primary
+                        });
+                    }
+
+                    return groupByExercise.TryGetValue(r.ExerciseId, out var label)
+                        ? [new { Group = MuscleGroupVocabulary.Resolve(label), Date = date, Primary = true }]
+                        : Enumerable.Empty<dynamic>().Select(_ =>
+                            new { Group = MuscleGroupVocabulary.Other, Date = date, Primary = true });
                 })
                 .GroupBy(x => x.Group)
                 .Select(g =>
                 {
                     var dates = g.Select(x => x.Date).Distinct().ToList();
                     var times7 = dates.Count(d => d >= windowStart);
-                    var daysSince = today.DayNumber - dates.Max().DayNumber;
+                    var lastDay = dates.Max();
+                    var daysSince = today.DayNumber - lastDay.DayNumber;
+
+                    /*
+                     * Whether the MOST RECENT work on this group targeted it directly.
+                     *
+                     * Scoped to the last day rather than to the member's whole history, because the
+                     * question the sentence answers is "why is this fatigued NOW". Someone who
+                     * squats every week has trained their legs directly plenty; if what actually
+                     * loaded them yesterday was a deadlift, "trained in the last day" sends them
+                     * looking for a leg session they never did.
+                     */
+                    var directly = g.Where(x => x.Date == lastDay).Any(x => x.Primary);
+
                     var (status, reason) = RecoveryPolicy.ClassifyMuscleGroup(
-                        new RecoveryPolicy.MuscleRecoverySignals(g.Key.DisplayName, times7, daysSince));
+                        new RecoveryPolicy.MuscleRecoverySignals(g.Key.DisplayName, times7, daysSince, directly));
                     return new MuscleRecoveryDto(
-                        g.Key.DisplayName, g.Key.Key, status.ToString(), reason, times7, daysSince);
+                        g.Key.DisplayName, g.Key.Key, status.ToString(), reason, times7, daysSince, directly);
                 })
                 .OrderByDescending(m => m.TimesLast7Days).ThenBy(m => m.MuscleGroup)
                 .ToList();

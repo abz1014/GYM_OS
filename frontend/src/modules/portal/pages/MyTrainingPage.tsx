@@ -842,7 +842,22 @@ export default function MyTrainingPage() {
                 <span className="flex min-w-0 items-start gap-2">
                   <span className="mt-[6px] size-[7px] shrink-0 rounded-full" style={{ background: STATUS_COLOR[m.status] }} />
                   <span className="min-w-0">
-                    <span className="block text-[15px] font-semibold">{m.muscleGroup}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-[15px] font-semibold">{m.muscleGroup}</span>
+                      {/*
+                        A group can now appear here because a compound movement worked it, not only
+                        because the member set out to train it — a deadlift reaches the legs, a run
+                        reaches them too. The status and the day counts are equally true either way,
+                        but "you trained this" and "this got worked" are different claims, and a
+                        member reading a fatigued Back should be able to see which one they are
+                        looking at without opening their own history to work it out.
+                      */}
+                      {!m.trainedDirectly && (
+                        <span className="rounded-md bg-muted px-1.5 py-px text-[10.5px] font-bold tracking-wide text-muted-foreground uppercase">
+                          Indirect
+                        </span>
+                      )}
+                    </span>
                     <span className="block text-[12.5px] text-muted-foreground">{m.reason}</span>
                   </span>
                 </span>

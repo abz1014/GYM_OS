@@ -464,6 +464,12 @@ export interface MuscleRecovery {
   reason: string
   timesLast7Days: number
   daysSinceLastTrained: number | null
+  /**
+   * False when the member has only ever worked this group in passing — a runner's legs, a back
+   * loaded only by deadlifts. The status is true either way; this is what lets the screen say
+   * "worked, not trained" instead of implying they have been training it on purpose.
+   */
+  trainedDirectly: boolean
 }
 
 /** What the member logged today, or null if they haven't. Only one log per day can exist. */

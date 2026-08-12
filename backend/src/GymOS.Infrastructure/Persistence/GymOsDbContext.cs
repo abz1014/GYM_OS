@@ -118,6 +118,7 @@ public class GymOsDbContext(
 
     // Workouts (Wave 3)
     public DbSet<Exercise> Exercises => Set<Exercise>();
+    public DbSet<ExerciseMuscle> ExerciseMuscles => Set<ExerciseMuscle>();
     public DbSet<WorkoutTemplate> WorkoutTemplates => Set<WorkoutTemplate>();
     public DbSet<WorkoutTemplateExercise> WorkoutTemplateExercises => Set<WorkoutTemplateExercise>();
     public DbSet<WorkoutLog> WorkoutLogs => Set<WorkoutLog>();

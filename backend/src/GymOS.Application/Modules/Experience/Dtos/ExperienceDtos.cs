@@ -120,13 +120,18 @@ public record MyRecoveryTodayDto(string Kind, string? Notes);
 /// <param name="MuscleGroupKey">The stable key from MuscleGroupVocabulary. The body map shades by
 /// THIS, not by the display name: the map used to match hard-coded zone names against free text a
 /// gym owner typed, which agreed only because the seeder happened to spell them the same way.</param>
+/// <param name="TrainedDirectly">False when the member has only ever worked this group in passing —
+/// legs on a runner, a back loaded only by deadlifts. The status and the day counts are true either
+/// way, but "you have trained this" and "this has been worked" are different claims and the screen
+/// is not allowed to blur them into one.</param>
 public record MuscleRecoveryDto(
     string MuscleGroup,
     string MuscleGroupKey,
     string Status,
     string Reason,
     int TimesLast7Days,
-    int? DaysSinceLastTrained);
+    int? DaysSinceLastTrained,
+    bool TrainedDirectly);
 
 /// <summary>One entry in a member's story — sessions, measurements, photos, achieved goals and
 /// unlocked achievements, ordered by when they happened. Records set during a session are folded

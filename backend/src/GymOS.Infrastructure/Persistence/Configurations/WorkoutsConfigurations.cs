@@ -9,6 +9,30 @@ public class ExerciseConfiguration : IEntityTypeConfiguration<Exercise>
     public void Configure(EntityTypeBuilder<Exercise> builder)
     {
         builder.Property(e => e.Name).HasMaxLength(150).IsRequired();
+
+        // Cascade: a muscle row describes its exercise and has no meaning without it. Orphans here
+        // would be worse than useless — the recovery map reads this table, so a row pointing at a
+        // deleted movement would keep a muscle group looking worked forever.
+        builder.HasMany(e => e.Muscles).WithOne(m => m.Exercise).HasForeignKey(m => m.ExerciseId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class ExerciseMuscleConfiguration : IEntityTypeConfiguration<ExerciseMuscle>
+{
+    public void Configure(EntityTypeBuilder<ExerciseMuscle> builder)
+    {
+        // The canonical vocabulary key, never the gym's free text — see ExerciseMuscle.
+        builder.Property(m => m.MuscleGroupKey).HasMaxLength(40).IsRequired();
+
+        // Stored as text, like every other enum in this schema: a migration that reorders an enum
+        // must not silently repaint every row's meaning.
+        builder.Property(m => m.Role).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+        // One row per (exercise, group). A movement cannot work its chest twice, and without this a
+        // re-run seeder or a double-submitted edit would double the group's weight in every read
+        // that counts rows.
+        builder.HasIndex(m => new { m.ExerciseId, m.MuscleGroupKey }).IsUnique();
     }
 }
 

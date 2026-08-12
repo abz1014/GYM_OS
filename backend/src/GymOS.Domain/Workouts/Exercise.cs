@@ -8,7 +8,21 @@ public class Exercise : BaseEntity, ITenantScoped
 
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The PRIMARY group, as the gym typed it. Still free text, still a single value, and still the
+    /// one place a movement is filed — see <see cref="ExerciseMuscle"/> for why that did not change
+    /// and what <see cref="Muscles"/> adds beside it.
+    /// </summary>
     public string? MuscleGroup { get; set; }
+
+    /// <summary>
+    /// Every group this movement works, primary and secondary, in canonical vocabulary keys.
+    ///
+    /// Additive: <see cref="MuscleGroup"/> above is untouched and every existing reader still gets
+    /// the same answer it always did. Only the two surfaces that make a claim about the member's
+    /// BODY — recovery and the body map — read this instead.
+    /// </summary>
+    public ICollection<ExerciseMuscle> Muscles { get; set; } = new List<ExerciseMuscle>();
 
     public string? Equipment { get; set; }
 

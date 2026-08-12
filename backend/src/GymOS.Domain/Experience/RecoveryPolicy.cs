@@ -19,7 +19,12 @@ public static class RecoveryPolicy
 
     /// <summary>One muscle group's training signals over a trailing 7-day window. DaysSinceLastTrained
     /// is null when the group has no history.</summary>
-    public readonly record struct MuscleRecoverySignals(string MuscleGroup, int TimesLast7Days, int? DaysSinceLastTrained);
+    /// <param name="TrainedDirectly">True when at least one of those sessions trained this group as
+    /// the movement's PRIMARY target. False means the group has only ever been worked in passing —
+    /// legs on a runner, a back that has only ever been loaded by deadlifts — which is real work and
+    /// real fatigue, but not the same as having trained it, and the wording has to say so.</param>
+    public readonly record struct MuscleRecoverySignals(
+        string MuscleGroup, int TimesLast7Days, int? DaysSinceLastTrained, bool TrainedDirectly = true);
 
     public static (RecoveryStatus Status, string Reason) ClassifyOverall(RecoverySignals s)
     {
@@ -67,13 +72,23 @@ public static class RecoveryPolicy
         // No recent work — fully rested and a good target next.
         if (s.DaysSinceLastTrained is null || s.DaysSinceLastTrained >= 4)
         {
-            return (RecoveryStatus.Fresh, "Fully rested — a good target for your next session.");
+            return (RecoveryStatus.Fresh, s.TrainedDirectly
+                ? "Fully rested — a good target for your next session."
+                // Rested, but the last thing to touch it was another movement. Saying only "fully
+                // rested" to somebody whose legs have been reached solely by the treadmill lets them
+                // believe the group is covered; it is available AND has not been trained on purpose.
+                : "Rested — and the last thing to work it was another movement, not a session for it.");
         }
 
         // Trained today or yesterday — still inside the 48-hour recovery window.
         if (s.DaysSinceLastTrained <= 1)
         {
-            return (RecoveryStatus.Fatigued, "Trained in the last day — still recovering, so train something else.");
+            return (RecoveryStatus.Fatigued, s.TrainedDirectly
+                ? "Trained in the last day — still recovering, so train something else."
+                // The sentence this whole change exists for. A member who deadlifted yesterday and
+                // is told their legs are "fully rested" gets a recommendation that is worse than no
+                // recommendation. Naming it as secondary work is what makes it believable.
+                : "Worked in the last day as part of another movement — give it time.");
         }
 
         return (RecoveryStatus.Ready, "Recovered and ready to train.");

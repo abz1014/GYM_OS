@@ -54,14 +54,36 @@ public partial class DemoDataSeeder
         // AddFullExerciseCatalogue, which inserts the same rows into tenants that already exist.
         foreach (var entry in ExerciseCatalog.All)
         {
-            db.Exercises.Add(new Exercise
+            var exercise = new Exercise
             {
                 TenantId = tenantId,
                 Name = entry.Name,
                 MuscleGroup = entry.MuscleGroup,
                 Equipment = entry.Equipment,
                 LoadType = entry.LoadType
+            };
+
+            // The primary row is DERIVED from MuscleGroup rather than listed separately, so the two
+            // can never disagree — a catalogue whose primary key said "back" while its label said
+            // "Legs" would put a movement in one place on the map and another in the picker.
+            exercise.Muscles.Add(new ExerciseMuscle
+            {
+                TenantId = tenantId,
+                MuscleGroupKey = MuscleGroupVocabulary.Resolve(entry.MuscleGroup).Key,
+                Role = MuscleRole.Primary
             });
+
+            foreach (var key in entry.Secondary)
+            {
+                exercise.Muscles.Add(new ExerciseMuscle
+                {
+                    TenantId = tenantId,
+                    MuscleGroupKey = key,
+                    Role = MuscleRole.Secondary
+                });
+            }
+
+            db.Exercises.Add(exercise);
         }
 
         await db.SaveChangesAsync(cancellationToken);
