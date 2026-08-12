@@ -1,6 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
+import { useUiStore } from '@/stores/uiStore'
 import type { PagedList } from '@/types/paging'
 
 export type MemberStatus = 'Active' | 'Frozen' | 'Expired' | 'Cancelled'
@@ -68,10 +69,34 @@ interface ListParams {
   pageSize?: number
 }
 
+/**
+ * The selected branch, unless the caller says otherwise.
+ *
+ * /api/members has always accepted a BranchId and the frontend never sent one, at six of its seven
+ * call sites. The endpoint's own filter scopes to the branches the USER can reach, not the branch
+ * showing in the switcher, so a receptionist at Downtown saw a members list of all three branches
+ * under a header reading "Titan Fitness — Downtown". That is the governing rule broken in the worst
+ * way available: not a failed request, a successful one answering a question nobody asked. The
+ * query-trust helper cannot catch it, because the query succeeded.
+ *
+ * Defaulted in the hook rather than fixed at each call site, so the safe behaviour is what you get
+ * by not thinking about it. A caller who genuinely wants every branch they can reach — a global
+ * search, say — passes `branchId: null` explicitly and gets exactly that; the key is presence of the
+ * property, not its value, so `undefined` still means "use the selected branch".
+ */
+function useScopedListParams(params: ListParams): ListParams {
+  const selectedBranchId = useUiStore((s) => s.selectedBranchId)
+  const branchId = 'branchId' in params ? params.branchId : selectedBranchId
+  return { ...params, branchId: branchId ?? undefined }
+}
+
 export function useMembersList(params: ListParams) {
+  const scoped = useScopedListParams(params)
   return useQuery({
-    queryKey: ['members', params],
-    queryFn: async () => (await apiClient.get<PagedList<MemberListItem>>('/api/members', { params })).data,
+    // The branch is inside `scoped`, so switching branches is a different key and cannot serve the
+    // previous branch's rows while the new ones load.
+    queryKey: ['members', scoped],
+    queryFn: async () => (await apiClient.get<PagedList<MemberListItem>>('/api/members', { params: scoped })).data,
   })
 }
 
@@ -107,13 +132,18 @@ function combineStatusCounts(results: UseQueryResult<number>[]) {
  * contradicts. searchTerm is carried through for the same reason.
  */
 export function useMemberStatusCounts(searchTerm?: string) {
+  // Scoped to the same branch as the list these numbers sit above. Unscoped, the tabs counted the
+  // whole tenant while the rows below them counted one branch — two figures on one screen answering
+  // different questions, with nothing on screen to say which was which.
+  const branchId = useUiStore((s) => s.selectedBranchId) ?? undefined
+
   return useQueries({
     queries: MEMBER_STATUSES.map((status) => ({
-      queryKey: ['members', 'status-count', status, searchTerm ?? ''],
+      queryKey: ['members', 'status-count', status, searchTerm ?? '', branchId ?? ''],
       queryFn: async () =>
         (
           await apiClient.get<PagedList<MemberListItem>>('/api/members', {
-            params: { searchTerm: searchTerm || undefined, status, page: 1, pageSize: 1 },
+            params: { searchTerm: searchTerm || undefined, status, branchId, page: 1, pageSize: 1 },
           })
         ).data.totalCount,
     })),

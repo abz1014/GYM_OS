@@ -130,14 +130,39 @@ public class RecurringBillingJob(
 
         foreach (var attempt in dueAttempts)
         {
-            var result = await paymentGateway.ChargeAsync(
-                attempt.Amount, attempt.Currency, $"Membership renewal {attempt.Invoice?.InvoiceNumber}", cancellationToken);
+            /*
+             * Charge what is still owed, not what the attempt was raised for.
+             *
+             * This charged attempt.Amount — the full renewal — no matter what had happened to the
+             * invoice in the meantime. A member who part-paid their renewal at the front desk on day
+             * one still had a Pending attempt for the whole sum, so the day-three retry took the full
+             * amount off their card a second time. Neither the dunning record nor the gateway call
+             * ever looked at the invoice.
+             *
+             * Reading the balance here also gives the job the one outcome it could not previously
+             * express: settled by someone else. That is a success, and it is not a charge.
+             */
+            var outstanding = attempt.Invoice is null
+                ? attempt.Amount
+                : await OutstandingOnAsync(attempt.Invoice, cancellationToken);
 
             attempt.LastAttemptDate = today;
 
+            if (outstanding <= 0)
+            {
+                logger.LogInformation(
+                    "Renewal invoice {InvoiceNumber} was already settled before the retry — closing the attempt without charging.",
+                    attempt.Invoice?.InvoiceNumber);
+                await ApplySuccessAsync(attempt, transactionId: null, charged: 0m, cancellationToken);
+                continue;
+            }
+
+            var result = await paymentGateway.ChargeAsync(
+                outstanding, attempt.Currency, $"Membership renewal {attempt.Invoice?.InvoiceNumber}", cancellationToken);
+
             if (result.Success)
             {
-                await ApplySuccessAsync(attempt, result.TransactionId, cancellationToken);
+                await ApplySuccessAsync(attempt, result.TransactionId, outstanding, cancellationToken);
             }
             else
             {
@@ -149,21 +174,47 @@ public class RecurringBillingJob(
         return dueAttempts.Count;
     }
 
-    private async Task ApplySuccessAsync(RecurringBillingAttempt attempt, string? transactionId, CancellationToken cancellationToken)
+    /// <summary>
+    /// What this invoice still owes, counting payments already taken and refunds already given —
+    /// the same arithmetic InvoiceStatusPolicy and the front-desk ceiling use, so the job cannot
+    /// disagree with the screen a receptionist is looking at.
+    /// </summary>
+    private async Task<decimal> OutstandingOnAsync(Invoice invoice, CancellationToken cancellationToken)
+    {
+        var paid = await db.Payments
+            .Where(p => p.InvoiceId == invoice.Id && p.Status == PaymentStatus.Completed)
+            .SumAsync(p => p.Amount, cancellationToken);
+
+        var refunded = await db.Refunds
+            .Where(r => r.Payment != null && r.Payment.InvoiceId == invoice.Id && r.Status == RefundStatus.Completed)
+            .SumAsync(r => r.Amount, cancellationToken);
+
+        return InvoiceStatusPolicy.Outstanding(invoice.TotalAmount, paid, refunded);
+    }
+
+    /// <param name="charged">
+    /// What actually left the member's card. Zero when the invoice was already settled by someone
+    /// else — a real outcome, and one that must not write a payment row for money nobody took.
+    /// </param>
+    private async Task ApplySuccessAsync(
+        RecurringBillingAttempt attempt, string? transactionId, decimal charged, CancellationToken cancellationToken)
     {
         attempt.Status = RecurringBillingStatus.Succeeded;
         attempt.LastFailureReason = null;
 
-        // Payment isn't tenant-scoped itself — it inherits scope from the invoice it settles.
-        db.Payments.Add(new Payment
+        if (charged > 0)
         {
-            InvoiceId = attempt.InvoiceId,
-            Amount = attempt.Amount,
-            Method = PaymentMethod.Card,
-            Status = PaymentStatus.Completed,
-            PaidAt = dateTimeProvider.UtcNow,
-            GatewayTransactionId = transactionId
-        });
+            // Payment isn't tenant-scoped itself — it inherits scope from the invoice it settles.
+            db.Payments.Add(new Payment
+            {
+                InvoiceId = attempt.InvoiceId,
+                Amount = charged,
+                Method = PaymentMethod.Card,
+                Status = PaymentStatus.Completed,
+                PaidAt = dateTimeProvider.UtcNow,
+                GatewayTransactionId = transactionId
+            });
+        }
 
         if (attempt.Invoice is not null)
         {
@@ -183,9 +234,11 @@ public class RecurringBillingJob(
              */
             var invoice = attempt.Invoice;
 
+            // `charged`, not attempt.Amount: the row above was written for what actually left the
+            // card, and deriving the status from a different figure is how the two drift apart.
             var completedPayments = await db.Payments
                 .Where(p => p.InvoiceId == invoice.Id && p.Status == PaymentStatus.Completed)
-                .SumAsync(p => p.Amount, cancellationToken) + attempt.Amount;
+                .SumAsync(p => p.Amount, cancellationToken) + charged;
 
             var completedRefunds = await db.Refunds
                 .Where(r => r.Payment != null && r.Payment.InvoiceId == invoice.Id && r.Status == RefundStatus.Completed)

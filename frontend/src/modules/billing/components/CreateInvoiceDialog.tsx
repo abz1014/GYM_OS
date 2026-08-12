@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { useMembersList } from '@/modules/members/api/membersApi'
 import { useCreateInvoice } from '@/modules/billing/api/billingApi'
+import { isStale } from '@/shared/lib/queryTrust'
 import { useUiStore } from '@/stores/uiStore'
 
 export function CreateInvoiceDialog() {
@@ -26,7 +27,18 @@ export function CreateInvoiceDialog() {
   const [amount, setAmount] = useState(0)
 
   const branchId = useUiStore((s) => s.selectedBranchId)
-  const { data: members } = useMembersList({ searchTerm: memberSearch || undefined, page: 1, pageSize: 5 })
+  /*
+   * The picker is a PREREQUISITE READ with its own permission, and it is not the one that opens this
+   * dialog. Creating an invoice needs billing.create_invoice; finding the member to put on it needs
+   * members.view, which an Accountant does not hold. So the Accountant was offered New Invoice, typed
+   * a name, and got an empty result list that looked exactly like "no such member" — an authorisation
+   * failure wearing the costume of an honest answer.
+   *
+   * The list is now allowed to say which of the two it is.
+   */
+  const membersQuery = useMembersList({ searchTerm: memberSearch || undefined, page: 1, pageSize: 5 })
+  const members = membersQuery.data
+  const memberLookupFailed = isStale(membersQuery)
   const createInvoice = useCreateInvoice()
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -87,7 +99,19 @@ export function CreateInvoiceDialog() {
             ) : (
               <>
                 <Input placeholder="Search member..." value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} />
-                {memberSearch && (
+                {memberSearch && memberLookupFailed && (
+                  <p className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground">
+                    We couldn't look members up — your role may not have access to the member
+                    directory. Ask an administrator, or have someone with member access raise this
+                    invoice.
+                  </p>
+                )}
+                {memberSearch && !memberLookupFailed && members?.items.length === 0 && (
+                  <p className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground">
+                    No members match that search.
+                  </p>
+                )}
+                {memberSearch && !memberLookupFailed && (
                   <div className="divide-y divide-border rounded-xl border border-border">
                     {members?.items.map((m) => (
                       <button

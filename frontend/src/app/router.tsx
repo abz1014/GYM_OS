@@ -3,6 +3,7 @@ import { createBrowserRouter } from 'react-router-dom'
 
 import { AppShell } from '@/shared/components/layout/AppShell'
 import { RequireAuth } from '@/shared/components/RequireAuth'
+import { RequireModuleAccess } from '@/shared/components/RequireModuleAccess'
 import { PageLoader } from '@/shared/components/PageLoader'
 import { HomeRedirect } from '@/shared/components/HomeRedirect'
 
@@ -61,7 +62,13 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <AppShell />,
+        // Inside AppShell, so a refused module still renders with the sidebar and branch switcher
+        // around it — the person can navigate somewhere they ARE allowed instead of hitting a bare
+        // page with no way out.
         children: [
+          {
+            element: <RequireModuleAccess />,
+            children: [
           { index: true, element: <HomeRedirect /> },
           { path: 'account', element: withSuspense(<AccountPage />) },
           { path: 'dashboard', element: withSuspense(<DashboardPage />) },
@@ -110,6 +117,8 @@ export const router = createBrowserRouter([
           { path: 'settings', element: withSuspense(<SettingsPage />) },
           { path: 'migration', element: withSuspense(<MigrationListPage />) },
           { path: 'migration/:id', element: withSuspense(<ImportJobDetailPage />) },
+            ],
+          },
         ],
       },
     ],

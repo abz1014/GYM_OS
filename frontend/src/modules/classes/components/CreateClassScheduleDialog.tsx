@@ -16,6 +16,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useClassTypes, useCreateClassSchedule } from '@/modules/classes/api/classesApi'
 import { useTrainersList } from '@/modules/trainers/api/trainersApi'
+import { isStale } from '@/shared/lib/queryTrust'
 import { useUiStore } from '@/stores/uiStore'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -33,7 +34,16 @@ export function CreateClassScheduleDialog() {
   const [location, setLocation] = useState('')
 
   const { data: classTypes } = useClassTypes()
-  const { data: trainers } = useTrainersList(branchId)
+  /*
+   * Another prerequisite read on a different permission from the one that opens this dialog. A
+   * Receptionist holds classes.manage and not trainers.view, so GET /api/trainers 403s and the
+   * Instructor dropdown rendered with nothing in it but "No instructor assigned" — a screen stating
+   * that a gym with six trainers has none. The instructor is optional, so the dialog still works;
+   * what was broken was the claim, not the flow.
+   */
+  const trainersQuery = useTrainersList(branchId)
+  const trainers = trainersQuery.data
+  const trainerLookupFailed = isStale(trainersQuery)
   const createSchedule = useCreateClassSchedule()
 
   const reset = () => {
@@ -155,13 +165,20 @@ export function CreateClassScheduleDialog() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_TRAINER}>No instructor assigned</SelectItem>
-                {trainers?.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.fullName}
-                  </SelectItem>
-                ))}
+                {!trainerLookupFailed &&
+                  trainers?.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.fullName}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
+            {trainerLookupFailed && (
+              <p className="text-xs text-muted-foreground">
+                We couldn't load the instructor list — your role may not have access to trainers. The
+                class can still be scheduled and an instructor assigned later.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

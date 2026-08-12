@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Search } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,14 +10,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Pagination } from '@/shared/components/Pagination'
 import { useAttendanceHistory, useCheckOut, usePeakHours } from '@/modules/attendance/api/attendanceApi'
 import { SimpleBarChart } from '@/modules/reports/components/SimpleBarChart'
+import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 
 const toDateOnlyString = (d: Date) => d.toISOString().slice(0, 10)
 
 const EYEBROW = 'text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase'
 
+/**
+ * Nothing at all for a role that cannot check people out.
+ *
+ * POST /api/attendance/{id}/check-out requires attendance.check_in, and a Trainer holds
+ * attendance.view without it — so this button was offered to precisely the role the kiosk sends
+ * here, and pressing it 403'd with no error handler to say so: the row simply did not change. The
+ * screen's other half was gated for this exact reason and this half was missed.
+ *
+ * The failure toast is the second half of the fix. A gate stops the wrong role seeing the button; it
+ * does nothing for the right role when the request fails, and a check-out that silently does nothing
+ * is how a member stays "in the building" all night.
+ */
 function CheckOutButton({ attendanceRecordId }: { attendanceRecordId: string }) {
+  const canCheckOut = useAuthStore((s) => s.hasPermission)('attendance.check_in')
   const checkOut = useCheckOut()
+
+  if (!canCheckOut) return null
 
   return (
     <Button
@@ -24,7 +41,11 @@ function CheckOutButton({ attendanceRecordId }: { attendanceRecordId: string }) 
       variant="outline"
       className="rounded-xl"
       disabled={checkOut.isPending}
-      onClick={() => checkOut.mutate(attendanceRecordId)}
+      onClick={() =>
+        checkOut.mutate(attendanceRecordId, {
+          onError: () => toast.error("Couldn't check that member out."),
+        })
+      }
     >
       Check out
     </Button>

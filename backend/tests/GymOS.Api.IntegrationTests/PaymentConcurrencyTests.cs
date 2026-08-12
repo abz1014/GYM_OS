@@ -124,6 +124,44 @@ public class PaymentConcurrencyTests(GymOsWebApplicationFactory factory) : IClas
         refunded.Sum().ShouldBe(InvoiceTotal);
     }
 
+    [Fact]
+    public async Task The_database_itself_refuses_an_overpayment_even_with_the_application_bypassed()
+    {
+        // Written directly against the tables, with no handler, no validator and no ceiling in the
+        // way — which is exactly the position a future fifth payment writer would be in if whoever
+        // added it did not know the rule. The guard has to hold for code that has not been written
+        // yet, and the only place that can is the database.
+        var (email, invoiceId) = await SeedInvoiceAsync();
+        var token = await LoginAsync(email);
+
+        var ok = await SendAsync(
+            token, c => c.PostAsJsonAsync(
+                $"/api/invoices/{invoiceId}/payments",
+                new { method = nameof(PaymentMethod.Cash), amount = InvoiceTotal }));
+        ok.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        var ex = await Should.ThrowAsync<DbUpdateException>(async () =>
+        {
+            db.Payments.Add(new Payment
+            {
+                InvoiceId = invoiceId,
+                Method = PaymentMethod.Cash,
+                Amount = 1m,
+                PaidAt = DateTimeOffset.UtcNow,
+                Status = PaymentStatus.Completed
+            });
+            await db.SaveChangesAsync();
+        });
+
+        ex.InnerException?.Message.ShouldContain("exceeds its total");
+
+        var (paid, _) = await ReadInvoiceAsync(invoiceId);
+        paid.ShouldBe(InvoiceTotal);
+    }
+
     /// <summary>
     /// Releases every request at the same instant.
     ///
