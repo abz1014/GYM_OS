@@ -44,7 +44,20 @@ export function useCountUp(
   const frame = useRef<number | undefined>(undefined)
 
   useEffect(() => {
-    if (reduced) {
+    /*
+     * An animation nobody can see must not hold the number hostage.
+     *
+     * requestAnimationFrame does not fire while a document is hidden — a background tab, a page
+     * that is not compositing — so the roll-up never advanced and the figure stayed at `from`,
+     * which is zero. The member then switches back to a ring reading "0 of 3 sessions" beside a
+     * caption saying "3 of 7 days trained this week": the most prominent number on the screen
+     * contradicting the two next to it, and doing so for as long as the tab stays backgrounded.
+     *
+     * Same reasoning as the reduced-motion branch below, which the doc comment above already
+     * states: the number is information first and a flourish second. Found while reading this
+     * screen through a non-compositing browser, where the ring sat on 0 indefinitely.
+     */
+    if (reduced || (typeof document !== 'undefined' && document.hidden)) {
       setValue(to)
       return
     }

@@ -11,10 +11,25 @@ import { WeeklyGoalDialog } from '@/modules/portal/components/WeeklyGoalDialog'
 import { useMyToday, type MyInsight } from '@/modules/portal/api/portalApi'
 import { isStale } from '@/shared/lib/queryTrust'
 
-const classTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
+/*
+ * Gym times on the GYM's clock, not the device's.
+ *
+ * These were fixed formatters with no timeZone, so they rendered against whatever zone the phone
+ * happened to be in. A Pilates class at 18:00 UTC appeared as "Today at 6:00 PM" in the Coming-up
+ * card — which the server formats — and as "11:00 PM" in the Today chip a few pixels above it, read
+ * on a UTC+5 device. One class, two times, one screen, and the member has no way to tell which is
+ * the one they should turn up for.
+ *
+ * Built per render from the zone the server sends rather than hoisted as a module constant, because
+ * the zone is data now. `timeZone: undefined` is the documented Intl default of "use the device",
+ * so a branch with nothing configured behaves exactly as before rather than throwing.
+ */
+function gymFormatter(timeZone: string | null | undefined, options: Intl.DateTimeFormatOptions) {
+  return new Intl.DateTimeFormat('en-US', { ...options, timeZone: timeZone ?? undefined })
+}
 const arrivalTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
 
-const dateEyebrowFormat = new Intl.DateTimeFormat('en-US', { weekday: 'long', day: 'numeric', month: 'short' })
+
 
 /** Monday-first, matching the week WeeklyGoalPolicy counts and the order the server returns. */
 const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -149,7 +164,7 @@ export default function TodayPage() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
-            {dateEyebrowFormat.format(new Date())}
+            {gymFormatter(data?.gymTimeZone, { weekday: 'long', day: 'numeric', month: 'short' }).format(new Date())}
           </p>
           <h1 className="font-display text-3xl leading-tight font-black tracking-tight">
             {greeting()}
@@ -297,7 +312,7 @@ export default function TodayPage() {
               Today
             </span>
             <span className="block truncate text-sm font-medium tabular-nums">
-              {classTimeFormat.format(new Date(data.nextClassToday.startsAt))}
+              {gymFormatter(data.gymTimeZone, { hour: 'numeric', minute: '2-digit' }).format(new Date(data.nextClassToday.startsAt))}
             </span>
             <span className="block truncate text-sm">{data.nextClassToday.classTypeName}</span>
           </span>

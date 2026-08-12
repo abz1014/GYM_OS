@@ -481,6 +481,8 @@ export interface MyToday {
   coming: MyAnticipation | null
   /** Messages from their coach they haven't opened. Drives the tab-bar dot — see MemberTabBar. */
   unreadCoachMessages: number
+  /** The gym's own IANA zone. Every gym time on this screen is rendered in it, never the device's. */
+  gymTimeZone: string | null
 }
 
 export interface MyAnticipation {

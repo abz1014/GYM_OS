@@ -32,7 +32,10 @@ public class GetMyTodayQueryHandler(
     public async Task<MyTodayDto> Handle(GetMyTodayQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
-        var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
+        // The raw configured id, not TimeZoneInfo.Id — it is sent to the browser and must stay IANA
+        // whichever OS the API happens to be on. See MyMemberResolver.ResolveGymZoneIdAsync.
+        var zoneId = await MyMemberResolver.ResolveGymZoneIdAsync(db, memberId, cancellationToken);
+        var zone = GymDay.ZoneOrUtc(zoneId);
         var now = dateTimeProvider.UtcNow;
         var today = GymDay.Of(now, zone);
 
@@ -152,16 +155,31 @@ public class GetMyTodayQueryHandler(
             .FirstOrDefaultAsync(cancellationToken) ?? 0;
         var level = XpPolicy.LevelForXp(totalXp);
 
+        /*
+         * Converted to the gym's clock before the policy sees them.
+         *
+         * AnticipationPolicy formats a DateTimeOffset in whatever offset the value carries, and class
+         * times are stored at +00:00 — so an 18:00 class at a New York gym came back as "Today at
+         * 6:00 PM" when the gym's own clock says 2:00 PM. The same conversion also fixes the day
+         * bucketing inside WhenPhrase, which subtracts .Date values: a 9pm-local class stored as
+         * tomorrow in UTC read as "Tomorrow" to a member standing in the gym that evening.
+         *
+         * Done here rather than inside the policy because the policy is a pure rule that takes the
+         * times it is given, and only the query knows which gym is being asked about.
+         */
+        var comingNow = TimeZoneInfo.ConvertTime(now, zone);
+        var comingClassAt = nextBooking is null ? (DateTimeOffset?)null : TimeZoneInfo.ConvertTime(nextBooking.StartsAt, zone);
+
         var coming = AnticipationPolicy.Next(
             new AnticipationSignals(
                 nextBooking?.ClassTypeName,
-                nextBooking?.StartsAt,
+                comingClassAt,
                 joinedChallenge?.Name,
                 joinedChallenge is null ? 0 : Math.Max(0, joinedChallenge.TargetWorkoutCount - joinedChallenge.MyWorkoutCount),
                 level.Level + 1,
                 level.XpForNextLevel - level.XpIntoLevel,
                 XpPolicy.AwardFor(XpReason.WorkoutCompleted)),
-            now);
+            comingNow);
 
         /*
          * Whether the member's coach has said something they have not opened.
@@ -188,6 +206,7 @@ public class GetMyTodayQueryHandler(
             insights.Select(i => new MyInsightDto(i.Kind.ToString(), i.Title, i.Detail)).ToList(),
             new MyVisitDto(visit.State.ToString(), visit.CheckedInAt, visit.SessionRecorded, visit.NeedsRecording),
             coming is null ? null : new MyAnticipationDto(coming.Value.Kind.ToString(), coming.Value.Title, coming.Value.Detail),
-            unreadFromCoach);
+            unreadFromCoach,
+            zoneId);
     }
 }

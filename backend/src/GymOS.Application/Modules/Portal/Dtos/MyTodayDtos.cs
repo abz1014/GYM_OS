@@ -24,6 +24,16 @@ namespace GymOS.Application.Modules.Portal.Dtos;
 /// <param name="DaysTrainedThisWeek">Seven flags, Monday first, for the day strip under the ring —
 /// counted by the same rule from the same rows as <paramref name="SessionsThisWeek"/>, so the strip
 /// and the ring above it can never tell two different stories. See WeeklyGoalPolicy.</param>
+/// <param name="GymTimeZone">
+/// The gym's own IANA timezone, so the browser can render the gym's times on the gym's clock.
+///
+/// Without it every date on this screen was formatted against the DEVICE clock while every date
+/// computed on it used the gym's, and the two disagreed in public: a Pilates class at 18:00 UTC
+/// appeared as "Today at 6:00 PM" in the Coming-up card, which the server formatted, and as
+/// "11:00 PM" in the Today chip a few pixels above it, which the browser formatted in UTC+5. One
+/// class, two times, one screen. Null when the branch has no timezone configured, in which case the
+/// client falls back to the device and is no worse off than before.
+/// </param>
 public record MyTodayDto(
     string FirstName,
     int SessionsThisWeek,
@@ -36,7 +46,8 @@ public record MyTodayDto(
     IReadOnlyList<MyInsightDto> Insights,
     MyVisitDto Visit,
     MyAnticipationDto? Coming,
-    int UnreadCoachMessages);
+    int UnreadCoachMessages,
+    string? GymTimeZone);
 
 /// <summary>
 /// Today's gym visit. Always present; <paramref name="State"/> is "None" when the member has not

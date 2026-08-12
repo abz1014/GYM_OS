@@ -50,4 +50,22 @@ internal static class MyMemberResolver
 
         return GymDay.ZoneOrUtc(timeZoneId);
     }
+
+    /// <summary>
+    /// The gym's timezone as the gym CONFIGURED it — the raw IANA id off Branch.TimeZone, not
+    /// TimeZoneInfo.Id.
+    ///
+    /// The distinction is load-bearing for anything sent to a browser. .NET normalises an id to the
+    /// host platform's naming, so the same branch yields "America/New_York" on the Linux container
+    /// and "Eastern Standard Time" on a Windows dev machine — and Intl.DateTimeFormat only
+    /// understands the first. Returning the stored string keeps the value the same wherever the API
+    /// happens to be running.
+    /// </summary>
+    public static async Task<string?> ResolveGymZoneIdAsync(
+        IApplicationDbContext db, Guid memberId, CancellationToken cancellationToken)
+        => await (from m in db.Members.AsNoTracking()
+                  join b in db.Branches.AsNoTracking() on m.BranchId equals b.Id
+                  where m.Id == memberId
+                  select b.TimeZone)
+            .FirstOrDefaultAsync(cancellationToken);
 }
