@@ -28,6 +28,31 @@ public class IssueRefundCommandHandler(
 {
     public async Task<Guid> Handle(IssueRefundCommand request, CancellationToken cancellationToken)
     {
+        /*
+         * The invoice behind this payment is located first and locked, before any figure that
+         * decides the outcome is read.
+         *
+         * Eight concurrent refunds of a $100 payment previously all succeeded, taking $800 back out
+         * of it — the same unguarded read-then-write as the payment path, and the more expensive
+         * direction to get wrong, because this one moves money outward.
+         *
+         * The INVOICE is the lock target even though this ceiling is per-payment. That is
+         * deliberate: RecordPaymentCommand's ceiling reads refunds, so payments and refunds have to
+         * serialise against each other, and giving the pair a single lock target means there is no
+         * lock ordering to get wrong and so no deadlock to reason about. This first read is
+         * unlocked and is used only to find the invoice id — every figure the decision rests on is
+         * re-read below, after the lock is held.
+         */
+        var invoiceId = await db.Payments
+            .Where(p => p.Id == request.PaymentId)
+            .Select(p => p.InvoiceId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (invoiceId != Guid.Empty)
+        {
+            await db.LockInvoiceForUpdateAsync(invoiceId, cancellationToken);
+        }
+
         var payment = await db.Payments
             .Include(p => p.Invoice)
             .FirstOrDefaultAsync(p => p.Id == request.PaymentId, cancellationToken)

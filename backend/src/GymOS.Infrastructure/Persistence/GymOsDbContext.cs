@@ -307,6 +307,40 @@ public class GymOsDbContext(
     /// </summary>
     private IReadOnlyList<Guid> CurrentAccessibleBranchIds => tenantProvider.AccessibleBranchIds ?? [];
 
+    /// <summary>
+    /// Takes a PostgreSQL row lock on one invoice, held until the ambient transaction ends. See
+    /// IApplicationDbContext.LockInvoiceForUpdateAsync for why the billing handlers need it.
+    ///
+    /// Raw SQL rather than EF, because there is no LINQ for FOR UPDATE. That means it bypasses the
+    /// tenant and branch query filters — which is fine and deliberate: this locks a row by primary
+    /// key and reads nothing back. The very next statement in every caller is a filtered EF query
+    /// that still decides whether the caller may see that invoice at all, so nothing is disclosed by
+    /// having briefly locked a row. Locking is not authorisation.
+    ///
+    /// A missing or invisible id locks nothing and is not an error here; the caller's own query is
+    /// what turns that into a 404.
+    /// </summary>
+    public async Task LockInvoiceForUpdateAsync(Guid invoiceId, CancellationToken cancellationToken = default)
+    {
+        /*
+         * A no-op on anything but PostgreSQL, and that is load-bearing rather than a shrug.
+         *
+         * The Application test suite runs on SQLite in-memory over ONE shared connection
+         * (ApplicationTestBase), which has no FOR UPDATE and already serialises every write on that
+         * connection — so the statement would be a syntax error in exchange for a guarantee the
+         * harness provides anyway. The real concurrency test lives in Api.IntegrationTests, which
+         * runs against real Postgres; see PaymentConcurrencyTests.
+         */
+        if (!Database.IsNpgsql())
+        {
+            return;
+        }
+
+        await Database.ExecuteSqlAsync(
+            $"""SELECT 1 FROM "Invoices" WHERE "Id" = {invoiceId} FOR UPDATE""",
+            cancellationToken);
+    }
+
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         var now = dateTimeProvider.UtcNow;

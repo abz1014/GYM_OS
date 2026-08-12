@@ -167,7 +167,33 @@ public class RecurringBillingJob(
 
         if (attempt.Invoice is not null)
         {
-            attempt.Invoice.Status = InvoiceStatus.Paid;
+            /*
+             * Derived from what is actually on the invoice, not asserted.
+             *
+             * This line read `Status = InvoiceStatus.Paid` unconditionally, which is only true when
+             * the renewal charge is the ONLY money against that invoice. A member who part-pays a
+             * renewal at the front desk on day one still has a Pending attempt for the full amount,
+             * so the day-three retry charged the whole renewal again and then declared the invoice
+             * settled — the card taken twice and the evidence overwritten in the same statement.
+             *
+             * The gateway charge above is a separate problem this does not fix: it should be for the
+             * outstanding balance rather than attempt.Amount. Deriving the status at least stops the
+             * invoice lying about it, and leaves a PartiallyPaid row visible instead of a Paid one
+             * nobody would look at again.
+             */
+            var invoice = attempt.Invoice;
+
+            var completedPayments = await db.Payments
+                .Where(p => p.InvoiceId == invoice.Id && p.Status == PaymentStatus.Completed)
+                .SumAsync(p => p.Amount, cancellationToken) + attempt.Amount;
+
+            var completedRefunds = await db.Refunds
+                .Where(r => r.Payment != null && r.Payment.InvoiceId == invoice.Id && r.Status == RefundStatus.Completed)
+                .SumAsync(r => r.Amount, cancellationToken);
+
+            invoice.Status = InvoiceStatusPolicy.Derive(
+                invoice.TotalAmount, completedPayments, completedRefunds,
+                invoice.DueDate, DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime));
         }
 
         // Extend the membership by one more plan period, starting where the old one ended, so

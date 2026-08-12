@@ -31,6 +31,25 @@ public interface IApplicationDbContext
 {
     DatabaseFacade Database { get; }
 
+    /// <summary>
+    /// Serialises every money-writing path against one invoice, for the life of the current
+    /// transaction.
+    ///
+    /// The overpayment ceiling is a read-then-write: sum what has been paid, compare, insert. Under
+    /// READ COMMITTED that is not one operation, so N simultaneous requests all read the same
+    /// balance and all pass. Proven, not theorised: six concurrent full payments against a $100
+    /// invoice were all accepted, leaving $600 recorded against it, and eight concurrent refunds
+    /// took $800 back out of a $100 payment. Issued sequentially the same requests are correctly
+    /// refused, which is what makes it a race rather than a logic error.
+    ///
+    /// Every caller must take this BEFORE reading the balance it is about to act on — a lock
+    /// acquired after the read protects nothing. The invoice is the single lock target for both
+    /// payments and refunds even though a refund's ceiling is per-payment, because a payment's
+    /// ceiling reads refunds: one target for the pair means there is no lock ordering to get wrong
+    /// and therefore no deadlock to reason about.
+    /// </summary>
+    Task LockInvoiceForUpdateAsync(Guid invoiceId, CancellationToken cancellationToken = default);
+
     DbSet<Tenant> Tenants { get; }
 
     DbSet<Branch> Branches { get; }
