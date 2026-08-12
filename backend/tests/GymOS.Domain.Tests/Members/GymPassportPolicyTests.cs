@@ -4,9 +4,11 @@ using Shouldly;
 namespace GymOS.Domain.Tests.Members;
 
 /// <summary>
-/// The member's map of their own gym. The recurring point of these tests is that an untried
-/// movement is a fact rather than a failure: it must be listed, counted honestly, and never dressed
-/// up as a score the member is falling short of.
+/// The member's map of their own gym, drawn in body regions. The recurring point of these tests is
+/// that an untried movement is a fact rather than a failure: it must be listed, counted honestly,
+/// and never dressed up as a score the member is falling short of. The regions come from
+/// MuscleGroupVocabulary — the same eight the picker and the body map use — so the map's shape is a
+/// fixed geography rather than an accident of how tidily the Equipment field was typed.
 /// </summary>
 public class GymPassportPolicyTests
 {
@@ -30,19 +32,19 @@ public class GymPassportPolicyTests
     }
 
     [Fact]
-    public void Equipment_the_member_has_never_touched_is_still_on_the_map()
+    public void A_region_the_member_has_never_entered_is_still_on_the_map()
     {
-        // The whole reason this exists: mastery is built from sessions, so untouched kit is invisible
-        // to it. Here it must appear.
+        // The whole reason this exists: mastery is built from sessions, so an untouched corner of
+        // the gym is invisible to it. Here it must appear.
         var passport = GymPassportPolicy.Build([
             Ex("Bench Press", "Barbell", sessions: 4, best: 60m),
-            Ex("Leg Press", "Machine"),
+            Ex("Leg Press", "Machine", muscle: "Legs"),
         ], Today);
 
         passport.Tried.ShouldBe(1);
         passport.Available.ShouldBe(2);
-        passport.Stamps.Select(s => s.Equipment).ShouldContain("Machine");
-        passport.Stamps.Single(s => s.Equipment == "Machine").Entries.Single().Tried.ShouldBeFalse();
+        passport.Stamps.Select(s => s.RegionKey).ShouldContain("legs");
+        passport.Stamps.Single(s => s.RegionKey == "legs").Entries.Single().Tried.ShouldBeFalse();
     }
 
     [Fact]
@@ -102,30 +104,61 @@ public class GymPassportPolicyTests
     }
 
     [Fact]
-    public void Groups_lead_with_the_ones_the_member_knows_best()
+    public void Regions_read_in_body_order_not_usage_order()
     {
+        // The map is a fixed geography — the same order the picker and the body map use — so it
+        // reads the same way every visit. Usage-ordered groups reshuffled the page every week, and a
+        // map whose territories move is not a map.
         var passport = GymPassportPolicy.Build([
-            Ex("Treadmill Run", "Treadmill"),
+            Ex("Treadmill Run", "Treadmill", sessions: 40, muscle: "Cardio"),
             Ex("Bench Press", "Barbell", sessions: 3),
-            Ex("Squat", "Barbell", sessions: 3),
+            Ex("Squat", "Barbell", sessions: 3, muscle: "Legs"),
         ], Today);
 
-        passport.Stamps.First().Equipment.ShouldBe("Barbell");
-        passport.Stamps.First().Tried.ShouldBe(2);
+        passport.Stamps.Select(s => s.RegionKey).ShouldBe(["chest", "legs", "cardio"]);
         passport.Stamps.First().Complete.ShouldBeTrue();
     }
 
     [Fact]
-    public void Kit_the_gym_never_labelled_is_grouped_rather_than_dropped()
+    public void Synonyms_fold_into_one_region_rather_than_two()
     {
-        // Any gym's catalogue, however tidily it was filled in.
+        // "Quads" and "Legs" are the same territory. Two gyms typing differently must get one map —
+        // the same rule the picker and the body map already live by, via the same vocabulary.
         var passport = GymPassportPolicy.Build([
-            new(Guid.NewGuid(), "Mystery Machine", "Back", null, 0, 0, null),
-            new(Guid.NewGuid(), "Also Mystery", "Back", "   ", 1, 0, new DateOnly(2026, 8, 1)),
+            Ex("Squat", "Barbell", sessions: 2, muscle: "Legs"),
+            Ex("Leg Extension", "Machine", muscle: "Quads"),
+        ], Today);
+
+        var legs = passport.Stamps.ShouldHaveSingleItem();
+        legs.RegionKey.ShouldBe("legs");
+        legs.RegionName.ShouldBe("Legs");
+        legs.Available.ShouldBe(2);
+        legs.Tried.ShouldBe(1);
+    }
+
+    [Fact]
+    public void The_equipment_label_rides_along_on_each_entry()
+    {
+        // The region says where on the body; equipment says where in the building — the detail that
+        // sends a member to the right corner for something they have never tried.
+        var passport = GymPassportPolicy.Build([Ex("Leg Press", "Machine", muscle: "Legs")], Today);
+
+        passport.Stamps.Single().Entries.Single().Equipment.ShouldBe("Machine");
+    }
+
+    [Fact]
+    public void A_muscle_label_the_vocabulary_never_heard_of_lands_in_Other_rather_than_vanishing()
+    {
+        // Any gym's catalogue, however tidily it was filled in. "Adductors" is a real thing a gym
+        // types; the map files it somewhere visible instead of dropping the movement from a screen
+        // that claims to list the whole gym.
+        var passport = GymPassportPolicy.Build([
+            new(Guid.NewGuid(), "Mystery Machine", null, "Machine", 0, 0, null),
+            new(Guid.NewGuid(), "Adductor Squeeze", "Adductors", "Machine", 1, 0, new DateOnly(2026, 8, 1)),
         ], Today);
 
         var stamp = passport.Stamps.ShouldHaveSingleItem();
-        stamp.Equipment.ShouldBe("Other");
+        stamp.RegionKey.ShouldBe("other");
         stamp.Available.ShouldBe(2);
         stamp.Tried.ShouldBe(1);
     }
@@ -135,7 +168,7 @@ public class GymPassportPolicyTests
     {
         var passport = GymPassportPolicy.Build([
             Ex("Bench Press", "Barbell", sessions: 1),
-            Ex("Leg Press", "Machine", sessions: 1),
+            Ex("Leg Press", "Machine", sessions: 1, muscle: "Legs"),
         ], Today);
 
         passport.Complete.ShouldBeTrue();
@@ -209,7 +242,7 @@ public class GymPassportPolicyTests
     {
         var passport = GymPassportPolicy.Build([
             Ex("Bench Press", "Barbell"),
-            Ex("Leg Press", "Machine"),
+            Ex("Leg Press", "Machine", muscle: "Legs"),
         ], Today);
 
         passport.Tried.ShouldBe(0);

@@ -126,10 +126,12 @@ public class LoadTypeLoggingTests : ApplicationTestBase
     }
 
     [Fact]
-    public async Task The_next_session_proposal_carries_no_rep_count_for_a_run()
+    public async Task The_next_session_proposal_repeats_a_run_as_a_run()
     {
         // The self-perpetuating half of the defect: a proposal that re-serves a rep count for a run
-        // gets it confirmed straight back into the database as the member's own history.
+        // gets it confirmed straight back into the database as the member's own history. And the
+        // inverse matters equally — a repeat that FORGETS the distance and duration is a repeat of
+        // the movement, not the session, and renders with lift columns the server then rejects.
         var s = await SeedAsync();
         await SendAsync(new LogMyWorkoutCommand([
             new WorkoutLogEntryInput(s.TreadmillId, 1, RepsCompleted: null, WeightKg: null,
@@ -138,7 +140,11 @@ public class LoadTypeLoggingTests : ApplicationTestBase
 
         var proposal = await SendAsync(new GetMyNextSessionQuery());
 
-        proposal.Entries.ShouldHaveSingleItem().Reps.ShouldBeNull();
+        var entry = proposal.Entries.ShouldHaveSingleItem();
+        entry.Reps.ShouldBeNull();
+        entry.LoadType.ShouldBe("Distance");
+        entry.DurationSeconds.ShouldBe(1_800);
+        entry.DistanceMeters.ShouldBe(5_000m);
     }
 
     // ---- harness ----

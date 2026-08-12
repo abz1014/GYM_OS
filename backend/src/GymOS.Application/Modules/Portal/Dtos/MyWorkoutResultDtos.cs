@@ -43,9 +43,17 @@ public record MyNewAchievementDto(string Code, string Name, string Description, 
 public record MyChallengeStepDto(string Name, int WorkoutsLogged, int TargetWorkoutCount, bool JustCompleted);
 
 /// <summary>One pre-filled movement in a proposed session.</summary>
+/// <param name="LoadType">Weighted, Bodyweight, Timed or Distance. The session screen renders its
+/// input fields from this; without it a proposed treadmill got KG and REPS columns, and confirming
+/// sent a rep count the write path rejects.</param>
 /// <param name="Reps">Null for a movement that has none. Proposing one for a run is how the
 /// fabricated rep count became self-perpetuating — see ProposedEntry.</param>
-public record MyProposedEntryDto(Guid ExerciseId, string ExerciseName, int Sets, int? Reps, decimal? WeightKg);
+/// <param name="DurationSeconds">Last time's duration, where the movement is measured in time —
+/// carried for the same reason a load is.</param>
+/// <param name="DistanceMeters">Last time's distance, where the movement is measured in it.</param>
+public record MyProposedEntryDto(
+    Guid ExerciseId, string ExerciseName, string LoadType, int Sets, int? Reps, decimal? WeightKg,
+    int? DurationSeconds, decimal? DistanceMeters);
 
 /// <summary>
 /// The session the app believes the member is about to do, ready to confirm in one tap.
@@ -125,12 +133,19 @@ public record MyPassportDto(
     int Tried, int Available, int PercentCovered, bool Complete,
     IReadOnlyList<MyPassportStampDto> Stamps, IReadOnlyList<MyPassportEntryDto> GoneQuiet);
 
-/// <summary>One kind of equipment and how much of it the member has covered.</summary>
+/// <summary>
+/// One region of the body and how much of the gym's catalogue for it the member has covered. The
+/// regions are MuscleGroupVocabulary's — the same eight the picker and the body map use — so
+/// "cleared Legs" means the same Legs everywhere in the app.
+/// </summary>
 public record MyPassportStampDto(
-    string Equipment, int Tried, int Available, bool Complete, IReadOnlyList<MyPassportEntryDto> Entries);
+    string RegionKey, string RegionName, int Tried, int Available, bool Complete,
+    IReadOnlyList<MyPassportEntryDto> Entries);
 
+/// <param name="Equipment">The kit it needs, as the gym labelled it — the detail that sends a member
+/// to the right corner of the building for something they have never tried.</param>
 /// <param name="BestWeightKg">Null for a movement carrying no load — a plank has no best weight, and
 /// "0kg" would read as a failure rather than the absence of a number.</param>
 public record MyPassportEntryDto(
-    Guid ExerciseId, string ExerciseName, string? MuscleGroup, bool Tried, int Sessions,
-    decimal? BestWeightKg, DateOnly? LastTrained, int? DaysSinceLastTrained, bool GoneQuiet);
+    Guid ExerciseId, string ExerciseName, string? MuscleGroup, string? Equipment, bool Tried,
+    int Sessions, decimal? BestWeightKg, DateOnly? LastTrained, int? DaysSinceLastTrained, bool GoneQuiet);

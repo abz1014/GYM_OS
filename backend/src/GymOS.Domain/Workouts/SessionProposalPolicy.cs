@@ -14,13 +14,29 @@ public enum SessionProposalSource
 }
 
 /// <summary>One movement in a proposed session, already filled in and ready to confirm.</summary>
+/// <param name="LoadType">What this movement is measured in. The session screen renders its input
+/// fields from this, so a proposal without it put KG and REPS columns on a treadmill — and the
+/// confirm then sent a rep count the write path rejects. A proposal that cannot be confirmed as
+/// proposed is worse than none.</param>
 /// <param name="Reps">Null for a movement that has none — a run, a plank. Proposing a rep count
 /// for one is how the fabricated 8 became self-perpetuating: the proposal re-served it, the member
 /// confirmed it, and it came back as their own history.</param>
-public record ProposedEntry(Guid ExerciseId, string ExerciseName, int Sets, int? Reps, decimal? WeightKg);
+/// <param name="DurationSeconds">Last time's duration, for movements measured in time. Carried for
+/// the same reason a load is: "same as last time" that forgets the 30 minutes you ran is a repeat
+/// of the movement, not of the session.</param>
+/// <param name="DistanceMeters">Last time's distance, for movements measured in it.</param>
+public record ProposedEntry(
+    Guid ExerciseId,
+    string ExerciseName,
+    ExerciseLoadType LoadType,
+    int Sets,
+    int? Reps,
+    decimal? WeightKg,
+    int? DurationSeconds,
+    decimal? DistanceMeters);
 
 /// <summary>An exercise a trainer's plan prescribes. Carries no load — templates never store weight.</summary>
-public record PlannedExercise(Guid ExerciseId, string ExerciseName, int Sets, int Reps);
+public record PlannedExercise(Guid ExerciseId, string ExerciseName, ExerciseLoadType LoadType, int Sets, int Reps);
 
 /// <summary>A complete session the member can accept with one tap.</summary>
 public record SessionProposal(SessionProposalSource Source, IReadOnlyList<ProposedEntry> Entries)
@@ -98,15 +114,36 @@ public static class SessionProposalPolicy
         return new SessionProposal(SessionProposalSource.None, []);
     }
 
-    /// <summary>Attaches remembered loads to prescribed sets and reps.</summary>
+    /// <summary>
+    /// Attaches remembered loads to prescribed sets and reps — but only the measurements the
+    /// movement actually has.
+    ///
+    /// A template stores SetsCount and RepsCount for EVERYTHING, including movements that have no
+    /// reps: the seeded "Beginner Full Body" prescribes "Plank: 3×30", where the 30 almost certainly
+    /// means seconds. Almost certainly is not a unit. Passing it through as reps re-creates the
+    /// fabrication this whole area exists to remove (and the write path now rejects it); converting
+    /// it to seconds would be inventing semantics the template never declared. So a no-rep movement
+    /// is proposed as bare sets and the member supplies the measurement when they do it — honest,
+    /// and confirmable as proposed.
+    ///
+    /// A remembered load is attached only where the movement can carry one: Weighted always, and
+    /// Distance because a farmer's carry is measured in distance AND load. Bodyweight and Timed
+    /// movements carry none, which is the same rule the write guard enforces.
+    /// </summary>
     private static List<ProposedEntry> Fill(
         IReadOnlyList<PlannedExercise> planned, IReadOnlyDictionary<Guid, decimal> lastWeightByExercise)
         => planned
             .Select(p => new ProposedEntry(
                 p.ExerciseId,
                 p.ExerciseName,
+                p.LoadType,
                 p.Sets,
-                p.Reps,
-                lastWeightByExercise.TryGetValue(p.ExerciseId, out var weight) ? weight : null))
+                p.LoadType is ExerciseLoadType.Weighted or ExerciseLoadType.Bodyweight ? p.Reps : null,
+                p.LoadType is ExerciseLoadType.Weighted or ExerciseLoadType.Distance
+                    && lastWeightByExercise.TryGetValue(p.ExerciseId, out var weight)
+                    ? weight
+                    : null,
+                DurationSeconds: null,
+                DistanceMeters: null))
             .ToList();
 }

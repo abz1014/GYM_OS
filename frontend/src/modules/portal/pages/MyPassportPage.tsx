@@ -38,7 +38,10 @@ function Row({ entry }: { entry: MyPassportEntry }) {
               ]
                 .filter(Boolean)
                 .join(' · ')
-            : 'Not tried yet'}
+            : // The region already says where on the body; the equipment label says where in the
+              // building — the one detail that actually helps someone find a thing they have
+              // never used.
+              ['Not tried yet', entry.equipment].filter(Boolean).join(' · ')}
         </p>
       </div>
     </li>
@@ -94,10 +97,10 @@ export default function MyPassportPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Gym Passport</h1>
         <p className="text-sm text-muted-foreground">
           {data.available === 0
-            ? 'Your gym has not listed any equipment yet.'
+            ? 'Your gym has not listed any movements yet.'
             : data.complete
               ? "You've trained on everything your gym offers."
-              : `You've used ${data.tried} of ${data.available} movements here.`}
+              : `You've explored ${data.tried} of ${data.available} movements here.`}
         </p>
       </div>
 
@@ -148,14 +151,28 @@ export default function MyPassportPage() {
         </Card>
       )}
 
+      {/*
+        The map itself: one card per body region, in the same fixed order the picker and the body map
+        use. Grouping used to follow the free-text Equipment label, which made the map's shape an
+        accident of data entry — "Barbell" and "Olympic barbell" were two territories, and a gym that
+        skipped the field had one giant region called "Other". Regions are a geography that means
+        something, and "Explored" on one is a claim the member can check against the list below it.
+      */}
       {data.stamps.map((stamp) => (
-        <Card key={stamp.equipment}>
+        <Card key={stamp.regionKey}>
           <CardContent className="py-4">
             <div className="mb-1 flex items-baseline justify-between gap-2">
-              <h2 className="font-semibold">{stamp.equipment}</h2>
+              <h2 className="font-semibold">{stamp.regionName}</h2>
               <span className={stamp.complete ? 'text-xs font-medium text-primary' : 'text-xs text-muted-foreground'}>
-                {stamp.complete ? 'All done' : `${stamp.tried}/${stamp.available}`}
+                {stamp.complete ? 'Explored' : `${stamp.tried}/${stamp.available}`}
               </span>
+            </div>
+            {/* Same bar as the header, per territory — arithmetic on the two counts shown beside it. */}
+            <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${stamp.available === 0 ? 0 : Math.round((stamp.tried / stamp.available) * 100)}%` }}
+              />
             </div>
             <ul>
               {stamp.entries.map((e) => (

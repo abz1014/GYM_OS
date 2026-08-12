@@ -1,8 +1,13 @@
+using GymOS.Domain.Workouts;
+
 namespace GymOS.Domain.Members;
 
 /// <summary>
 /// One movement in the gym, and what the member has done on it.
 /// </summary>
+/// <param name="Equipment">The kit it needs, as the gym labelled it. Regions carry the where-on-the-
+/// body; this is the where-in-the-building — the detail that sends a member to the right corner for
+/// something they have never tried.</param>
 /// <param name="Sessions">Zero means never tried — the entry is still listed, because what a member
 /// has not done yet is the whole point of a passport.</param>
 /// <param name="BestWeightKg">Their heaviest on it, or null for a movement carrying no load. A
@@ -12,6 +17,7 @@ public readonly record struct PassportEntry(
     Guid ExerciseId,
     string ExerciseName,
     string? MuscleGroup,
+    string? Equipment,
     int Sessions,
     decimal? BestWeightKg,
     DateOnly? LastTrained,
@@ -23,8 +29,17 @@ public readonly record struct PassportEntry(
     public bool GoneQuiet => DaysSinceLastTrained >= GymPassportPolicy.QuietAfterDays;
 }
 
-/// <summary>One kind of equipment, and how much of it the member has covered.</summary>
-public readonly record struct PassportStamp(string Equipment, int Tried, int Available, IReadOnlyList<PassportEntry> Entries)
+/// <summary>
+/// One region of the body, and how much of the gym's catalogue for it the member has covered.
+///
+/// Regions, not equipment strings. Grouping by the free-text Equipment label made the map's shape an
+/// accident of data entry — "Barbell" and "Olympic barbell" were two territories, and a gym that
+/// never filled the field in had one giant region called "Other". The canonical muscle groups are a
+/// fixed, meaningful geography: the same eight regions the exercise picker and the body map already
+/// use, so a member who "cleared Legs" is talking about the same Legs everywhere in the app.
+/// </summary>
+public readonly record struct PassportStamp(
+    string RegionKey, string RegionName, int Tried, int Available, IReadOnlyList<PassportEntry> Entries)
 {
     public bool Complete => Available > 0 && Tried == Available;
 }
@@ -56,9 +71,6 @@ public readonly record struct GymPassport(
 /// </summary>
 public static class GymPassportPolicy
 {
-    /// <summary>Equipment shown for a movement whose kit the gym never labelled.</summary>
-    public const string Unlabelled = "Other";
-
     /// <summary>
     /// How long a movement has to go untouched before it counts as dropped rather than merely not
     /// due. Someone training three times a week across a normal catalogue comes back to any given
@@ -81,10 +93,14 @@ public static class GymPassportPolicy
     {
         var entries = catalogue.ToList();
 
+        // Grouped through MuscleGroupVocabulary — the one place free text becomes regions — and
+        // ordered by its catalogue order, so the map reads the same way every visit and the same way
+        // as the picker. A region the gym has no movements for simply is not on this gym's map.
         var stamps = entries
-            .GroupBy(e => string.IsNullOrWhiteSpace(e.Equipment) ? Unlabelled : e.Equipment!.Trim())
+            .GroupBy(e => MuscleGroupVocabulary.Resolve(e.MuscleGroup))
             .Select(g => new PassportStamp(
-                g.Key,
+                g.Key.Key,
+                g.Key.DisplayName,
                 g.Count(e => e.Sessions > 0),
                 g.Count(),
                 g
@@ -95,8 +111,7 @@ public static class GymPassportPolicy
                     .ThenBy(e => e.ExerciseName, StringComparer.OrdinalIgnoreCase)
                     .Select(e => Entry(e, today))
                     .ToList()))
-            .OrderByDescending(s => s.Tried)
-            .ThenBy(s => s.Equipment, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => MuscleGroupVocabulary.All.First(r => r.Key == s.RegionKey).Order)
             .ToList();
 
         var tried = entries.Count(e => e.Sessions > 0);
@@ -122,6 +137,7 @@ public static class GymPassportPolicy
         e.ExerciseId,
         e.ExerciseName,
         e.MuscleGroup,
+        e.Equipment,
         e.Sessions,
         // Zero is what the store holds for a movement carrying no load; it is not a best.
         e.BestWeightKg > 0 ? e.BestWeightKg : null,

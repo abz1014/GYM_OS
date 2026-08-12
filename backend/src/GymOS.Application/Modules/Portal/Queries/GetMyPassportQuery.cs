@@ -60,7 +60,8 @@ public class GetMyPassportQueryHandler(
             passport.Complete,
             passport.Stamps
                 .Select(s => new MyPassportStampDto(
-                    s.Equipment,
+                    s.RegionKey,
+                    s.RegionName,
                     s.Tried,
                     s.Available,
                     s.Complete,
@@ -72,6 +73,6 @@ public class GetMyPassportQueryHandler(
     }
 
     private static MyPassportEntryDto Entry(PassportEntry e) => new(
-        e.ExerciseId, e.ExerciseName, e.MuscleGroup, e.Tried, e.Sessions, e.BestWeightKg,
+        e.ExerciseId, e.ExerciseName, e.MuscleGroup, e.Equipment, e.Tried, e.Sessions, e.BestWeightKg,
         e.LastTrained, e.DaysSinceLastTrained, e.GoneQuiet);
 }

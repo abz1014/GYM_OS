@@ -193,12 +193,14 @@ export function QuickLogWorkout() {
         key: entryKey++,
         exerciseId: e.exerciseId,
         exerciseName: e.exerciseName,
+        // The proposal knows what each movement is measured in — hardcoding Weighted here loaded a
+        // run as a lift and dropped the distance it carried.
+        loadType: e.loadType,
         sets: e.sets,
-        loadType: 'Weighted' as ExerciseLoadType,
         reps: e.reps,
         weight: e.weightKg,
-        seconds: null,
-        metres: null,
+        seconds: e.durationSeconds,
+        metres: e.distanceMeters,
       })),
     )
     toast.success('Loaded — tweak anything, then finish.')
@@ -256,7 +258,20 @@ export function QuickLogWorkout() {
           <div className="min-w-0">
             <p className="font-medium">{SESSION_SOURCE_LABEL[proposal.data!.source]}</p>
             <p className="truncate text-sm text-muted-foreground">
-              {proposed.map((e) => `${e.exerciseName} ${e.sets}×${e.reps}`).join(' · ')}
+              {/* describeSets, not `${sets}×${reps}` — a run has no reps and the inline version
+                  rendered the dangling "1×" this codebase keeps re-learning to avoid. */}
+              {proposed
+                .map(
+                  (e) =>
+                    `${e.exerciseName} ${describeSets({
+                      sets: e.sets,
+                      reps: e.reps,
+                      weightKg: e.weightKg,
+                      durationSeconds: e.durationSeconds,
+                      distanceMeters: e.distanceMeters,
+                    })}`,
+                )
+                .join(' · ')}
             </p>
           </div>
         </button>

@@ -808,9 +808,16 @@ export const SESSION_SOURCE_LABEL: Record<SessionProposalSource, string> = {
 export interface ProposedEntry {
   exerciseId: string
   exerciseName: string
+  /** Decides which fields the session screen renders — a proposed treadmill must not get a reps column. */
+  loadType: ExerciseLoadType
   sets: number
-  reps: number
+  /** Null for a movement that has none: a run, a plank. */
+  reps: number | null
   weightKg: number | null
+  /** Last time's duration/distance, where the movement is measured in them — a repeat that forgets
+   *  the 30 minutes you ran is a repeat of the movement, not of the session. */
+  durationSeconds: number | null
+  distanceMeters: number | null
 }
 
 /**
@@ -1144,6 +1151,9 @@ export interface MyPassportEntry {
   exerciseId: string
   exerciseName: string
   muscleGroup: string | null
+  /** The kit it needs, as the gym labelled it — where in the building, where the region says where
+   *  on the body. */
+  equipment: string | null
   tried: boolean
   sessions: number
   /** Null for a movement carrying no load — "0kg" on a plank would read as a failure. */
@@ -1154,8 +1164,14 @@ export interface MyPassportEntry {
   goneQuiet: boolean
 }
 
+/**
+ * One region of the body, and how much of the gym's catalogue for it the member has covered. The
+ * regions are the same eight the picker and the body map use, in the same fixed order — a map whose
+ * territories move is not a map.
+ */
 export interface MyPassportStamp {
-  equipment: string
+  regionKey: string
+  regionName: string
   tried: number
   available: number
   complete: boolean

@@ -55,10 +55,10 @@ public class GetMyNextSessionQueryHandler(
             planExercises = (await (from e in db.WorkoutTemplateExercises.AsNoTracking()
                                     join x in db.Exercises.AsNoTracking() on e.ExerciseId equals x.Id
                                     where e.WorkoutTemplateId == currentPlan.WorkoutTemplateId
-                                    select new { e.OrderIndex, e.ExerciseId, ExerciseName = x.Name, e.SetsCount, e.RepsCount })
+                                    select new { e.OrderIndex, e.ExerciseId, ExerciseName = x.Name, x.LoadType, e.SetsCount, e.RepsCount })
                     .ToListAsync(cancellationToken))
                 .OrderBy(e => e.OrderIndex)
-                .Select(e => new PlannedExercise(e.ExerciseId, e.ExerciseName, e.SetsCount, e.RepsCount))
+                .Select(e => new PlannedExercise(e.ExerciseId, e.ExerciseName, e.LoadType, e.SetsCount, e.RepsCount))
                 .ToList();
         }
 
@@ -75,9 +75,12 @@ public class GetMyNextSessionQueryHandler(
                                   LoggedAt = e.WorkoutLog!.LoggedAt,
                                   e.ExerciseId,
                                   ExerciseName = x.Name,
+                                  x.LoadType,
                                   e.SetsCompleted,
                                   e.RepsCompleted,
-                                  e.WeightKg
+                                  e.WeightKg,
+                                  e.DurationSeconds,
+                                  e.DistanceMeters
                               })
                 .ToListAsync(cancellationToken))
             .OrderByDescending(e => e.LoggedAt)
@@ -101,20 +104,29 @@ public class GetMyNextSessionQueryHandler(
             .OrderByDescending(g => g.Max(e => e.LoggedAt))
             .Take(1)
             .SelectMany(g => g
-                .GroupBy(e => new { e.ExerciseId, e.ExerciseName })
+                .GroupBy(e => new { e.ExerciseId, e.ExerciseName, e.LoadType })
                 .Select(byExercise =>
                 {
-                    var heaviest = byExercise
+                    // The top set, whatever the movement is measured in. For a lift the ordering
+                    // falls to weight-then-reps exactly as before; for a run every weight is null,
+                    // so it falls through to the longest distance and then the longest time. One
+                    // ordering, because the irrelevant measurements of any movement are all null.
+                    var top = byExercise
                         .OrderByDescending(e => e.WeightKg ?? 0)
                         .ThenByDescending(e => e.RepsCompleted)
+                        .ThenByDescending(e => e.DistanceMeters ?? 0)
+                        .ThenByDescending(e => e.DurationSeconds ?? 0)
                         .First();
 
                     return new ProposedEntry(
                         byExercise.Key.ExerciseId,
                         byExercise.Key.ExerciseName,
+                        byExercise.Key.LoadType,
                         byExercise.Sum(e => e.SetsCompleted),
-                        heaviest.RepsCompleted,
-                        heaviest.WeightKg);
+                        top.RepsCompleted,
+                        top.WeightKg,
+                        top.DurationSeconds,
+                        top.DistanceMeters);
                 }))
             .ToList();
 
@@ -134,10 +146,10 @@ public class GetMyNextSessionQueryHandler(
         var starterNames = SessionProposalPolicy.StarterExerciseNames.ToList();
         var starterCatalogue = (await db.Exercises.AsNoTracking()
                 .Where(e => starterNames.Contains(e.Name))
-                .Select(e => new { e.Id, e.Name })
+                .Select(e => new { e.Id, e.Name, e.LoadType })
                 .ToListAsync(cancellationToken))
             .OrderBy(e => starterNames.IndexOf(e.Name))
-            .Select(e => new PlannedExercise(e.Id, e.Name, 3, 10))
+            .Select(e => new PlannedExercise(e.Id, e.Name, e.LoadType, 3, 10))
             .ToList();
 
         if (starterCatalogue.Count < SessionProposalPolicy.StarterExerciseCount)
@@ -146,7 +158,7 @@ public class GetMyNextSessionQueryHandler(
                 .Where(e => !starterNames.Contains(e.Name))
                 .OrderBy(e => e.Name)
                 .Take(SessionProposalPolicy.StarterExerciseCount)
-                .Select(e => new PlannedExercise(e.Id, e.Name, 3, 10))
+                .Select(e => new PlannedExercise(e.Id, e.Name, e.LoadType, 3, 10))
                 .ToListAsync(cancellationToken);
 
             starterCatalogue.AddRange(fillIn);
@@ -158,7 +170,9 @@ public class GetMyNextSessionQueryHandler(
             proposal.Source.ToString(),
             proposal.CanConfirm,
             proposal.Entries
-                .Select(e => new MyProposedEntryDto(e.ExerciseId, e.ExerciseName, e.Sets, e.Reps, e.WeightKg))
+                .Select(e => new MyProposedEntryDto(
+                    e.ExerciseId, e.ExerciseName, e.LoadType.ToString(), e.Sets,
+                    e.Reps, e.WeightKg, e.DurationSeconds, e.DistanceMeters))
                 .ToList());
     }
 }

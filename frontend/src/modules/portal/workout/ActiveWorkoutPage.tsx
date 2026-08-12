@@ -248,16 +248,17 @@ export default function ActiveWorkoutPage() {
   const proposed: ActiveExercise[] = (proposal.data?.entries ?? []).map((e) => ({
     exerciseId: e.exerciseId,
     exerciseName: e.exerciseName,
+    // Without this the session rendered a proposed treadmill with KG and REPS columns — the default
+    // for an unknown load type — and confirming sent a rep count the server rejects. A proposal the
+    // member cannot confirm as proposed is a bug wearing a suggestion's clothes.
+    loadType: e.loadType,
     // The proposal says "3 sets of 8 at 60kg"; the session turns that into three individual sets
     // the member confirms one at a time, each free to differ from the plan.
     sets: Array.from({ length: Math.max(1, e.sets) }, () => ({
       weightKg: e.weightKg,
       reps: e.reps,
-      // The proposal carries no duration or distance — GetMyNextSessionQuery reduces a previous
-      // session's load and reps only. A movement measured in time starts blank rather than
-      // pre-filled, which is correct: there is nothing to carry across.
-      durationSeconds: null,
-      distanceMeters: null,
+      durationSeconds: e.durationSeconds,
+      distanceMeters: e.distanceMeters,
       done: false,
     })),
   }))
