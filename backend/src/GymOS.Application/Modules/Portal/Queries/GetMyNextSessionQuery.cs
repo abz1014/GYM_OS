@@ -83,12 +83,39 @@ public class GetMyNextSessionQueryHandler(
             .OrderByDescending(e => e.LoggedAt)
             .ToList();
 
+        /*
+         * Grouped by EXERCISE, not replayed row by row.
+         *
+         * The live logger writes one row per set — each carrying SetsCompleted = 1 — so replaying a
+         * session entry-for-entry turned "Bench Press, 4 sets" into four separate proposed exercises
+         * all called Bench Press, each proposing a single set. The distortion compounds: every
+         * session logged from the proposal came back next time more fragmented than the one before,
+         * so the members using the feature most had the worst proposals.
+         *
+         * Sets sum. Reps and weight come from the heaviest set rather than the last one, because a
+         * member who works up to a top set and then drops down should be offered the top set again —
+         * proposing the back-off weight quietly walks them down over successive sessions.
+         */
         var lastSession = history
             .GroupBy(e => e.WorkoutLogId)
             .OrderByDescending(g => g.Max(e => e.LoggedAt))
             .Take(1)
-            .SelectMany(g => g.Select(e =>
-                new ProposedEntry(e.ExerciseId, e.ExerciseName, e.SetsCompleted, e.RepsCompleted, e.WeightKg)))
+            .SelectMany(g => g
+                .GroupBy(e => new { e.ExerciseId, e.ExerciseName })
+                .Select(byExercise =>
+                {
+                    var heaviest = byExercise
+                        .OrderByDescending(e => e.WeightKg ?? 0)
+                        .ThenByDescending(e => e.RepsCompleted)
+                        .First();
+
+                    return new ProposedEntry(
+                        byExercise.Key.ExerciseId,
+                        byExercise.Key.ExerciseName,
+                        byExercise.Sum(e => e.SetsCompleted),
+                        heaviest.RepsCompleted,
+                        heaviest.WeightKg);
+                }))
             .ToList();
 
         // The load the member last used on each movement — the memory a coach would bring, and the

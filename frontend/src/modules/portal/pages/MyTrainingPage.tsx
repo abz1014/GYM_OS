@@ -144,12 +144,22 @@ function targetFor(s: MyExerciseSuggestion, blocked: boolean, lighten: boolean):
       if (bodyweight) return { arrow: '↑', value: reps, unit: 'reps', tone: 'var(--foreground)' }
       return { arrow: '↑', value: `${s.suggestedNextWeightKg}`, unit: 'kg', tone: 'var(--foreground)' }
     case 'ConsiderDeload':
-      return {
-        arrow: '↓',
-        value: s.suggestedNextWeightKg !== null ? `${s.suggestedNextWeightKg}` : '—',
-        unit: 'kg',
-        tone: 'var(--warning)',
-      }
+      /*
+       * Last time's load, stated as last time's load — never an invented target.
+       *
+       * This branch read suggestedNextWeightKg and fell back to an em-dash, and the fallback was not
+       * an edge case: GetMyWorkoutSuggestionsQuery populates that field ONLY for
+       * ReadyToIncreaseWeight, so a ConsiderDeload row was structurally guaranteed to print "— kg"
+       * under a column headed "Target". The seed hides it because the local ordering buries this
+       * verdict; a real member with three logged movements meets it immediately.
+       *
+       * Saying "you came down to 55" is true and useful. Naming a number to aim for after a drop
+       * would be the app inventing coaching it has no basis for — the policy's own comment calls
+       * this its noisiest verdict, raised by ordinary session-to-session variation.
+       */
+      return bodyweight
+        ? { arrow: '↓', value: reps, unit: 'reps', tone: 'var(--warning)' }
+        : { arrow: '↓', value: `${s.lastWeightKg ?? '—'}`, unit: 'kg', tone: 'var(--warning)' }
     case 'Progressing':
       return bodyweight
         ? { arrow: '↑', value: reps, unit: 'reps', tone: 'var(--foreground)' }
@@ -361,7 +371,24 @@ export default function MyTrainingPage() {
   const headline = failed ? 'Train today' : isNewMember ? 'First session' : headlineFor(status, targetGroups)
 
   return (
-    <div className="mx-auto max-w-[1064px] px-4 pt-[62px] pb-[136px] lg:grid lg:grid-cols-[660px_1fr] lg:items-start lg:gap-6 lg:px-10 lg:pt-[34px] lg:pb-[110px]">
+    /*
+      Centred on the same axis as every other member screen, and as the tab bar.
+
+      This was `max-w-[1064px] ... lg:grid-cols-[660px_1fr]`, while every other member page is
+      `max-w-2xl` (672px) and MemberTabBar is `mx-auto ... max-w-2xl`. The arithmetic: at 1024px+ the
+      1064 container less lg:px-10 gives a 984 content box, of which column one took a FIXED 660 —
+      so the hero card's centre line landed ~202px left of the viewport centre the tab bar's centre
+      button sits on, and moving Home -> Train visibly shoved the page sideways. Between 768 and
+      1023px `lg:grid` had not engaged at all, so a 900px window rendered an 836px column against
+      672px everywhere else.
+
+      `minmax(0,1fr)` rather than a fixed track is what lets the page re-centre when the reference
+      rail is absent — which is every new member and every failed fetch, the case that looked worst.
+
+      px-4 is gone because AppShell already applies p-4 to the member <main>; the two were
+      double-padding to 32px on mobile.
+    */
+    <div className="mx-auto w-full max-w-2xl pt-8 pb-32 lg:grid lg:max-w-[1024px] lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6 lg:pt-[34px] lg:pb-[110px]">
       <div>
         <div className="mb-[14px] flex items-center justify-between px-0.5">
           <span className="font-display text-[11.5px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
@@ -387,7 +414,7 @@ export default function MyTrainingPage() {
         </div>
 
         <div className="edge-light rounded-[26px] border border-border bg-card p-[18px] lg:p-[26px]">
-          <div className="flex items-start gap-[14px] lg:gap-[26px]">
+          <div className="flex items-center gap-[14px] lg:gap-[26px]">
             <div className="min-w-0 flex-1">
               <p className="font-display text-[10.5px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
                 {plan ? plan.workoutTemplateName : 'No plan'}
@@ -412,7 +439,10 @@ export default function MyTrainingPage() {
         <div className="mt-[14px]">
           <div className="flex items-center justify-between px-1 pb-[9px]">
             <span className="font-display text-[10.5px] font-bold tracking-[0.11em] text-muted-foreground uppercase">Today</span>
-            <span className="font-display text-[10.5px] font-bold tracking-[0.11em] text-muted-foreground uppercase">Target</span>
+            {/* "Last", not "Target": only ReadyToIncreaseWeight yields a number to aim for. The other
+                three verdicts report what the member already did, and heading them "Target" told
+                members to lift a weight the app had not chosen. */}
+            <span className="font-display text-[10.5px] font-bold tracking-[0.11em] text-muted-foreground uppercase">Last</span>
           </div>
 
           {failed ? (
