@@ -1,4 +1,4 @@
-import { Apple, CalendarDays, Dumbbell, Home, LayoutGrid, MapPin, MessageCircle, NotebookPen, Shield, Trophy, TrendingUp, UserCircle, ShieldCheck, Flag, type LucideIcon } from 'lucide-react'
+import { Apple, CalendarDays, Dumbbell, Home, LayoutGrid, MapPin, MessageCircle, NotebookPen, Shield, Trophy, TrendingUp, ShieldCheck, type LucideIcon } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/authStore'
 
@@ -22,48 +22,63 @@ export interface MemberTab {
   icon: LucideIcon
   /** Routes that should also light this tab up (e.g. "More" stays active on its sub-pages). */
   alsoMatches?: string[]
+  /**
+   * Rendered as the elevated round action rather than a flat tab. Exactly one tab carries this.
+   *
+   * A flag rather than a label match: MemberTabBar used to find the centre button with
+   * `tab.label === 'Log'`, so renaming the tab demoted it to a flat tab with no compile error.
+   */
+  isCentre?: boolean
 }
 
 /**
  * Five slots: four destinations either side of the centre action. Fitness-app UX research is
  * consistent that a member surface should carry 3–5 top-level areas with big tap targets; the portal
  * previously exposed seven sidebar items, which is what made a split-up-but-still-busy app feel
- * complicated. Everything else (nutrition, classes, coach, passport, challenges, leaderboard,
- * membership admin) lives one level down under More.
+ * complicated.
  *
- * "Log" sits at index 2 — dead centre — because MemberTabBar renders it as the elevated round action
- * rather than a flat tab, and a centre slot is only actually centred with an equal number of tabs on
- * each side. It keeps its entry here rather than being special-cased in the bar so its route,
- * matching and aria-current all stay identical to every other tab's.
+ * TRAIN IS THE CENTRE ACTION, and that is a product rule rather than a layout preference: recording
+ * a workout happens on the training page and nowhere else. The bar used to carry Train as a flat tab
+ * AND a "Log" centre button pointing straight at the session recorder, so there were two doors into
+ * the same job — and the one a member hit first skipped the screen that tells them what they should
+ * be doing and which muscles still need rest. One door now, through Train.
  *
- * "Train" was promoted out of More for that symmetry, and because it is the one member destination
- * that answers "what should I do in the gym right now" — the question the tab bar should be able to
- * answer without a detour through a menu.
+ * COMMUNITY TOOK THE FREED SLOT. The leaderboard and challenges were reachable from exactly one
+ * place in the entire app — a row on the More page, below a full-bleed membership card and a
+ * six-row Training group, which on a phone is below the fold. A social feature nobody can find is
+ * not a social feature.
+ *
+ * Index 2 is dead centre and MemberTabBar renders that entry as the elevated round action; a centre
+ * slot is only actually centred with an equal number of tabs either side, so this array's length and
+ * the promoted entry's position are both load-bearing. MemberTabBar finds it by `isCentre` rather
+ * than by matching a label string, which used to mean renaming the tab silently demoted it.
  */
 export const MEMBER_TABS: MemberTab[] = [
   { label: 'Home', path: '/portal', icon: Home },
-  { label: 'Train', path: '/my-training', icon: Dumbbell },
-  // The centre action starts a live session. It used to open the after-the-fact logger, which is a
-  // different job and now lives under More — a member tapping the big button mid-session wants to
-  // record the set they just did, not fill in a form about a workout that already ended.
-  { label: 'Log', path: '/workout', icon: NotebookPen },
-  // Rank, not Progress, and the swap is forced rather than preferred: the bar holds four flat tabs
-  // around the centre action, and a fifth would push that action off-centre — the one layout rule
-  // this file already defends. Rank wins the slot because it answers "where do I stand" in one look,
-  // which is the question a member opens the app with; Progress is a sit-down-and-study screen, which
-  // is exactly what a More destination is for. It is linked prominently from the top of Rank.
+  // Rank, not Progress: it answers "where do I stand" in one look, which is the question a member
+  // opens the app with. Progress is a sit-down-and-study screen and is linked from the top of Rank.
   { label: 'Rank', path: '/my-rank', icon: Shield },
+  {
+    label: 'Train',
+    path: '/my-training',
+    icon: Dumbbell,
+    isCentre: true,
+    // The live session recorder is reached FROM Train, so the button stays lit while a member is
+    // mid-session rather than the bar going dark on the screen they spend the most time on.
+    alsoMatches: ['/workout'],
+  },
+  { label: 'Community', path: '/community', icon: Trophy, alsoMatches: ['/leaderboard', '/my-challenges'] },
   {
     label: 'More',
     path: '/more',
     icon: LayoutGrid,
     // Every path in MEMBER_MORE_LINKS belongs here. Two were missed as they were added — My Coach
     // and Gym Passport — and on those screens no tab lit at all, so the app quietly stopped saying
-    // where the member was, and aria-current went with it. (/my-training is absent on purpose: it is
-    // its own tab now, and listing it here would light two tabs at once.)
+    // where the member was, and aria-current went with it. (/my-training and the community paths are
+    // absent on purpose: they are their own tabs, and listing them would light two tabs at once.)
     alsoMatches: [
       '/my-nutrition', '/my-classes', '/my-coach', '/my-passport', '/my-progress',
-      '/my-challenges', '/leaderboard', '/membership', '/account', '/log-activity',
+      '/membership', '/account', '/log-activity',
     ],
   },
 ]
@@ -73,13 +88,15 @@ export interface MemberMoreLink {
   description: string
   path: string
   icon: LucideIcon
-  group: 'Training' | 'Community' | 'Account'
+  group: 'Training' | 'Account'
 }
 
 /**
  * Secondary destinations, surfaced on the More screen and grouped so it scans in one look.
- * My Training is deliberately absent — it is a top-level tab now, and a destination that is both a
- * tab and a More row is the same place reached two ways, which is how a menu starts feeling long.
+ *
+ * My Training and the two community screens are deliberately absent — they are top-level tabs now,
+ * and a destination that is both a tab and a More row is the same place reached two ways, which is
+ * how a menu starts feeling long.
  */
 export const MEMBER_MORE_LINKS: MemberMoreLink[] = [
   { group: 'Training', label: 'My Nutrition', description: "Today's macros, plans and water", path: '/my-nutrition', icon: Apple },
@@ -92,8 +109,8 @@ export const MEMBER_MORE_LINKS: MemberMoreLink[] = [
   // Left the tab bar when Rank took the slot. Still a first-class destination — the charts, goals,
   // measurements, mastery and timeline all live here, and Rank links straight to it.
   { group: 'Training', label: 'Progress', description: 'Volume, records, measurements and your story', path: '/my-progress', icon: TrendingUp },
-  { group: 'Community', label: 'Leaderboard', description: 'How you rank against your gym', path: '/leaderboard', icon: Trophy },
-  { group: 'Community', label: 'Challenges', description: 'Join a challenge and compete', path: '/my-challenges', icon: Flag },
-  { group: 'Account', label: 'Membership', description: 'Your plan, member code and referrals', path: '/membership', icon: UserCircle },
+  // Membership is deliberately absent: the More screen already opens with a full-bleed membership
+  // hero card linking to the same place, and one screen offering one destination twice is how a
+  // menu starts feeling longer than it is.
   { group: 'Account', label: 'Account & security', description: 'Password, two-factor and sign-in', path: '/account', icon: ShieldCheck },
 ]

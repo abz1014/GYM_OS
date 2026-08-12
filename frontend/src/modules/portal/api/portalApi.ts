@@ -219,6 +219,60 @@ export function useMyNutritionSummary() {
   })
 }
 
+/** One instruction from the nutritionist, and when it started applying. */
+export interface MyGuidance {
+  cadence: 'Weekly' | 'Monthly'
+  effectiveFrom: string
+  title: string
+  body: string | null
+}
+
+/**
+ * The nutrition plan as something to follow. Every field is null when there is no active plan —
+ * a real state with its own screen, not an empty plan full of zeroes.
+ */
+export interface MyNutritionPrescription {
+  planName: string | null
+  authoredBy: string | null
+  notes: string | null
+  startDate: string | null
+  endDate: string | null
+  targetCalories: number | null
+  targetProteinG: number | null
+  targetCarbsG: number | null
+  targetFatG: number | null
+  thisWeek: MyGuidance | null
+  thisMonth: MyGuidance | null
+  history: MyGuidance[]
+  confirmedToday: boolean
+  daysConfirmedInWindow: number
+  adherenceWindowDays: number
+}
+
+export function useMyNutritionPrescription() {
+  return useQuery({
+    queryKey: ['portal', 'nutrition-prescription'],
+    queryFn: async () => (await apiClient.get<MyNutritionPrescription>('/api/me/nutrition/prescription')).data,
+    retry: false,
+  })
+}
+
+/**
+ * "I stayed on my plan today." The only thing the nutrition screen asks of a member.
+ *
+ * Idempotent server-side, so a double tap is not an error — but the screen still reads
+ * `confirmedToday` and stops offering the button, because reporting success for a record that
+ * already existed is the same class of lie as reporting it for one that was never created.
+ */
+export function useLogMyPlanAdherence() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (note: string | null) =>
+      (await apiClient.post<string>('/api/me/nutrition/adherence', { note })).data,
+    onSuccess: () => invalidateAfterLogging(queryClient),
+  })
+}
+
 export type OverloadSuggestion = 'InsufficientData' | 'Progressing' | 'ReadyToIncreaseWeight' | 'ConsiderDeload'
 
 export interface MyExerciseSuggestion {

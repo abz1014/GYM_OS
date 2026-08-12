@@ -15,8 +15,13 @@ public static class CoachingPolicy
     /// (distinguishes "never assigned" from "assigned but not logging"), the dates within the trailing
     /// window they had an active plan, and the dates within that same window they actually logged a
     /// consumed meal.</summary>
+    /// <param name="AdherenceConfirmedDatesInWindow">Days the member tapped "stayed on plan".
+    /// Unioned with the meal dates rather than replacing them — see NutritionAdherencePercent.</param>
     public readonly record struct NutritionAdherenceSignals(
-        bool HasEverHadPlan, IReadOnlyList<DateOnly> PlanActiveDatesInWindow, IReadOnlyList<DateOnly> MealLoggedDatesInWindow);
+        bool HasEverHadPlan,
+        IReadOnlyList<DateOnly> PlanActiveDatesInWindow,
+        IReadOnlyList<DateOnly> MealLoggedDatesInWindow,
+        IReadOnlyList<DateOnly> AdherenceConfirmedDatesInWindow);
 
     /// <summary>
     /// Consistency over the trailing N calendar weeks (this week and the N-1 before it), as a
@@ -55,8 +60,21 @@ public static class CoachingPolicy
             return null;
         }
 
-        var loggedDates = signals.MealLoggedDatesInWindow.ToHashSet();
-        var compliantDays = signals.PlanActiveDatesInWindow.Count(d => loggedDates.Contains(d));
+        /*
+         * A day counts if the member said so OR logged a meal — the union, not one or the other.
+         *
+         * Adherence is a self-report and always was; counting meal rows was a proxy for it, made
+         * necessary because a tick did not exist. Now that it does, this measures the thing it is
+         * named after directly. The meal dates STAY in the union for two reasons: a member who
+         * prefers the food diary is genuinely adhering and must not be marked down for using the
+         * older path, and every historic row in the database was recorded that way — dropping it
+         * would rewrite every existing member's compliance downwards overnight.
+         */
+        var compliantDates = signals.MealLoggedDatesInWindow
+            .Concat(signals.AdherenceConfirmedDatesInWindow)
+            .ToHashSet();
+
+        var compliantDays = signals.PlanActiveDatesInWindow.Count(d => compliantDates.Contains(d));
         return (int)Math.Round(compliantDays * 100m / signals.PlanActiveDatesInWindow.Count);
     }
 

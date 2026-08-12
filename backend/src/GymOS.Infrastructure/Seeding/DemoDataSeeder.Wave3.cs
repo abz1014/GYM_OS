@@ -209,9 +209,56 @@ public partial class DemoDataSeeder
             TargetProteinG = 180m,
             TargetCarbsG = 250m,
             TargetFatG = 70m,
-            StartDate = DateOnly.FromDateTime(now.UtcDateTime).AddDays(-30)
+            // A plan is a prescription, and a prescription has words on it. The member's nutrition
+            // screen shows these rather than macro bars full of zeroes.
+            Notes = "Protein at every meal, starting with breakfast. Water before coffee. "
+                  + "Weigh in Monday mornings before eating.",
+            StartDate = DateOnly.FromDateTime(now.UtcDateTime).AddDays(-30),
+            EndDate = DateOnly.FromDateTime(now.UtcDateTime).AddDays(30)
         };
         db.DietPlans.Add(dietPlan);
+
+        // What changes week to week and month to month. Two weeklies so the demo shows one current
+        // and one superseded — the history is the thing that makes a plan read as progressing rather
+        // than as a page that has always said the same thing.
+        var planDay = DateOnly.FromDateTime(now.UtcDateTime);
+        var guidance = new (GuidanceCadence Cadence, int DaysAgo, string Title, string? Body)[]
+        {
+            (GuidanceCadence.Monthly, 12, "Lean gain block · week 2 of 4",
+                "Calories stay where they are. We are looking for 0.25–0.5 kg a week on the scale, no more."),
+            (GuidanceCadence.Weekly, 2, "Carbs down on rest days",
+                "On days you do not train, drop about 60g of carbs and keep protein identical."),
+            (GuidanceCadence.Weekly, 9, "Front-load protein", null),
+        };
+
+        foreach (var (cadence, daysAgo, title, body) in guidance)
+        {
+            db.DietPlanGuidance.Add(new DietPlanGuidance
+            {
+                TenantId = member.TenantId,
+                DietPlanId = dietPlan.Id,
+                Cadence = cadence,
+                EffectiveFrom = planDay.AddDays(-daysAgo),
+                Title = title,
+                Body = body,
+                CreatedByUserId = demoUsers[RoleNames.Nutritionist].Id,
+                CreatedAt = now.AddDays(-daysAgo)
+            });
+        }
+
+        // A few confirmed days, so the adherence line has something real behind it. Deliberately not
+        // today's — the demo member should meet an unpressed button, which is the interesting state.
+        foreach (var daysAgo in new[] { 1, 2, 4, 5, 8 })
+        {
+            db.PlanAdherenceLogs.Add(new PlanAdherenceLog
+            {
+                TenantId = member.TenantId,
+                MemberId = member.Id,
+                DietPlanId = dietPlan.Id,
+                OnDate = planDay.AddDays(-daysAgo),
+                LoggedAt = now.AddDays(-daysAgo)
+            });
+        }
 
         // Small, clustered hour offsets — large ones (e.g. "8 hours ago") risk crossing the UTC
         // midnight boundary depending what time of day the seed happens to run, which would silently

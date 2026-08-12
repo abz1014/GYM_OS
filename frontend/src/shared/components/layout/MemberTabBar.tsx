@@ -98,7 +98,9 @@ export function MemberTabBar() {
    */
   const today = useMyToday()
   const hasCoachReply = (today.data?.unreadCoachMessages ?? 0) > 0
-  const fabIndex = MEMBER_TABS.findIndex((tab) => tab.label === 'Log')
+  // By flag, not by label. `tab.label === 'Log'` meant renaming the tab silently demoted the centre
+  // action to a flat tab and pushed the whole row off-centre, with nothing failing to say so.
+  const fabIndex = MEMBER_TABS.findIndex((tab) => tab.isCentre)
   const fab = MEMBER_TABS[fabIndex]
   const fabActive = fab ? pathname === fab.path || (fab.alsoMatches ?? []).some((p) => pathname.startsWith(p)) : false
 
@@ -122,7 +124,7 @@ export function MemberTabBar() {
               <Link
                 to={tab.path}
                 aria-current={fabActive ? 'page' : undefined}
-                aria-label="Log a workout"
+                aria-label={tab.label}
                 className={cn(
                   'absolute top-0 left-1/2 flex size-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full',
                   'bg-primary text-primary-foreground shadow-[0_8px_22px_-6px_var(--primary)]',

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Dumbbell, GlassWater, Loader2, Ruler, UtensilsCrossed } from 'lucide-react'
+import { Check, Dumbbell, GlassWater, Loader2, Moon, Ruler, UtensilsCrossed } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -16,14 +16,119 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   useLogMyMeal,
   useLogMyMeasurement,
+  useLogMyRecovery,
   useLogMyWater,
   useMyLoggingOptions,
   useMyNutritionSummary,
+  useMyRecovery,
   useMyWorkoutLogs,
+  type RecoveryKind,
 } from '@/modules/portal/api/portalApi'
 import { isStale } from '@/shared/lib/queryTrust'
 
 const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+
+const RECOVERY_KINDS: { key: RecoveryKind; label: string }[] = [
+  { key: 'RestDay', label: 'Full rest' },
+  { key: 'ActiveRecovery', label: 'Active recovery' },
+  { key: 'Mobility', label: 'Mobility' },
+  { key: 'Stretching', label: 'Stretching' },
+]
+
+/**
+ * Rest days, which had a full backend, a hook, and no way in.
+ *
+ * POST /api/me/recovery/log has existed since the recovery engine shipped, `useLogMyRecovery` was
+ * written to call it, and an exhaustive search for callers found exactly one hit: the definition.
+ * Meanwhile the rank screen renders a tip reading "Log a rest day · +10" whose link points here —
+ * to a page with three tabs, none of which could log one. A member who followed that advice arrived
+ * at a screen that could not do the thing it had just promised.
+ *
+ * Only one log per day is allowed and the server returns the existing row rather than creating a
+ * second, so the form must stop offering itself once today is recorded — otherwise the UI reports
+ * success for a record it did not create, which is the same lie in the other direction.
+ */
+function LogRestDayTab() {
+  const recovery = useMyRecovery()
+  const log = useLogMyRecovery()
+  const [kind, setKind] = useState<RecoveryKind>('RestDay')
+  const [notes, setNotes] = useState('')
+
+  const already = recovery.data?.today ?? null
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Rest and recovery</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isStale(recovery) && (
+          <MemberLoadError
+            title="We couldn't check today's recovery"
+            onRetry={() => void recovery.refetch()}
+            isRetrying={recovery.isFetching}
+          />
+        )}
+
+        {already ? (
+          <p className="flex items-center gap-2 rounded-2xl bg-success/10 p-3 text-sm font-semibold text-success">
+            <Check className="size-4" />
+            {already.kind === 'RestDay' ? 'Rest day' : already.kind} logged for today.
+          </p>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label>What kind</Label>
+              <div className="flex flex-wrap gap-2">
+                {RECOVERY_KINDS.map((k) => (
+                  <Button
+                    key={k.key}
+                    type="button"
+                    size="sm"
+                    variant={kind === k.key ? 'default' : 'outline'}
+                    onClick={() => setKind(k.key)}
+                  >
+                    {k.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="recovery-notes">Notes (optional)</Label>
+              <Textarea
+                id="recovery-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Slept badly, legs still sore from Tuesday…"
+              />
+            </div>
+
+            <Button
+              disabled={log.isPending || isStale(recovery)}
+              onClick={() =>
+                log.mutate(
+                  { kind, notes: notes.trim() || null },
+                  {
+                    onSuccess: () => {
+                      setNotes('')
+                      toast.success('Recovery day logged.')
+                    },
+                    onError: () => toast.error("Couldn't log that."),
+                  },
+                )
+              }
+            >
+              {log.isPending && <Loader2 className="size-4 animate-spin" />}
+              <Moon className="size-4" />
+              Log recovery day
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 function RecentWorkouts() {
   const logs = useMyWorkoutLogs()
@@ -339,6 +444,7 @@ export default function LogActivityPage() {
           <TabsTrigger value="workout">Workout</TabsTrigger>
           <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
           <TabsTrigger value="measurements">Measurements</TabsTrigger>
+          <TabsTrigger value="rest">Rest day</TabsTrigger>
         </TabsList>
 
         <TabsContent value="workout">
@@ -349,6 +455,7 @@ export default function LogActivityPage() {
         </TabsContent>
         <TabsContent value="nutrition"><LogNutritionTab /></TabsContent>
         <TabsContent value="measurements"><LogMeasurementsTab /></TabsContent>
+        <TabsContent value="rest"><LogRestDayTab /></TabsContent>
       </Tabs>
     </div>
   )

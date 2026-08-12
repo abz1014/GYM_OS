@@ -179,6 +179,12 @@ public interface IApplicationDbContext
 
     DbSet<MealEntry> MealEntries { get; }
 
+    /// <summary>What the nutritionist wants the member to do this week and this month.</summary>
+    DbSet<DietPlanGuidance> DietPlanGuidance { get; }
+
+    /// <summary>One row per day a member confirmed they stayed on plan. See PlanAdherenceLog.</summary>
+    DbSet<PlanAdherenceLog> PlanAdherenceLogs { get; }
+
     DbSet<WaterLog> WaterLogs { get; }
 
     // Migration Center (Wave 3)

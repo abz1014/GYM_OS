@@ -102,6 +102,24 @@ public class PortalController(ISender mediator) : ControllerBase
     public async Task<ActionResult<Guid>> LogWater(LogMyWaterCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
 
+    /// <summary>
+    /// What the nutritionist prescribed, and what changes weekly and monthly. Read-only — the
+    /// member's nutrition screen asks for nothing but the one confirmation below.
+    /// </summary>
+    [HttpGet("nutrition/prescription")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyNutritionPrescriptionDto>> NutritionPrescription(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyNutritionPrescriptionQuery(), cancellationToken));
+
+    /// <summary>
+    /// "I stayed on my plan today." Idempotent per day — see LogMyPlanAdherenceCommand.
+    /// </summary>
+    [HttpPost("nutrition/adherence")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<Guid>> LogPlanAdherence(
+        LogMyPlanAdherenceCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
     [HttpGet("measurements")]
     [RequirePermission(PermissionCodes.Portal.View)]
     public async Task<ActionResult<List<MyMeasurementDto>>> Measurements(CancellationToken cancellationToken)

@@ -52,7 +52,7 @@ public class CoachingPolicyTests
     [Fact]
     public void NutritionAdherence_is_null_when_the_member_never_had_a_diet_plan()
     {
-        var signals = new CoachingPolicy.NutritionAdherenceSignals(false, [], []);
+        var signals = new CoachingPolicy.NutritionAdherenceSignals(false, [], [], []);
 
         CoachingPolicy.NutritionAdherencePercent(signals).ShouldBeNull();
     }
@@ -61,7 +61,7 @@ public class CoachingPolicyTests
     public void NutritionAdherence_is_null_when_the_plan_had_no_active_days_in_the_window()
     {
         // Assigned a plan at some point, but it doesn't overlap the trailing window being scored.
-        var signals = new CoachingPolicy.NutritionAdherenceSignals(true, [], []);
+        var signals = new CoachingPolicy.NutritionAdherenceSignals(true, [], [], []);
 
         CoachingPolicy.NutritionAdherencePercent(signals).ShouldBeNull();
     }
@@ -72,7 +72,7 @@ public class CoachingPolicyTests
         var planDates = new[] { Today, Today.AddDays(-1), Today.AddDays(-2), Today.AddDays(-3) };
         var loggedDates = new[] { Today, Today.AddDays(-2) }; // logged 2 of the 4 active days
 
-        var signals = new CoachingPolicy.NutritionAdherenceSignals(true, planDates, loggedDates);
+        var signals = new CoachingPolicy.NutritionAdherenceSignals(true, planDates, loggedDates, []);
 
         CoachingPolicy.NutritionAdherencePercent(signals).ShouldBe(50);
     }
@@ -83,7 +83,7 @@ public class CoachingPolicyTests
         var planDates = new[] { Today };
         var loggedDates = new[] { Today, Today.AddDays(-5) }; // the extra day isn't a plan-active day
 
-        var signals = new CoachingPolicy.NutritionAdherenceSignals(true, planDates, loggedDates);
+        var signals = new CoachingPolicy.NutritionAdherenceSignals(true, planDates, loggedDates, []);
 
         CoachingPolicy.NutritionAdherencePercent(signals).ShouldBe(100);
     }

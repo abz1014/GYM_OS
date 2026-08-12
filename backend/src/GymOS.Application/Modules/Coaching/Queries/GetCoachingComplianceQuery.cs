@@ -58,6 +58,25 @@ public class GetCoachingComplianceQueryHandler(IApplicationDbContext db, ICurren
             .GroupBy(e => e.MemberId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.ConsumedAt).ToList());
 
+        /*
+         * The days members confirmed they stayed on plan.
+         *
+         * Counted alongside logged meals, not instead of them. The member's nutrition screen is a
+         * prescription now rather than a food diary, so the meal rows this metric was built on are
+         * about to stop arriving — and CoachingPolicy returns 0%, not null, for a member who HAS a
+         * plan and logs nothing. Without this every trainer dashboard would have quietly asserted
+         * that every member was ignoring their diet.
+         *
+         * OnDate is already a plain date in the gym's terms, so unlike the meal timestamps it needs
+         * no conversion.
+         */
+        var adherenceDatesByMember = (await db.PlanAdherenceLogs.AsNoTracking()
+                .Where(a => memberIds.Contains(a.MemberId) && a.OnDate >= windowStart)
+                .Select(a => new { a.MemberId, a.OnDate })
+                .ToListAsync(cancellationToken))
+            .GroupBy(a => a.MemberId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.OnDate).ToList());
+
         var rows = new List<ComplianceRowDto>();
         foreach (var member in members)
         {
@@ -81,8 +100,15 @@ public class GetCoachingComplianceQueryHandler(IApplicationDbContext db, ICurren
             mealTimestamps ??= [];
             var mealDatesInWindow = mealTimestamps.Select(ToDate).Where(d => d >= windowStart && d <= today).Distinct().ToList();
 
+            adherenceDatesByMember.TryGetValue(member.Id, out var adherenceDates);
+            adherenceDates ??= [];
+
             var nutritionAdherence = CoachingPolicy.NutritionAdherencePercent(
-                new CoachingPolicy.NutritionAdherenceSignals(plans.Count > 0, planActiveDatesInWindow, mealDatesInWindow));
+                new CoachingPolicy.NutritionAdherenceSignals(
+                    plans.Count > 0,
+                    planActiveDatesInWindow,
+                    mealDatesInWindow,
+                    adherenceDates.Where(d => d >= windowStart && d <= today).Distinct().ToList()));
 
             rows.Add(new ComplianceRowDto(
                 member.Id, $"{member.FirstName} {member.LastName}", member.MemberCode,

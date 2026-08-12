@@ -35,9 +35,29 @@ public class DietPlan : AggregateRoot, ITenantScoped
 
     public DateOnly? EndDate { get; set; }
 
+    /// <summary>
+    /// The standing instructions — how to eat on this plan, in the nutritionist's own words.
+    ///
+    /// The plan had four numbers, two dates and a name, and nowhere for a person to say anything at
+    /// all. A calorie target is not advice, which is exactly why the member's nutrition screen read
+    /// as useless: it could only show macros because macros were all there was.
+    /// </summary>
+    public string? Notes { get; set; }
+
     public ICollection<MealEntry> MealEntries { get; set; } = [];
+
+    /// <summary>What changes week to week and month to month. Append-only — see DietPlanGuidance.</summary>
+    public ICollection<DietPlanGuidance> Guidance { get; set; } = [];
 
     /// <summary>Signals the Member Experience Engine that this plan's member logged a meal on the
     /// given day. Called by AddMealEntryCommand after the entry is added; dispatched after save.</summary>
     public void RaiseMealLogged(DateOnly consumedDate) => AddDomainEvent(new MealLoggedEvent(MemberId, consumedDate));
+
+    /// <summary>
+    /// Signals that the member confirmed they stayed on this plan for a day.
+    ///
+    /// Deliberately the same shape as <see cref="RaiseMealLogged"/>: both end up at the same XP
+    /// reason through the same per-day key, so the two paths cannot double-award.
+    /// </summary>
+    public void RaiseAdherenceLogged(DateOnly onDate) => AddDomainEvent(new PlanAdherenceLoggedEvent(MemberId, onDate));
 }

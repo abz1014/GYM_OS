@@ -128,6 +128,8 @@ public class GymOsDbContext(
     public DbSet<FoodItem> FoodItems => Set<FoodItem>();
     public DbSet<DietPlan> DietPlans => Set<DietPlan>();
     public DbSet<MealEntry> MealEntries => Set<MealEntry>();
+    public DbSet<DietPlanGuidance> DietPlanGuidance => Set<DietPlanGuidance>();
+    public DbSet<PlanAdherenceLog> PlanAdherenceLogs => Set<PlanAdherenceLog>();
     public DbSet<WaterLog> WaterLogs => Set<WaterLog>();
 
     // Migration Center (Wave 3)

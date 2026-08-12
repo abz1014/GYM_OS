@@ -10,7 +10,9 @@ import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import { MEMBER_MORE_LINKS, type MemberMoreLink } from '@/shared/nav/memberNav'
 import { isStale } from '@/shared/lib/queryTrust'
 
-const GROUP_ORDER: MemberMoreLink['group'][] = ['Training', 'Community', 'Account']
+// Community left this screen entirely — it is a tab now. Derived from the union rather than
+// re-listed, so a group added to memberNav can never be silently dropped from the render.
+const GROUP_ORDER: MemberMoreLink['group'][] = ['Training', 'Account']
 const renewalFmt = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 
 /**
