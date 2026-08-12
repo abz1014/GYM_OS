@@ -135,6 +135,15 @@ public class PortalController(ISender mediator) : ControllerBase
         CancellationToken cancellationToken = default)
         => Ok(await mediator.Send(new GetMyLeaderboardQuery(category, period), cancellationToken));
 
+    /// <summary>
+    /// The ladder, the race on the caller's own rung, their pace, and what would move them faster.
+    /// See GetMyRankLadderQuery.
+    /// </summary>
+    [HttpGet("rank-ladder")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyRankLadderDto>> RankLadder(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyRankLadderQuery(), cancellationToken));
+
     /// <summary>The pre-filled session a member can confirm in one tap — see GetMyNextSessionQuery.</summary>
     [HttpGet("next-session")]
     [RequirePermission(PermissionCodes.Portal.View)]

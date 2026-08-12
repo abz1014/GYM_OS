@@ -4,6 +4,7 @@ import { Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { type MyRankPromotion, type RankTier } from '@/modules/portal/api/portalApi'
+import { RANK_TIER_LINE } from '@/modules/portal/components/portalShared'
 
 const TIER_GLOW: Record<RankTier, string> = {
   Newcomer: 'text-muted-foreground',
@@ -16,18 +17,6 @@ const TIER_GLOW: Record<RankTier, string> = {
   Legend: 'text-yellow-300',
 }
 
-/** What the member did to get here — the same lines the ladder uses, so the moment and the record
-    agree rather than the celebration inventing a bigger claim than the page will repeat later. */
-const TIER_LINE: Record<RankTier, string> = {
-  Newcomer: 'Everyone starts here.',
-  Regular: 'You have made it a habit rather than an intention.',
-  Committed: 'Months of showing up. This is where most people stop — and you did not.',
-  Strong: 'The work is visible now. Half a year of it.',
-  Relentless: 'A year of turning up whether or not you felt like it.',
-  Elite: 'Very few members reach this. You are one of them.',
-  Titan: 'Years of it. The gym knows your name without checking.',
-  Legend: 'The top of the ladder. There is nothing above this.',
-}
 
 /**
  * The moment.
@@ -95,7 +84,7 @@ export function RankUpCelebration({
         >
           {tier}
         </p>
-        <p className="mx-auto max-w-xs text-sm text-muted-foreground">{TIER_LINE[tier]}</p>
+        <p className="mx-auto max-w-xs text-sm text-muted-foreground">{RANK_TIER_LINE[tier]}</p>
       </div>
 
       {/* The promise, stated at the moment it is most worth hearing. It is not marketing — PeakXp

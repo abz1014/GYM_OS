@@ -309,14 +309,14 @@ export function useMyExperience() {
 }
 
 /*
- * Achievements and streaks have no hook of their own. Each had one, neither had a screen: the app
- * already tells the member both, in the place each belongs — achievements inside the session they
- * happened on the timeline, the streak on the home screen. A hook nothing calls is a feature that
- * looks shipped from the code and is invisible from the app.
+ * Streaks has no hook of its own. It had one and no screen: the app already tells the member their
+ * streak on the home screen, and a hook nothing calls is a feature that looks shipped from the code
+ * and is invisible from the app.
  *
- * Their endpoints stay. They are self-scoped, tested, and the obvious thing a second client would ask
+ * The endpoint stays. It is self-scoped, tested, and the obvious thing a second client would ask
  * for; it is the unused wiring that was the dead weight, not the API — which is exactly why records
- * got their hook back below the moment a screen actually needed them.
+ * got their hook back below, and achievements got theirs back for the rank page, the moment a screen
+ * actually needed them.
  */
 export interface MyPersonalRecord {
   exerciseId: string
@@ -751,6 +751,93 @@ export function useMyNextSession() {
   return useQuery({
     queryKey: ['portal', 'next-session'],
     queryFn: async () => (await apiClient.get<MySessionProposal>('/api/me/next-session')).data,
+    retry: false,
+  })
+}
+
+/** One rung of the ladder, served by the API so the client never holds its own copy of the thresholds. */
+export interface RankRung {
+  tier: RankTier
+  xpRequired: number
+  reached: boolean
+  isYou: boolean
+}
+
+/** One member on the same rung. Names are already shortened; no ids cross the wire. */
+export interface RankPeer {
+  position: number
+  displayName: string
+  xp: number
+  isYou: boolean
+}
+
+export interface RankChase {
+  displayName: string
+  xpAhead: number
+}
+
+export interface XpSource {
+  reason: string
+  xp: number
+}
+
+export interface ClimbTip {
+  code: string
+  title: string
+  detail: string
+  xpValue: number
+}
+
+/**
+ * The rank screen's second call: the ladder, the race on the member's own rung, their pace, and what
+ * would move them faster. See GetMyRankLadderQuery — every field here is computed from their record.
+ *
+ * `weeksToNextTier` is null in two different situations and the screen must say something different
+ * for each: at the top of the ladder there is nothing to reach, and below a meaningful pace an
+ * estimate would be arithmetic rather than information.
+ */
+export interface MyRankLadder {
+  rungs: RankRung[]
+  onYourRung: RankPeer[]
+  chasing: RankChase | null
+  xpPerWeek: number
+  weeksToNextTier: number | null
+  paceWindowDays: number
+  workoutsInWindow: number
+  xpSources: XpSource[]
+  tips: ClimbTip[]
+}
+
+export function useMyRankLadder() {
+  return useQuery({
+    queryKey: ['portal', 'rank-ladder'],
+    queryFn: async () => (await apiClient.get<MyRankLadder>('/api/me/rank-ladder')).data,
+    retry: false,
+  })
+}
+
+/** One badge on the shelf. Locked ones come back too — the shelf's job is showing what is next. */
+export interface MyAchievement {
+  code: string
+  name: string
+  description: string
+  tier: 'Bronze' | 'Silver' | 'Gold' | 'Platinum'
+  category: string
+  icon: string
+  unlocked: boolean
+  unlockedAt: string | null
+}
+
+/**
+ * The badge shelf. This endpoint existed and had no screen for a long time — the note further up
+ * this file explains why its hook was deleted rather than left dangling. The rank page is the screen
+ * it was always waiting for: thirteen badges, most of them locked, is the clearest statement the app
+ * can make about what is still ahead.
+ */
+export function useMyAchievements() {
+  return useQuery({
+    queryKey: ['portal', 'achievements'],
+    queryFn: async () => (await apiClient.get<MyAchievement[]>('/api/me/achievements')).data,
     retry: false,
   })
 }

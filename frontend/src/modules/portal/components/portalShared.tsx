@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import type { AchievementTier, OverloadSuggestion, RecommendationType, RecoveryStatus } from '@/modules/portal/api/portalApi'
+import type { AchievementTier, OverloadSuggestion, RankTier, RecommendationType, RecoveryStatus } from '@/modules/portal/api/portalApi'
 import { useJoinChallenge, useLeaveChallenge, type MyChallenge } from '@/modules/challenges/api/challengesApi'
 
 /**
@@ -88,6 +88,29 @@ export function MemberLoadError({
       )}
     </div>
   )
+}
+
+/**
+ * What each rung of the rank ladder means, in one line — shared so the celebration and the rank page
+ * cannot drift apart. A member congratulated with one sentence and shown a different one on the page
+ * behind it has been told two things about the same event.
+ *
+ * Every line says only what the ladder itself guarantees. The earlier copy asserted elapsed time and
+ * gym-floor reputation — "months of showing up", "years of it", "the gym knows your name" — none of
+ * which the app knows: RankPolicy converts lifetime XP into a tier and nothing else. A member who
+ * trained hard for six weeks and crossed into Strong reads "half a year of it" and learns that the
+ * app is guessing about them. What IS true of every rung is the XP it took, and the rank page prints
+ * that from real data right beside this line.
+ */
+export const RANK_TIER_LINE: Record<RankTier, string> = {
+  Newcomer: 'Everyone starts here. One session and you are moving.',
+  Regular: 'Past the first milestone.',
+  Committed: 'Well beyond where most first attempts stop.',
+  Strong: 'A serious total. Under a quarter of a Legend.',
+  Relentless: 'Past halfway to Elite.',
+  Elite: 'The top of the ladder is in sight from here.',
+  Titan: 'One rung from the end.',
+  Legend: 'The top of the ladder. There is nothing above this.',
 }
 
 export const TIER_COLOR: Record<AchievementTier, string> = {
