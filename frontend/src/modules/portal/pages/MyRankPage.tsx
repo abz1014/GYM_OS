@@ -51,6 +51,7 @@ const TIER_GLOW: Record<RankTier, string> = {
 
 /** Icons for the climb tips. Keyed by RankClimbPolicy's stable codes, never by the copy. */
 const TIP_ICON: Record<string, typeof Zap> = {
+  'first-session': Dumbbell,
   challenge: Trophy,
   'check-in': MapPin,
   progress: TrendingUp,
@@ -60,6 +61,7 @@ const TIP_ICON: Record<string, typeof Zap> = {
 
 /** Where a tip sends the member. A suggestion they cannot act on from here is only a scolding. */
 const TIP_HREF: Record<string, string> = {
+  'first-session': '/my-training',
   challenge: '/my-challenges',
   'check-in': '/portal',
   progress: '/workout',

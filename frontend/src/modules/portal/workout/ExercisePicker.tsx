@@ -111,10 +111,14 @@ function ExerciseRow({
 /**
  * Choose what you are training today. The one screen between opening the app in the gym and logging.
  *
- * The product rule this exists to serve: the member should only ever type SETS and WEIGHT. Which
- * movement, which muscle group, how many sets they did last time and what was on the bar are all
- * things the app already knows, so this asks them to pick from what their gym actually has rather
- * than to compose a session from memory.
+ * The product rule this exists to serve: the member should type as close to nothing as possible.
+ * Which movement, which muscle group, how many sets they did last time, what was on the bar and how
+ * many reps they got are all things the app already knows, so every one of them arrives pre-filled
+ * and the member's job is to confirm or correct rather than to compose a session from memory.
+ *
+ * The copy used to promise "sets and weight only", which the session screen then contradicted with a
+ * Reps column two taps later. Reps are pre-filled from the member's own last session, so the promise
+ * was nearly true and the sentence was not.
  *
  * Three affordances, in the order they get used:
  *
@@ -139,7 +143,18 @@ export function ExercisePicker({
 }) {
   const catalogue = useMyExerciseCatalogue()
   const [search, setSearch] = useState('')
-  const [activeGroup, setActiveGroup] = useState<string>(RECENT_KEY)
+  /*
+   * Recent is the right default for anyone with history and the WRONG one for anyone without.
+   *
+   * `recent` is empty for a member who has never logged a session, so RECENT_KEY drops out of the
+   * tab list, `effectiveGroup` falls back to the first real group — and `activeGroup` still says
+   * RECENT_KEY, so `visible` returned the empty recent array. A brand-new member opened the picker,
+   * saw a highlighted Chest tab and no exercises under it, and had to tap a tab to discover the
+   * catalogue existed. Exactly the member with the least patience for that.
+   *
+   * `null` means "not chosen yet" and lets the render resolve it once the catalogue has loaded.
+   */
+  const [activeGroup, setActiveGroup] = useState<string | null>(null)
   const [picked, setPicked] = useState<Record<string, CatalogueExercise>>({})
 
   const inSession = useMemo(() => new Set(alreadyInSession), [alreadyInSession])
@@ -156,6 +171,19 @@ export function ExercisePicker({
     [allExercises],
   )
 
+  // Recent only earns its tab once there is something in it — an empty first tab teaches the member
+  // the picker is broken before they have used it once.
+  const tabs = useMemo(
+    () => [
+      ...(recent.length > 0 ? [{ key: RECENT_KEY, name: 'Recent' }] : []),
+      ...groups.filter((g) => g.exercises.length > 0).map((g) => ({ key: g.key, name: g.name })),
+    ],
+    [recent, groups],
+  )
+
+  /** The tab actually being shown: the member's choice if it still exists, else the first real one. */
+  const resolvedGroup = tabs.some((t) => t.key === activeGroup) ? activeGroup : tabs[0]?.key
+
   /*
    * Search spans the whole catalogue and ignores the selected tab. Someone typing "row" wants every
    * row their gym has, not the rows filed under whichever group happened to be open — narrowing a
@@ -171,9 +199,9 @@ export function ExercisePicker({
           e.muscleGroupName.toLowerCase().includes(term),
       )
     }
-    if (activeGroup === RECENT_KEY) return recent
-    return groups.find((g) => g.key === activeGroup)?.exercises ?? []
-  }, [search, activeGroup, allExercises, recent, groups])
+    if (resolvedGroup === RECENT_KEY) return recent
+    return groups.find((g) => g.key === resolvedGroup)?.exercises ?? []
+  }, [search, resolvedGroup, allExercises, recent, groups])
 
   const pickedList = Object.values(picked)
 
@@ -202,14 +230,6 @@ export function ExercisePicker({
     onClose()
   }
 
-  // Recent only earns its tab once there is something in it — an empty first tab teaches the member
-  // the picker is broken before they have used it once.
-  const tabs = [
-    ...(recent.length > 0 ? [{ key: RECENT_KEY, name: 'Recent' }] : []),
-    ...groups.filter((g) => g.exercises.length > 0).map((g) => ({ key: g.key, name: g.name })),
-  ]
-  const effectiveGroup = tabs.some((t) => t.key === activeGroup) ? activeGroup : tabs[0]?.key
-
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       <div className="flex items-center gap-3 border-b border-border p-4">
@@ -223,7 +243,7 @@ export function ExercisePicker({
         </button>
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-lg font-black tracking-tight">What are you training?</h2>
-          <p className="text-xs text-muted-foreground">Pick your movements — sets and weight come next.</p>
+          <p className="text-xs text-muted-foreground">Pick your movements — the numbers come pre-filled.</p>
         </div>
       </div>
 
@@ -252,7 +272,7 @@ export function ExercisePicker({
                   onClick={() => setActiveGroup(tab.key)}
                   className={cn(
                     'press shrink-0 rounded-xl px-3 py-2 text-sm font-bold whitespace-nowrap transition-colors',
-                    tab.key === effectiveGroup
+                    tab.key === resolvedGroup
                       ? 'bg-primary text-primary-foreground shadow-volt'
                       : 'bg-muted text-muted-foreground hover:text-foreground',
                   )}

@@ -101,6 +101,31 @@ public static class RankClimbPolicy
     {
         var tips = new List<ClimbTip>();
 
+        /*
+         * A member who has not trained gets one tip, and it is not a nutrition note.
+         *
+         * The training tips below are gated on Workouts > 0, which is right — telling somebody who
+         * has not been in for a month to add weight answers a question they are not asking. But that
+         * left a hole: a member with zero sessions who happened to be in a challenge and had logged
+         * one meal produced an EMPTY list, and the screen's empty state then congratulated them with
+         * "You are earning from every source there is. Sessions, check-ins, records, nutrition,
+         * recovery and a challenge." Said to someone who has not trained at all, that is the app
+         * asserting something plainly untrue about them.
+         *
+         * Returning early keeps the empty state meaning what it says: nothing left to suggest.
+         */
+        if (activity.Workouts == 0)
+        {
+            return
+            [
+                new ClimbTip(
+                    "first-session",
+                    "Log a session",
+                    "Nothing in the last four weeks. One session is worth more than everything else here combined.",
+                    XpPolicy.AwardFor(XpReason.WorkoutCompleted)),
+            ];
+        }
+
         // Worth the most, and the one most members never notice exists.
         if (!activity.InActiveChallenge)
         {

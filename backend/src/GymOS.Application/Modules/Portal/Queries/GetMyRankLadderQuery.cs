@@ -158,12 +158,30 @@ public class GetMyRankLadderQueryHandler(
         var personalRecords = DaysInWindow(await db.PersonalRecords.AsNoTracking()
             .Where(r => r.MemberId == memberId).Select(r => r.AchievedAt).ToListAsync(cancellationToken));
 
-        // MealEntry hangs off the diet plan rather than the member, and ConsumedAt is nullable — an
-        // entry with no timestamp cannot be placed in the window, so it is not counted as being in it.
+        /*
+         * Days on plan, counted from BOTH ways of saying so.
+         *
+         * MealEntry hangs off the diet plan rather than the member, and ConsumedAt is nullable — an
+         * entry with no timestamp cannot be placed in the window, so it is not counted as being in it.
+         *
+         * The adherence ticks are unioned in for the same reason CoachingPolicy unions them: the
+         * member's nutrition screen no longer asks for a food diary, so a member confirming their
+         * plan every single day had zero meal rows and was told "Follow your nutrition plan —
+         * nothing logged against it in the last four weeks", with a link to the very screen they had
+         * just used. Distinct DAYS, so a tick and a meal on the same day is one day.
+         */
         var mealDays = DaysInWindow(await db.MealEntries.AsNoTracking()
             .Where(e => e.DietPlan!.MemberId == memberId && e.ConsumedAt != null)
             .Select(e => e.ConsumedAt!.Value)
             .ToListAsync(cancellationToken));
+
+        var adherenceDayCount = await db.PlanAdherenceLogs.AsNoTracking()
+            .Where(a => a.MemberId == memberId && a.OnDate >= windowStart)
+            .Select(a => a.OnDate)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+        var onPlanDays = Math.Max(mealDays, adherenceDayCount);
 
         // RecoveryLog stores a plain date, already in the gym's terms, so it needs no conversion.
         var recoveryDays = await db.RecoveryLogs.AsNoTracking()
@@ -176,7 +194,7 @@ public class GetMyRankLadderQueryHandler(
                 cancellationToken);
 
         var tips = RankClimbPolicy.TipsFor(new RankClimbPolicy.ClimbActivity(
-            workouts, checkIns, personalRecords, mealDays, recoveryDays, inActiveChallenge));
+            workouts, checkIns, personalRecords, onPlanDays, recoveryDays, inActiveChallenge));
 
 
         return new MyRankLadderDto(

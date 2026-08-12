@@ -56,7 +56,8 @@ public class RankClimbPolicyTests
     [Fact]
     public void Every_tip_carries_the_award_the_action_really_pays()
     {
-        var tips = RankClimbPolicy.TipsFor(Nothing);
+        // A member who HAS trained — a zero-session member short-circuits to one tip, see below.
+        var tips = RankClimbPolicy.TipsFor(Nothing with { Workouts = 4 });
 
         // Not "roughly 100 XP" or a number typed into a string — the same table the engine awards from.
         tips.ShouldContain(t => t.Code == "challenge" && t.XpValue == XpPolicy.AwardFor(XpReason.ChallengeCompleted));
@@ -91,14 +92,21 @@ public class RankClimbPolicyTests
     }
 
     [Fact]
-    public void Training_tips_stay_silent_for_a_member_who_has_not_been_training()
+    public void A_member_who_has_not_trained_is_told_to_train_and_nothing_else()
     {
-        // Telling somebody who has not been in for a month to add weight to a lift answers a question
-        // they are not asking. What they need is the door held open, which is the SlippedCard's job.
-        var tips = RankClimbPolicy.TipsFor(Nothing);
+        /*
+         * Telling somebody who has not been in for a month to add weight to a lift answers a
+         * question they are not asking. But an earlier version simply suppressed those tips, which
+         * left a hole: a member with zero sessions who was in a challenge and had logged one meal
+         * produced an EMPTY list, and the screen's empty state then congratulated them with "You are
+         * earning from every source there is. Sessions, check-ins, records…" — said to someone who
+         * had not trained at all.
+         */
+        var tips = RankClimbPolicy.TipsFor(
+            Nothing with { InActiveChallenge = true, DaysWithMealsLogged = 3, RecoveryDays = 1 });
 
-        tips.ShouldNotContain(t => t.Code == "check-in");
-        tips.ShouldNotContain(t => t.Code == "progress");
+        tips.ShouldHaveSingleItem().Code.ShouldBe("first-session");
+        tips[0].XpValue.ShouldBe(XpPolicy.AwardFor(XpReason.WorkoutCompleted));
     }
 
     [Fact]

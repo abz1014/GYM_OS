@@ -37,11 +37,16 @@ export interface MemberTab {
  * previously exposed seven sidebar items, which is what made a split-up-but-still-busy app feel
  * complicated.
  *
- * TRAIN IS THE CENTRE ACTION, and that is a product rule rather than a layout preference: recording
- * a workout happens on the training page and nowhere else. The bar used to carry Train as a flat tab
- * AND a "Log" centre button pointing straight at the session recorder, so there were two doors into
- * the same job — and the one a member hit first skipped the screen that tells them what they should
- * be doing and which muscles still need rest. One door now, through Train.
+ * TRAIN IS THE CENTRE ACTION. The bar used to carry Train as a flat tab AND a "Log" centre button
+ * pointing straight at the session recorder, so the PRIMARY navigation offered two doors into one
+ * job — and the one a member hit first skipped the screen that tells them what to do and which
+ * muscles still need rest. One door in the tab bar now, through Train.
+ *
+ * Being precise about the scope of that, because an earlier version of this comment overstated it:
+ * this is about primary navigation, not about the only code path that can write a workout.
+ * /log-activity still carries a Workout tab, deliberately — recording a session you did on Tuesday
+ * and forgot to log is a genuinely different job from recording the set you just finished, and it
+ * lives one level down under More where after-the-fact admin belongs.
  *
  * COMMUNITY TOOK THE FREED SLOT. The leaderboard and challenges were reachable from exactly one
  * place in the entire app — a row on the More page, below a full-bleed membership card and a

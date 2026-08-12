@@ -70,8 +70,14 @@ type ZoneState = keyof typeof ZONE_FILL
  *
  * Keyed on MuscleGroupVocabulary's canonical keys, which the server now sends, so this no longer
  * depends on a gym spelling "Full Body" the way the seeder does.
+ *
+ * `other` is here too, and it is the important one. It is the vocabulary's documented landing place
+ * for any label a gym types that the table has not heard of — "Adductors", "Forearms". It is in no
+ * silhouette zone, so without this line a gym using its own vocabulary trains a muscle group and the
+ * map shows nothing at all, with the group visible only behind a tap. Filed under "whatever else you
+ * trained" is not perfect, but it is present and it is true.
  */
-const WHOLE_BODY_KEYS = ['cardio', 'fullbody']
+const WHOLE_BODY_KEYS = ['cardio', 'fullbody', 'other']
 
 /** Every zone the silhouettes can shade. Anything else is whole-body or Other. */
 const MAPPED_KEYS = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core']
@@ -298,10 +304,17 @@ function BodyMap({ zones, ghost = false, className }: { zones: Record<string, Zo
 }
 
 function Legend() {
+  /*
+   * Every fill the map can paint appears here. `risk` was missing — ZONE_FILL.risk is
+   * var(--destructive) and the zone derivation paints it for OvertrainingRisk, so a member could
+   * meet a red muscle with no key anywhere on the screen explaining it. A colour carrying meaning
+   * with nothing backing it is the same defect as a number with nothing backing it.
+   */
   const items: [ZoneState, string][] = [
     ['today', 'today'],
     ['rested', 'rested'],
     ['fatigued', 'not recovered'],
+    ['risk', 'overtrained'],
     ['untrained', 'never trained'],
   ]
   return (
@@ -570,8 +583,16 @@ export default function MyTrainingPage() {
       1023px `lg:grid` had not engaged at all, so a 900px window rendered an 836px column against
       672px everywhere else.
 
-      `minmax(0,1fr)` rather than a fixed track is what lets the page re-centre when the reference
-      rail is absent — which is every new member and every failed fetch, the case that looked worst.
+      `minmax(0,1fr)` rather than a fixed track is what lets the column breathe, and below lg the
+      page is now genuinely on the tab bar's axis.
+
+      AT lg IT IS STILL NOT, and an earlier version of this comment claimed otherwise. The grid is
+      [minmax(0,1fr) 300px] with gap-6, so column one's centre sits a fixed (300+24)/2 = 162px left
+      of the container centre — the same offset the old fixed 660px track produced, at every
+      viewport width. That is deliberate for a two-column reading layout and it is NOT what "centred"
+      means; the honest statement is that the primary column is left of centre on desktop because
+      there is a rail beside it. The mobile regression this rewrite was for — an 836px column at
+      900px wide, where lg had not engaged at all — is the part that is fixed.
 
       px-4 is gone because AppShell already applies p-4 to the member <main>; the two were
       double-padding to 32px on mobile.
@@ -637,10 +658,15 @@ export default function MyTrainingPage() {
         <div className="mt-[14px]">
           <div className="flex items-center justify-between px-1 pb-[9px]">
             <span className="font-display text-[10.5px] font-bold tracking-[0.11em] text-muted-foreground uppercase">Today</span>
-            {/* "Last", not "Target": only ReadyToIncreaseWeight yields a number to aim for. The other
-                three verdicts report what the member already did, and heading them "Target" told
-                members to lift a weight the app had not chosen. */}
-            <span className="font-display text-[10.5px] font-bold tracking-[0.11em] text-muted-foreground uppercase">Last</span>
+            {/* "Start at", because the row is now a button and that is what tapping it does.
+                It was "Target", which promised a number the app had not chosen for three of the four
+                verdicts; then "Last", which was wrong for the fourth — ReadyToIncreaseWeight prints
+                suggestedNextWeightKg, a weight the member has never lifted, and calling it "Last"
+                was a plain misstatement on the highest-priority row on the screen. What every row
+                actually shows is the load the session will open at. */}
+            <span className="font-display text-[10.5px] font-bold tracking-[0.11em] text-muted-foreground uppercase">
+              Start at
+            </span>
           </div>
 
           {failed ? (

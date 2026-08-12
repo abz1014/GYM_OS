@@ -31,7 +31,7 @@ public class AwardNutritionXpOnPlanAdherenceHandler(IMemberXpService xp)
     public Task Handle(DomainEventNotification<PlanAdherenceLoggedEvent> notification, CancellationToken cancellationToken)
     {
         var e = notification.DomainEvent;
-        var dayKey = DeterministicGuid.From($"{e.MemberId}:nutrition:{e.OnDate:yyyy-MM-dd}");
+        var dayKey = DeterministicGuid.From($"{e.MemberId}:nutrition:{e.XpDayUtc:yyyy-MM-dd}");
         return xp.AwardAsync(e.MemberId, XpReason.NutritionAdherence, XpSourceType.MealEntry, dayKey, cancellationToken);
     }
 }

@@ -56,8 +56,10 @@ public class DietPlan : AggregateRoot, ITenantScoped
     /// <summary>
     /// Signals that the member confirmed they stayed on this plan for a day.
     ///
-    /// Deliberately the same shape as <see cref="RaiseMealLogged"/>: both end up at the same XP
-    /// reason through the same per-day key, so the two paths cannot double-award.
+    /// Takes the UTC day rather than the gym day, matching <see cref="RaiseMealLogged"/> exactly —
+    /// the two events hash their date into the same idempotency key, so a difference of clocks
+    /// between them is a difference of keys, and a member near midnight earns twice. See
+    /// PlanAdherenceLoggedEvent.
     /// </summary>
-    public void RaiseAdherenceLogged(DateOnly onDate) => AddDomainEvent(new PlanAdherenceLoggedEvent(MemberId, onDate));
+    public void RaiseAdherenceLogged(DateOnly xpDayUtc) => AddDomainEvent(new PlanAdherenceLoggedEvent(MemberId, xpDayUtc));
 }

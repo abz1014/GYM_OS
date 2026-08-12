@@ -83,10 +83,46 @@ public class GetMyNutritionClientsQueryHandler(
 
         var mealsByPlan = meals.GroupBy(m => m.DietPlanId).ToDictionary(g => g.Key, g => g.ToList());
 
+        /*
+         * Adherence confirmations count as contact, and this is a REGRESSION FIX rather than an
+         * addition.
+         *
+         * The member's nutrition screen stopped being a food diary and became a prescription with a
+         * one-tap "I stayed on plan today". Every column on this roster was still counting MealEntry
+         * rows — so a member doing exactly what the new screen asks of them, every day, appeared here
+         * as "Never logged / 0 meals this week", and the sort that promises "quietest member first"
+         * put the most diligent client at the top of the nutritionist's worry list.
+         *
+         * Unioned, not swapped: a member who prefers the food diary is still being tracked, and no
+         * historic row is discounted.
+         */
+        var memberIds = newestPerMember.Select(p => p.MemberId).ToList();
+        var adherenceByMember = (await db.PlanAdherenceLogs.AsNoTracking()
+                .Where(a => memberIds.Contains(a.MemberId))
+                .Select(a => new { a.MemberId, a.OnDate, a.LoggedAt })
+                .ToListAsync(cancellationToken))
+            .GroupBy(a => a.MemberId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var clients = newestPerMember
             .Select(p =>
             {
                 var mine = mealsByPlan.GetValueOrDefault(p.Id) ?? [];
+                var ticks = adherenceByMember.GetValueOrDefault(p.MemberId) ?? [];
+
+                // The most recent sign of life from either path, and the count of DISTINCT days
+                // rather than of rows — six snacks and one tick are both "one day on plan".
+                var lastContact = mine.Select(m => m.ConsumedAt)
+                    .Concat(ticks.Select(a => (DateTimeOffset?)a.LoggedAt))
+                    .DefaultIfEmpty(null)
+                    .Max();
+
+                var daysThisWeek = mine.Where(m => m.ConsumedAt >= weekAgo)
+                    .Select(m => DateOnly.FromDateTime(m.ConsumedAt!.Value.UtcDateTime))
+                    .Concat(ticks.Where(a => a.LoggedAt >= weekAgo).Select(a => a.OnDate))
+                    .Distinct()
+                    .Count();
+
                 return new NutritionClientRowDto(
                     p.MemberId,
                     p.MemberName,
@@ -95,8 +131,8 @@ public class GetMyNutritionClientsQueryHandler(
                     p.StartDate,
                     p.EndDate,
                     p.StartDate <= today && (p.EndDate is null || p.EndDate >= today),
-                    mine.Count == 0 ? null : mine.Max(m => m.ConsumedAt),
-                    mine.Count(m => m.ConsumedAt >= weekAgo));
+                    lastContact,
+                    daysThisWeek);
             })
             // Lapsed plans first — they are the work. Within each group, the quietest member first,
             // because someone who has logged nothing is the one worth a message.

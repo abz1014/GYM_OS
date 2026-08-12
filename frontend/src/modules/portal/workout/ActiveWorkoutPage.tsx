@@ -136,7 +136,16 @@ function SetRow({
       <button
         type="button"
         aria-label={done ? `Set ${index + 1} logged` : `Log set ${index + 1}`}
-        disabled={done || !active}
+        /*
+         * Cannot be confirmed without a rep count, because completedEntries filters on `reps > 0`.
+         *
+         * A member who cleared the field and tapped this saw a green, ticked, apparently-logged set
+         * that would never reach the server — and the Finish button beside it counted the filtered
+         * list, so the screen showed N ticks and a smaller number at the same time. If it was the
+         * only set, finishing rejected with "Log at least one set first" while a completed-looking
+         * row sat on screen. Disabling here is the honest version: the tick means recorded.
+         */
+        disabled={done || !active || reps <= 0}
         onClick={onComplete}
         className={cn(
           // Filled at every stage, never an outline. This is the most-tapped control in the product
@@ -144,11 +153,15 @@ function SetRow({
           // The transition is spelled out rather than using `press`, which would replace the colour
           // transition with a transform-only one and make the fill snap on log.
           'flex size-12 shrink-0 items-center justify-center rounded-xl transition-[transform,background-color,color] duration-[120ms] ease-[var(--ease-uplift)] active:scale-[.97]',
-          done ? 'bg-success text-success-foreground' : active ? 'bg-primary text-primary-foreground shadow-volt' : 'bg-muted',
+          done
+            ? 'bg-success text-success-foreground'
+            : active && reps > 0
+              ? 'bg-primary text-primary-foreground shadow-volt'
+              : 'bg-muted',
         )}
       >
         {done && <Check className="size-5" />}
-        {!done && active && <Check className="size-5" />}
+        {!done && active && reps > 0 && <Check className="size-5" />}
       </button>
     </div>
   )
@@ -281,7 +294,7 @@ export default function ActiveWorkoutPage() {
           <Dumbbell className="mx-auto size-9 text-primary" />
           <h1 className="mt-3 font-display text-2xl font-black tracking-tight">Ready to train</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Pick what you're doing today — then just log sets and weight.
+            Pick what you're doing today — then just confirm each set.
           </p>
         </div>
 

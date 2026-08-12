@@ -1,3 +1,4 @@
+using GymOS.Application.Common;
 using GymOS.Application.Modules.Nutrition.Commands;
 using GymOS.Application.Modules.Portal.Commands;
 using GymOS.Application.Modules.Portal.Queries;
@@ -72,6 +73,33 @@ public class PlanAdherenceTests : ApplicationTestBase
         var xp = await NutritionXpAsync(s.MemberId);
         xp.ShouldHaveSingleItem();
         xp[0].Amount.ShouldBe(XpPolicy.AwardFor(XpReason.NutritionAdherence));
+    }
+
+    [Fact]
+    public async Task The_xp_day_key_is_the_utc_day_so_it_matches_the_meal_path_in_any_timezone()
+    {
+        /*
+         * The bug this pins, which the dedupe test above could not see.
+         *
+         * AddMealEntryCommand keys its event on the UTC date. The adherence command originally keyed
+         * on the member's GYM-CLOCK date. Both hash "{member}:nutrition:{date}" into the idempotency
+         * key — so for any gym not on UTC, a tick and a meal on the same evening produced two
+         * different strings, the dedupe missed, and the member earned thirty for one day. The test
+         * above passes either way because the harness clock IS UTC, which is precisely why a test
+         * that asserts the KEY rather than the outcome is the one worth having.
+         *
+         * Asserting on the stored SourceId directly: it is the derived guid, and it must equal the
+         * hash of the UTC day whatever timezone the branch is in.
+         */
+        var s = await SeedAsync(branchTimeZone: "Pacific/Kiritimati"); // UTC+14, the furthest ahead there is
+
+        await SendAsync(new LogMyPlanAdherenceCommand(null));
+
+        var utcDay = DateOnly.FromDateTime(DateTimeProvider.UtcNow.UtcDateTime);
+        var expected = DeterministicGuid.From($"{s.MemberId}:nutrition:{utcDay:yyyy-MM-dd}");
+
+        var xp = await NutritionXpAsync(s.MemberId);
+        xp.ShouldHaveSingleItem().SourceId.ShouldBe(expected);
     }
 
     [Fact]
@@ -175,7 +203,7 @@ public class PlanAdherenceTests : ApplicationTestBase
         await db.SaveChangesAsync();
     }
 
-    private async Task<Seeded> SeedAsync(int? planEndedDaysAgo = null)
+    private async Task<Seeded> SeedAsync(int? planEndedDaysAgo = null, string? branchTimeZone = null)
     {
         using var scope = CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
@@ -185,6 +213,7 @@ public class PlanAdherenceTests : ApplicationTestBase
         db.Tenants.Add(tenant);
 
         var branch = new Branch { TenantId = tenant.Id, Name = "Main", AddressLine = "1 Main St", City = "City", Country = "US" };
+        if (branchTimeZone is not null) { branch.TimeZone = branchTimeZone; }
         db.Branches.Add(branch);
 
         var user = new User

@@ -70,7 +70,11 @@ public class LogMyPlanAdherenceCommandHandler(
         };
 
         db.PlanAdherenceLogs.Add(log);
-        plan.RaiseAdherenceLogged(today);
+
+        // The ROW is stored under the gym day — that is the day the member means, and what the
+        // compliance window counts. The EVENT carries the UTC day, because the meal path keys its
+        // award on UTC and the two must hash identically or a member near midnight earns twice.
+        plan.RaiseAdherenceLogged(DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime));
 
         await db.SaveChangesAsync(cancellationToken);
         return log.Id;
