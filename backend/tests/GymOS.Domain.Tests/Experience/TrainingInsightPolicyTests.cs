@@ -109,11 +109,11 @@ public class TrainingInsightPolicyTests
     }
 
     [Fact]
-    public void A_comeback_outranks_a_plateau_because_resuming_it_moves_two_things()
+    public void A_comeback_outranks_an_eased_off_lift_because_resuming_it_moves_two_things()
     {
         var s = Nothing with
         {
-            PlateauExerciseName = "Deadlift",
+            EasedOffExerciseName = "Deadlift",
             GoneQuiet = [new QuietMovement("Lat Pulldown", "Back", 42)],
             WeakestMuscleGroup = "Back",
         };

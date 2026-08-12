@@ -170,8 +170,16 @@ public partial class DemoDataSeeder
                         ExerciseId = exercise.Id,
                         SetsCompleted = rng.Next(3, 6),
                         RepsCompleted = rng.Next(6, 13),
-                        // Bodyweight movements carry no load, and the engine must handle that.
-                        WeightKg = exercise.Equipment == "Bodyweight" ? null : weight
+                        /*
+                         * Load comes from the exercise's TYPE, not from string-matching Equipment.
+                         *
+                         * The old test was `Equipment == "Bodyweight"`, which is why the database
+                         * ended up holding rows like "Treadmill Run, 4x9, 17.5 kg": a treadmill is
+                         * not equipped with bodyweight, so it fell through and got a barbell's load.
+                         * Only Weighted movements carry kilograms; everything else records null,
+                         * which the engine already handles.
+                         */
+                        WeightKg = exercise.LoadType == ExerciseLoadType.Weighted ? weight : null
                     });
                 }
 
@@ -261,8 +269,15 @@ public partial class DemoDataSeeder
         return chosen;
     }
 
-    /// <summary>Plausible opening loads so the 90-day curve lands somewhere believable.</summary>
-    private static decimal StartingWeightFor(Exercise exercise, Random rng) => exercise.Equipment switch
+    /// <summary>
+    /// Plausible opening loads so the 90-day curve lands somewhere believable.
+    ///
+    /// Unloaded movements are decided by LoadType first; the Equipment switch below is only ever
+    /// reached for Weighted ones, so its catch-all can no longer hand a treadmill a barbell's weight.
+    /// </summary>
+    private static decimal StartingWeightFor(Exercise exercise, Random rng) => exercise.LoadType != ExerciseLoadType.Weighted
+        ? 0m
+        : exercise.Equipment switch
     {
         "Bodyweight" => 0m,
         "Barbell" => 40m + rng.Next(0, 8) * 2.5m,

@@ -99,7 +99,10 @@ public class GetMyTodayQueryHandler(
             .FirstOrDefault(g => g.Status == nameof(RecoveryStatus.Fatigued));
         var ready = suggestions
             .FirstOrDefault(s => s.Suggestion == OverloadSuggestion.ReadyToIncreaseWeight);
-        var plateau = suggestions
+        // ConsiderDeload means weight or reps came DOWN — see ProgressiveOverloadPolicy. It used to
+        // be handed to an insight that told the member the lift "hasn't moved", which is the one
+        // thing this verdict never means. Named for what it is now.
+        var easedOff = suggestions
             .FirstOrDefault(s => s.Suggestion == OverloadSuggestion.ConsiderDeload);
         var weakest = mastery.MuscleGroups
             .OrderBy(g => g.MasteryPercent).ThenBy(g => g.Name)
@@ -110,7 +113,7 @@ public class GetMyTodayQueryHandler(
             fatigued?.Reason,
             ready?.ExerciseName,
             ready?.SuggestedNextWeightKg,
-            plateau?.ExerciseName,
+            easedOff?.ExerciseName,
             passport.GoneQuiet
                 .Select(q => new QuietMovement(q.ExerciseName, q.MuscleGroup, q.DaysSinceLastTrained ?? 0))
                 .ToList(),

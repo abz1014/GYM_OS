@@ -5,13 +5,10 @@ import { BatteryLow, CalendarClock, CalendarDays, ChevronRight, CloudOff, Flame,
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
 import { ActivityRing } from '@/shared/components/ActivityRing'
 import { Bloom, CountUp, GrainOverlay } from '@/shared/components/uplift'
-import { ConfirmSessionButton } from '@/modules/portal/components/ConfirmSessionButton'
-import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import { WeeklyGoalDialog } from '@/modules/portal/components/WeeklyGoalDialog'
-import { useMyToday, useMyLeaderboard, type MyInsight, type MyWorkoutResult } from '@/modules/portal/api/portalApi'
+import { useMyToday, type MyInsight } from '@/modules/portal/api/portalApi'
 import { isStale } from '@/shared/lib/queryTrust'
 
 const classTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -70,10 +67,7 @@ export default function TodayPage() {
   const today = useMyToday()
   // The rank chip's only source. Same category the Leaderboard page opens on, so a member tapping
   // through from this chip sees the board that produced the number rather than a different one.
-  const leaderboard = useMyLeaderboard('XpEarned', 'Month')
   const [editingGoal, setEditingGoal] = useState(false)
-  // Confirming a session on this screen shows the same celebration the full logger does.
-  const [celebration, setCelebration] = useState<MyWorkoutResult | null>(null)
 
   const data = today.data
   const goal = data?.weeklySessionGoal ?? 0
@@ -82,7 +76,6 @@ export default function TodayPage() {
   const goalMet = data?.goalMet ?? false
   const streakWeeks = data?.workoutStreakWeeks ?? 0
   const daysTrained = data?.daysTrainedThisWeek ?? []
-  const myRank = leaderboard.data?.you?.rank ?? null
 
   /**
    * When the gym already knows the member was here, say so instead of asking how their week is
@@ -183,7 +176,23 @@ export default function TodayPage() {
         </p>
       )}
 
-      {promptLeadsScreen && <ConfirmSessionButton onLogged={setCelebration} />}
+      {/*
+        Navigates. It does not write.
+        This used to be a one-tap commit that logged a whole session the member never typed — at the
+        Starter tier, three exercises picked because they sort first alphabetically, at 3x10, for a
+        session that may not have happened. Recording belongs on the training page, where every set
+        is reviewed before it becomes fact. The prompt survives because visit.needsRecording is a
+        real signal (checked in today, nothing logged); only the button behind it changed.
+      */}
+      {promptLeadsScreen && (
+        <Link
+          to="/workout"
+          className="press flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 edge-light transition-colors hover:bg-accent"
+        >
+          <span className="text-sm font-medium">Nothing written down for it yet</span>
+          <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+        </Link>
+      )}
 
       {/*
         Hero: the whole "am I on track" answer, without reading a single number twice.
@@ -254,15 +263,6 @@ export default function TodayPage() {
         </div>
       </div>
 
-      {streakWeeks > 0 && !goalMet && (
-        <p className="-mt-1 px-1 text-xs text-muted-foreground">Train this week to keep your streak alive</p>
-      )}
-
-      {/* The one action this screen exists for — one tap, not a form. See ConfirmSessionButton.
-          Rendered here only when the gym has no record of them today; if it does, it has already
-          led the screen above and drawing it twice would give the member two identical buttons. */}
-      {!promptLeadsScreen && <ConfirmSessionButton onLogged={setCelebration} />}
-
       {/*
         Rank and today's class pair into one 2-up row. Both are single facts and each was taking a
         full-width bar; pairing them is what buys the insight card its place above the fold.
@@ -273,47 +273,35 @@ export default function TodayPage() {
         which is also why this is one chip rather than the design's pair, since the second was a
         lifted-tonnage figure with no total behind it.
       */}
-      {(myRank !== null || data?.nextClassToday) && (
-        <div className="grid grid-cols-2 gap-3">
-          {myRank !== null && (
-            <Link
-              to="/leaderboard"
-              className="press flex items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4 edge-light transition-colors hover:bg-accent"
-            >
-              <span className="min-w-0">
-                <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                  Gym rank
-                </span>
-                <span className="font-display text-3xl font-black tracking-tight tabular-nums">#{myRank}</span>
-              </span>
-              <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-            </Link>
-          )}
+      {/*
+        The gym-rank chip that shared this row is gone, and the class chip is now full width.
 
-          {data?.nextClassToday && (
-            <Link
-              to="/my-classes"
-              className={cn(
-                'press flex items-center gap-3 rounded-2xl border border-border bg-card p-4 edge-light transition-colors hover:bg-accent',
-                // Alone in the row it takes the full width rather than leaving a hole beside it.
-                myRank === null && 'col-span-2',
-              )}
-            >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                <CalendarDays className="size-5 text-primary" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                  Today
-                </span>
-                <span className="block truncate text-sm font-medium tabular-nums">
-                  {classTimeFormat.format(new Date(data.nextClassToday.startsAt))}
-                </span>
-                <span className="block truncate text-sm">{data.nextClassToday.classTypeName}</span>
-              </span>
-            </Link>
-          )}
-        </div>
+        "#3" was the one number on the screen a member could not interpret: it meant rank by XP
+        earned so far THIS CALENDAR MONTH, at their branch, among members who scored above zero —
+        none of which was on screen. It reset for everyone on the 1st, it vanished silently for
+        anyone with no XP, and it shared the word "Rank" with the tab bar, which means the tier
+        ladder. Adding the denominator does not save it: on a real branch that board holds a handful
+        of people, and "#3 of 4" is honest and worse. Comparative standing lives on /leaderboard,
+        which a member opens deliberately.
+      */}
+      {data?.nextClassToday && (
+        <Link
+          to="/my-classes"
+          className="press flex items-center gap-3 rounded-2xl border border-border bg-card p-4 edge-light transition-colors hover:bg-accent"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <CalendarDays className="size-5 text-primary" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+              Today
+            </span>
+            <span className="block truncate text-sm font-medium tabular-nums">
+              {classTimeFormat.format(new Date(data.nextClassToday.startsAt))}
+            </span>
+            <span className="block truncate text-sm">{data.nextClassToday.classTypeName}</span>
+          </span>
+        </Link>
       )}
 
       {/*
@@ -358,7 +346,6 @@ export default function TodayPage() {
       ))}
 
       <WeeklyGoalDialog open={editingGoal} onOpenChange={setEditingGoal} currentGoal={goal} />
-      {celebration && <WorkoutCelebration result={celebration} onDismiss={() => setCelebration(null)} />}
     </div>
   )
 }

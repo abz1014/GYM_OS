@@ -49,28 +49,31 @@ public partial class DemoDataSeeder
 
     private async Task SeedExerciseLibraryAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        var exercises = new (string Name, string MuscleGroup, string Equipment)[]
+        // LoadType is what the progress rules read; MuscleGroup and Equipment are labels for people.
+        // Getting these right is the whole point of the discriminator — a run typed Weighted would
+        // put the treadmill straight back into the overload suggestions.
+        var exercises = new (string Name, string MuscleGroup, string Equipment, ExerciseLoadType LoadType)[]
         {
-            ("Barbell Squat", "Legs", "Barbell"),
-            ("Bench Press", "Chest", "Barbell"),
-            ("Deadlift", "Back", "Barbell"),
-            ("Overhead Press", "Shoulders", "Barbell"),
-            ("Bent-Over Row", "Back", "Barbell"),
-            ("Pull-Up", "Back", "Bodyweight"),
-            ("Push-Up", "Chest", "Bodyweight"),
-            ("Dumbbell Curl", "Arms", "Dumbbell"),
-            ("Tricep Pushdown", "Arms", "Cable Machine"),
-            ("Lat Pulldown", "Back", "Cable Machine"),
-            ("Leg Press", "Legs", "Machine"),
-            ("Leg Curl", "Legs", "Machine"),
-            ("Plank", "Core", "Bodyweight"),
-            ("Treadmill Run", "Cardio", "Treadmill"),
-            ("Rowing Machine", "Full Body", "Rowing Machine"),
+            ("Barbell Squat", "Legs", "Barbell", ExerciseLoadType.Weighted),
+            ("Bench Press", "Chest", "Barbell", ExerciseLoadType.Weighted),
+            ("Deadlift", "Back", "Barbell", ExerciseLoadType.Weighted),
+            ("Overhead Press", "Shoulders", "Barbell", ExerciseLoadType.Weighted),
+            ("Bent-Over Row", "Back", "Barbell", ExerciseLoadType.Weighted),
+            ("Pull-Up", "Back", "Bodyweight", ExerciseLoadType.Bodyweight),
+            ("Push-Up", "Chest", "Bodyweight", ExerciseLoadType.Bodyweight),
+            ("Dumbbell Curl", "Arms", "Dumbbell", ExerciseLoadType.Weighted),
+            ("Tricep Pushdown", "Arms", "Cable Machine", ExerciseLoadType.Weighted),
+            ("Lat Pulldown", "Back", "Cable Machine", ExerciseLoadType.Weighted),
+            ("Leg Press", "Legs", "Machine", ExerciseLoadType.Weighted),
+            ("Leg Curl", "Legs", "Machine", ExerciseLoadType.Weighted),
+            ("Plank", "Core", "Bodyweight", ExerciseLoadType.Timed),
+            ("Treadmill Run", "Cardio", "Treadmill", ExerciseLoadType.Distance),
+            ("Rowing Machine", "Full Body", "Rowing Machine", ExerciseLoadType.Distance),
         };
 
-        foreach (var (name, muscleGroup, equipment) in exercises)
+        foreach (var (name, muscleGroup, equipment, loadType) in exercises)
         {
-            db.Exercises.Add(new Exercise { TenantId = tenantId, Name = name, MuscleGroup = muscleGroup, Equipment = equipment });
+            db.Exercises.Add(new Exercise { TenantId = tenantId, Name = name, MuscleGroup = muscleGroup, Equipment = equipment, LoadType = loadType });
         }
 
         await db.SaveChangesAsync(cancellationToken);

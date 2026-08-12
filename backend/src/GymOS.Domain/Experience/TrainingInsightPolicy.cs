@@ -12,8 +12,17 @@ public enum TrainingInsightKind
     /// <summary>Something dropped that also happens to be their least-trained area.</summary>
     Comeback,
 
-    /// <summary>A lift that has not moved in weeks.</summary>
-    Plateau,
+    /// <summary>
+    /// A lift where the weight or the reps came DOWN since last time.
+    ///
+    /// Named for what the underlying verdict actually is. This was called Plateau and printed
+    /// "hasn't moved / Same weight and reps for a while now", while being fed from
+    /// OverloadSuggestion.ConsiderDeload — which ProgressiveOverloadPolicy raises when weight or reps
+    /// DROPPED. The sentence was therefore generated in precisely the case where the numbers did
+    /// move. The genuine plateau verdict is ReadyToIncreaseWeight, and it already has its own kind
+    /// above; there was never a second signal for "unchanged".
+    /// </summary>
+    EasedOff,
 
     /// <summary>Something they used to do and stopped.</summary>
     GoneQuiet,
@@ -40,7 +49,7 @@ public readonly record struct TrainingInsightSignals(
     string? RecoveryReason,
     string? ReadyExerciseName,
     decimal? ReadyNextWeightKg,
-    string? PlateauExerciseName,
+    string? EasedOffExerciseName,
     IReadOnlyList<QuietMovement> GoneQuiet,
     string? WeakestMuscleGroup,
     string? MomentumExerciseName,
@@ -114,12 +123,19 @@ public static class TrainingInsightPolicy
                 $"{Weeks(comeback.DaysSince)} since your last one, and {s.WeakestMuscleGroup} is your least-trained area."));
         }
 
-        if (s.PlateauExerciseName is { Length: > 0 } plateau)
+        if (s.EasedOffExerciseName is { Length: > 0 } easedOff)
         {
+            /*
+             * Phrased as an observation, not a verdict. ProgressiveOverloadPolicy raises this on ANY
+             * drop between two sessions — its own doc comment calls it the noisiest of the four — and
+             * ordinary variation produces it constantly. Telling a member they have regressed every
+             * other week is both wrong and discouraging, so this says what happened and offers the
+             * innocent explanation first, because it is usually the true one.
+             */
             insights.Add(new TrainingInsight(
-                TrainingInsightKind.Plateau,
-                $"{plateau} hasn't moved",
-                "Same weight and reps for a while now — worth changing something."));
+                TrainingInsightKind.EasedOff,
+                $"{easedOff} came down last session",
+                "Lighter or fewer reps than the time before. Worth repeating that weight before pushing on."));
         }
 
         // Whatever was dropped longest ago, unless it is already the comeback above, and never from

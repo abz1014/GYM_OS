@@ -62,6 +62,23 @@ public class GetMyWorkoutSuggestionsQueryHandler(IApplicationDbContext db, ICurr
                 continue; // exercise deleted since it was logged
             }
 
+            /*
+             * Only movements measured in kilograms.
+             *
+             * ProgressiveOverloadPolicy compares MaxWeightKg and TotalReps and has no other terms, so
+             * running it over a treadmill produced the defect this filter exists for: two runs logged
+             * alike read as a plateau, and the member was told to add 2.5% to a weight that was never
+             * meaningful. A plank and a run are not stalled because their kilograms did not change.
+             *
+             * Filtering here rather than inside the policy on purpose — the policy is a pure rule
+             * about a pair of numbers and should stay that way. Deciding WHICH movements those
+             * numbers describe is this query's job, and it is the only place that has the exercise.
+             */
+            if (exercise.LoadType != ExerciseLoadType.Weighted)
+            {
+                continue;
+            }
+
             var sessionsOldestFirst = group.OrderBy(s => s.LoggedAt).ToList();
             var performances = sessionsOldestFirst.Select(s => new ExercisePerformance(s.MaxWeightKg, s.TotalReps)).ToList();
             var suggestion = ProgressiveOverloadPolicy.Evaluate(performances);

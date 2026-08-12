@@ -51,5 +51,5 @@ public record MyVisitDto(string State, DateTimeOffset? CheckedInAt, bool Session
 public record MyAnticipationDto(string Kind, string Title, string Detail);
 
 /// <summary>One thing the engine noticed. <paramref name="Kind"/> is RecoveryAlert, ReadyForPr,
-/// Comeback, Plateau, GoneQuiet or Momentum.</summary>
+/// Comeback, EasedOff, GoneQuiet or Momentum.</summary>
 public record MyInsightDto(string Kind, string Title, string Detail);
