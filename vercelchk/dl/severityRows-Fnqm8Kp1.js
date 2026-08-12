@@ -1,1 +1,0 @@
-var e={destructive:`rail-destructive bg-[#FDF2F2] hover:bg-[#FAE8E8]`,warning:`rail-warning bg-[#FDF6EC] hover:bg-[#F9EDDC]`,neutral:`bg-[#F4F4F0] shadow-[inset_3px_0_0_#8A8A80]`};export{e as t};
