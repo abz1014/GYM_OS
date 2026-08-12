@@ -40,10 +40,44 @@ public static class WorkoutStoryPolicy
     public const int MaxNamedMovements = 3;
 
     /// <summary>
+    /// One logged movement in words, using only the measurements it actually has.
+    ///
+    /// The timeline built this inline as "{Name} {Sets}×{Reps}", which was fine while every movement
+    /// had reps. Since RepsCompleted became nullable a run rendered as "Treadmill Run 1×" — a
+    /// dangling multiplication sign that reads as a number the app lost, and says nothing about the
+    /// three kilometres the member actually ran.
+    ///
+    /// The rule matches the member app's own formatter (frontend lib/measurement.ts): a measurement
+    /// appears when it exists and is silent when it does not, with no placeholder standing in for an
+    /// absent one.
+    /// </summary>
+    public static string DescribeMovement(
+        string exerciseName, int sets, int? reps, int? durationSeconds, decimal? distanceMeters)
+    {
+        var measures = new List<string>();
+        if (reps is { } r) measures.Add(r.ToString());
+        if (distanceMeters is { } metres)
+        {
+            measures.Add(metres >= 1000 ? $"{Trim(metres / 1000)}km" : $"{Trim(metres)}m");
+        }
+        if (durationSeconds is { } seconds)
+        {
+            measures.Add(seconds < 60 ? $"{seconds}s" : $"{seconds / 60}:{seconds % 60:00}");
+        }
+
+        // "in" reads correctly for a distance covered over a time; a bare list gives "3km 20:00".
+        return measures.Count > 0
+            ? $"{exerciseName} {sets}×{string.Join(" in ", measures)}"
+            // A set count on its own is a real record — the movement was done, the detail was not
+            // captured — and saying so beats printing an operator with no operand.
+            : $"{exerciseName} {sets} {(sets == 1 ? "set" : "sets")}";
+    }
+
+    /// <summary>
     /// Tells the story of a session.
     /// </summary>
     /// <param name="character">What the session was, from SessionCharacterPolicy.</param>
-    /// <param name="movements">One per exercise, already formatted ("Bench Press 3×8").</param>
+    /// <param name="movements">One per exercise, already formatted — see DescribeMovement.</param>
     /// <param name="records">Bests set during this session.</param>
     public static SessionStory Tell(
         string character,

@@ -596,6 +596,14 @@ export default function MyRankPage() {
         </Link>
       </div>
 
+      {/*
+        Icon ABOVE the label, not beside it, and that is a fit constraint rather than a taste call.
+        Side by side, the three tabs needed 381px of a 343px row on a 375px phone, so "Challenges"
+        ran to x=397 and was clipped at the screen edge — measured, not guessed. Shaving padding and
+        type size recovers the 38px but leaves nothing spare, and the next narrower phone (360px,
+        320px) clips again. Stacking drops each tab's width to its label alone, which fits with
+        ~60px to spare and survives a longer word in translation.
+      */}
       <div className="flex gap-2">
         {RANK_TABS.map((t) => {
           const Icon = t.icon
@@ -606,13 +614,13 @@ export default function MyRankPage() {
               onClick={() => setTab(t.key)}
               aria-pressed={tab === t.key}
               className={cn(
-                'press flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-3 font-display text-sm font-bold transition-colors',
+                'press flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2.5 font-display text-xs font-bold transition-colors sm:flex-row sm:gap-2 sm:py-3 sm:text-sm',
                 tab === t.key
                   ? 'bg-primary text-primary-foreground shadow-volt'
                   : 'bg-muted text-muted-foreground hover:text-foreground',
               )}
             >
-              <Icon className="size-4" />
+              <Icon className="size-4 shrink-0" />
               {t.label}
             </button>
           )

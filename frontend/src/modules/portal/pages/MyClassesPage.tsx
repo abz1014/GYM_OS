@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import { CalendarCheck, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -12,6 +12,7 @@ import {
   useMyClassSchedule,
   type MyClassSession,
 } from '@/modules/portal/api/portalApi'
+import { Pagination } from '@/shared/components/Pagination'
 import { isStale } from '@/shared/lib/queryTrust'
 
 // Sessions store their start as wall-clock-in-UTC — format in UTC so the class time reads the same
@@ -23,14 +24,23 @@ const dayFmt = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'short
 const NEARLY_FULL_SPOTS = 5
 
 /**
- * How far ahead "Book a class" reaches before the member has to ask for more.
+ * How many days of bookable classes are on screen at once.
  *
  * GetMyClassScheduleQuery filters on `StartsAt >= now` with no horizon and no Take, and this page
  * rendered every row it returned. So the density did not depend on the design at all — it depended
  * on how far ahead somebody happened to generate the timetable. A branch with a full weekly schedule
  * generated a month out produces hundreds of rows in one scroll.
+ *
+ * A fortnight was the first cut at that and was still too much: a daily timetable is fourteen day
+ * headings and something like fifty rows, which is the same wall of classes, just a shorter wall.
+ * Five days is about what a member plans around.
+ *
+ * The window counts DAYS THAT HAVE CLASSES, not calendar days. Those are the same thing at a gym
+ * running a daily timetable, and where they differ — a branch with Mon/Wed/Fri classes — counting
+ * calendar days would put two days of content on one page and produce empty pages later. Nobody
+ * wants to press Next to see nothing.
  */
-const DEFAULT_HORIZON_DAYS = 14
+const DAYS_PER_PAGE = 5
 
 function ClassAction({ session }: { session: MyClassSession }) {
   const book = useBookMyClass()
@@ -197,25 +207,42 @@ function DayGroups({ sessions }: { sessions: MyClassSession[] }) {
  */
 export default function MyClassesPage() {
   const schedule = useMyClassSchedule()
-  const [showAll, setShowAll] = useState(false)
+  const [page, setPage] = useState(1)
 
-  const { mine, browse, hidden } = useMemo(() => {
+  const { mine, browse, totalDays, totalPages } = useMemo(() => {
     const all = schedule.data ?? []
     const isMine = (s: MyClassSession) => s.myBookingStatus !== null
-
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() + DEFAULT_HORIZON_DAYS)
     const bookable = all.filter((s) => !isMine(s))
-    const near = bookable.filter((s) => new Date(s.startsAt) <= cutoff)
+
+    // Distinct days, in order. The schedule arrives sorted by start time, so the first appearance of
+    // each date is already in the right place and no comparator is needed.
+    const days: string[] = []
+    for (const s of bookable) {
+      const day = s.startsAt.slice(0, 10)
+      if (days.at(-1) !== day) days.push(day)
+    }
+
+    const pages = Math.max(1, Math.ceil(days.length / DAYS_PER_PAGE))
+    const visible = new Set(days.slice((page - 1) * DAYS_PER_PAGE, page * DAYS_PER_PAGE))
 
     return {
-      // Never truncated. A member's own commitments are the one thing a horizon must not hide, and
+      // Never paginated. A member's own commitments are the one thing a window must not hide, and
       // there are only ever a handful of them.
       mine: all.filter(isMine),
-      browse: showAll ? bookable : near,
-      hidden: showAll ? 0 : bookable.length - near.length,
+      browse: bookable.filter((s) => visible.has(s.startsAt.slice(0, 10))),
+      totalDays: days.length,
+      totalPages: pages,
     }
-  }, [schedule.data, showAll])
+  }, [schedule.data, page])
+
+  /*
+   * A refetch can shorten the schedule — a session ends, the last day on the final page empties —
+   * and leave `page` pointing past the end, which renders as a blank list with a Previous button.
+   * Clamping in a layout effect corrects it before the empty frame is ever painted.
+   */
+  useLayoutEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   const ready = !schedule.isLoading && !isStale(schedule)
 
@@ -264,17 +291,32 @@ export default function MyClassesPage() {
             <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-muted-foreground">
               <CalendarCheck className="size-6" />
               {mine.length > 0
-                ? `Nothing else on in the next ${DEFAULT_HORIZON_DAYS} days.`
+                ? 'Nothing else on at your gym right now.'
                 : 'No upcoming classes at your gym right now.'}
             </div>
           ) : (
-            <DayGroups sessions={browse} />
-          )}
-
-          {hidden > 0 && (
-            <Button variant="outline" className="press h-11 w-full rounded-2xl" onClick={() => setShowAll(true)}>
-              Show {hidden} more further ahead
-            </Button>
+            <>
+              <DayGroups sessions={browse} />
+              {/*
+                Counted in DAYS, not sessions, because days are what the pages are made of — saying
+                "60 classes" beside a control that moves five days at a time invites the member to
+                work out how many presses that is.
+              */}
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalCount={totalDays}
+                hasPreviousPage={page > 1}
+                hasNextPage={page < totalPages}
+                onPageChange={(next) => {
+                  setPage(next)
+                  // Paging without this leaves the member at the bottom of the previous page,
+                  // looking at the last rows of a day they have already scrolled past.
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+                itemLabel={totalDays === 1 ? 'day' : 'days'}
+              />
+            </>
           )}
         </div>
       )}

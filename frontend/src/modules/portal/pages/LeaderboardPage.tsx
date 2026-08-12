@@ -41,7 +41,12 @@ function Row({ row, unit }: { row: LeaderboardRow; unit: string }) {
         row.isYou
           ? // Inverted rather than merely tinted: a member scrolling for themselves should find their
             // own row without reading a single name.
-            'border-primary bg-primary text-primary-foreground shadow-volt'
+            //
+            // No shadow-volt on top of that. A solid primary block against a card-grey list is
+            // already the loudest thing on the screen — the coloured glow was doing no additional
+            // work, and it was paid for TWICE, because this row renders once in the main board and
+            // again in "around you". Emphasis that repeats stops being emphasis.
+            'border-primary bg-primary text-primary-foreground'
           : row.rank === 1
             ? 'border-warning/40 bg-card'
             : 'border-border bg-card',

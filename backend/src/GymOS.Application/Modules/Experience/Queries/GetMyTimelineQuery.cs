@@ -26,12 +26,30 @@ namespace GymOS.Application.Modules.Experience.Queries;
 /// be, and silently dropping a member's achievement would be worse than an untidy feed.
 ///
 /// Still a pure read composition over append-only tables — no new source of truth.
+///
+/// WHY THE SESSIONS ARE CAPPED AND NOTHING ELSE IS. Grouping the records into sessions took the demo
+/// member from 217 entries to 56, but 42 of those 56 are workouts, and a member training three times
+/// a week reaches that in a term and never stops. Sessions are the one type that grows without bound
+/// — measurements, photos, achieved goals and achievements are sparse by nature and stay sparse — so
+/// capping only the sessions bounds the feed while keeping the member's whole milestone history,
+/// including the first badge they ever earned. Capping the merged list instead would have quietly
+/// pushed those off the end, which is the opposite of a story so far.
+///
+/// The cap is a DISPLAY bound, not a claim about what happened. Every session is still on the Train
+/// page and in the progress charts; this is the story surface, and a story is not a ledger.
 /// </summary>
 public record GetMyTimelineQuery : IQuery<List<MyTimelineEntryDto>>;
 
 public class GetMyTimelineQueryHandler(IApplicationDbContext db, ICurrentUserService currentUser)
     : IRequestHandler<GetMyTimelineQuery, List<MyTimelineEntryDto>>
 {
+    /// <summary>
+    /// How many of the member's most recent sessions the story carries. Roughly a couple of months
+    /// of training for someone going three times a week — recent enough to recognise, short enough
+    /// to read.
+    /// </summary>
+    public const int MaxSessions = 20;
+
     public async Task<List<MyTimelineEntryDto>> Handle(GetMyTimelineQuery request, CancellationToken cancellationToken)
     {
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
@@ -64,15 +82,23 @@ public class GetMyTimelineQueryHandler(IApplicationDbContext db, ICurrentUserSer
             .Select(r => new { r.ExerciseId, r.Type, r.Value, r.AchievedAt, r.WorkoutLogId })
             .ToListAsync(cancellationToken);
 
-        var sessions = await db.WorkoutLogs.AsNoTracking()
+        // Ordered and cut in memory: SQLite cannot ORDER BY a DateTimeOffset, the same constraint the
+        // rest of this module reduces client-side for. The cut happens after the fetch, so it bounds
+        // what is RENDERED rather than what is read — see MaxSessions.
+        var allSessions = await db.WorkoutLogs.AsNoTracking()
             .Where(w => w.MemberId == memberId)
             .Select(w => new
             {
                 w.Id,
                 w.LoggedAt,
-                Entries = w.Entries.Select(e => new { e.ExerciseId, e.SetsCompleted, e.RepsCompleted, e.WeightKg }).ToList()
+                Entries = w.Entries.Select(e => new
+                {
+                    e.ExerciseId, e.SetsCompleted, e.RepsCompleted, e.WeightKg, e.DurationSeconds, e.DistanceMeters
+                }).ToList()
             })
             .ToListAsync(cancellationToken);
+
+        var sessions = allSessions.OrderByDescending(w => w.LoggedAt).Take(MaxSessions).ToList();
 
         // One catalogue lookup covers both the records and the sessions. Muscle group comes along
         // because it is what names a session (SessionCharacterPolicy) — the same name the member sees
@@ -114,7 +140,8 @@ public class GetMyTimelineQueryHandler(IApplicationDbContext db, ICurrentUserSer
                 s.Entries.Select(e => exercises.GetValueOrDefault(e.ExerciseId)?.MuscleGroup));
 
             var movements = s.Entries
-                .Select(e => $"{NameOf(e.ExerciseId)} {e.SetsCompleted}×{e.RepsCompleted}")
+                .Select(e => WorkoutStoryPolicy.DescribeMovement(
+                    NameOf(e.ExerciseId), e.SetsCompleted, e.RepsCompleted, e.DurationSeconds, e.DistanceMeters))
                 .ToList();
 
             var gains = recordsBySession.TryGetValue(s.Id, out var setHere)

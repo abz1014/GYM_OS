@@ -103,4 +103,56 @@ public class WorkoutStoryPolicyTests
 
         story.OneLine.ShouldBe("Bench Press 3×8. Bench Press up 2.5kg to 62.5kg — a new best.");
     }
+
+    // ---- DescribeMovement: a movement is described only by what it is measured in ----
+
+    [Fact]
+    public void A_lift_reads_as_sets_by_reps()
+    {
+        WorkoutStoryPolicy.DescribeMovement("Bench Press", 3, reps: 8, durationSeconds: null, distanceMeters: null)
+            .ShouldBe("Bench Press 3×8");
+    }
+
+    [Fact]
+    public void A_run_reads_as_its_distance_over_its_time_and_never_shows_a_rep_count()
+    {
+        /*
+         * The defect this exists for. RepsCompleted became nullable when Timed and Distance movements
+         * got somewhere real to put their measurement, and the timeline was still interpolating it —
+         * so a run rendered as "Treadmill Run 1×", a dangling operator that reads as a number the app
+         * lost, while saying nothing about the three kilometres the member actually ran.
+         */
+        WorkoutStoryPolicy.DescribeMovement("Treadmill Run", 1, reps: null, durationSeconds: 1_200, distanceMeters: 3_000m)
+            .ShouldBe("Treadmill Run 1×3km in 20:00");
+    }
+
+    [Fact]
+    public void A_short_distance_stays_in_metres()
+    {
+        // A farmer's carry is forty metres, not 0.04km.
+        WorkoutStoryPolicy.DescribeMovement("Farmer's Carry", 3, reps: null, durationSeconds: null, distanceMeters: 40m)
+            .ShouldBe("Farmer's Carry 3×40m");
+    }
+
+    [Fact]
+    public void A_hold_reads_as_its_duration_alone()
+    {
+        WorkoutStoryPolicy.DescribeMovement("Plank", 3, reps: null, durationSeconds: 45, distanceMeters: null)
+            .ShouldBe("Plank 3×45s");
+
+        WorkoutStoryPolicy.DescribeMovement("Plank", 1, reps: null, durationSeconds: 75, distanceMeters: null)
+            .ShouldBe("Plank 1×1:15");
+    }
+
+    [Fact]
+    public void A_movement_with_nothing_but_a_set_count_says_so_rather_than_printing_a_bare_operator()
+    {
+        // A logged session whose detail was never captured is a real thing. "4 sets" is true;
+        // "4 ×" is the shape of a fact that failed to arrive.
+        WorkoutStoryPolicy.DescribeMovement("Rowing Machine", 4, reps: null, durationSeconds: null, distanceMeters: null)
+            .ShouldBe("Rowing Machine 4 sets");
+
+        WorkoutStoryPolicy.DescribeMovement("Rowing Machine", 1, reps: null, durationSeconds: null, distanceMeters: null)
+            .ShouldBe("Rowing Machine 1 set");
+    }
 }

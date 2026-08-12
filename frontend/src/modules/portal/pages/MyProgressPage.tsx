@@ -54,6 +54,15 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key']
 
 // Timeline entry type -> icon + accent colour.
+/**
+ * How many story entries show before the member asks for more.
+ *
+ * Enough to see the shape of the last week or two at a glance, which is what the card is for; the
+ * rest is one tap away. The server caps the sessions it sends (GetMyTimelineQuery.MaxSessions) so
+ * "show more" is never unbounded either.
+ */
+const STORY_COLLAPSED_ENTRIES = 6
+
 const TIMELINE_STYLE: Record<TimelineEntryType, { icon: typeof Ruler; text: string }> = {
   Workout: { icon: Dumbbell, text: 'text-primary' },
   Measurement: { icon: Ruler, text: 'text-chart-2' },
@@ -452,6 +461,7 @@ export default function MyProgressPage() {
   const { data: progress, isLoading, isError } = useMyProgress()
   const { data: timeline } = useMyTimeline()
   const [tab, setTab] = useState<TabKey>('strength')
+  const [storyExpanded, setStoryExpanded] = useState(false)
 
   const openGoals = progress?.goals.filter((g) => !g.isAchieved) ?? []
   const achievedGoals = progress?.goals.filter((g) => g.isAchieved) ?? []
@@ -547,8 +557,15 @@ export default function MyProgressPage() {
                 <CardTitle className="font-display text-base font-bold">Your story so far</CardTitle>
               </CardHeader>
               <CardContent>
+                {/*
+                  Collapsed by default. The server already caps the sessions, but even a bounded feed
+                  is a few dozen rows, and this card sits at the BOTTOM of a tab the member opened to
+                  look at their habits — so every visit to that tab was paying for a wall of history
+                  nobody asked to scroll past. Showing the most recent handful and offering the rest
+                  keeps the story without making it the page.
+                */}
                 <ul className="space-y-3">
-                  {timeline.map((entry, index) => {
+                  {(storyExpanded ? timeline : timeline.slice(0, STORY_COLLAPSED_ENTRIES)).map((entry, index) => {
                     const style = TIMELINE_STYLE[entry.type]
                     const Icon = style.icon
                     return (
@@ -575,6 +592,18 @@ export default function MyProgressPage() {
                     )
                   })}
                 </ul>
+
+                {timeline.length > STORY_COLLAPSED_ENTRIES && (
+                  <Button
+                    variant="ghost"
+                    className="press mt-3 h-10 w-full rounded-2xl text-sm font-semibold"
+                    onClick={() => setStoryExpanded((v) => !v)}
+                  >
+                    {storyExpanded
+                      ? 'Show less'
+                      : `Show ${timeline.length - STORY_COLLAPSED_ENTRIES} more`}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
