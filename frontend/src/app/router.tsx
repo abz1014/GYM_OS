@@ -23,7 +23,6 @@ const MyChallengesPage = lazy(() => import('@/modules/portal/pages/MyChallengesP
 const MyCoachPage = lazy(() => import('@/modules/portal/pages/MyCoachPage'))
 const MyPassportPage = lazy(() => import('@/modules/portal/pages/MyPassportPage'))
 const LeaderboardPage = lazy(() => import('@/modules/portal/pages/LeaderboardPage'))
-const CommunityPage = lazy(() => import('@/modules/portal/pages/CommunityPage'))
 const MorePage = lazy(() => import('@/modules/portal/pages/MorePage'))
 const TodayPage = lazy(() => import('@/modules/portal/pages/TodayPage'))
 const MembersListPage = lazy(() => import('@/modules/members/pages/MembersListPage'))
@@ -89,10 +88,14 @@ export const router = createBrowserRouter([
           { path: 'my-coach', element: withSuspense(<MyCoachPage />) },
           { path: 'my-passport', element: withSuspense(<MyPassportPage />) },
           { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
-          // The tab-bar destination. /leaderboard and /my-challenges stay mounted: they are linked
-          // from empty states and from the rank page's challenge tip, and a route that silently
-          // stopped existing would be bounced home by the catch-all rather than failing visibly.
-          { path: 'community', element: withSuspense(<CommunityPage />) },
+          /*
+           * Community folded into Rank as tabs. This route stays and now RENDERS Rank rather than
+           * being deleted: the router's catch-all sends every unknown path to the member's landing
+           * screen, so removing it would silently bounce anyone with a bookmark instead of failing
+           * visibly. /leaderboard and /my-challenges stay mounted for the same reason — they are
+           * linked from empty states and from the rank page's own challenge tip.
+           */
+          { path: 'community', element: withSuspense(<MyRankPage />) },
           { path: 'more', element: withSuspense(<MorePage />) },
           // Membership detail lives on its own path: /account was already taken by the auth
           // "My Account" screen (password/MFA), and a second 'account' entry here would simply be

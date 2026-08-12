@@ -1,7 +1,8 @@
+import { lazy, Suspense, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity, Apple, Award, CalendarCheck, Check, ChevronRight, Clock, DoorOpen, Dumbbell, Flag,
-  Flame, Lock, MapPin, Moon, TrendingUp, Trophy, Zap,
+  Flame, Lock, MapPin, Moon, Shield, TrendingUp, Trophy, Zap,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,9 @@ import {
   type RankTier,
 } from '@/modules/portal/api/portalApi'
 import { isStale } from '@/shared/lib/queryTrust'
+
+const LeaderboardPage = lazy(() => import('@/modules/portal/pages/LeaderboardPage'))
+const MyChallengesPage = lazy(() => import('@/modules/portal/pages/MyChallengesPage'))
 
 const promotionDate = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -532,28 +536,39 @@ function PromotionHistory({ rank }: { rank: MyRank }) {
 }
 
 /**
- * "Where do I stand?" — the member's status home.
+ * "Where do I stand?", answered three ways under one roof.
  *
- * It replaced My Progress in the tab bar rather than joining it, because the bar carries four flat
- * tabs either side of the centre action and a fifth pushes that action off-centre. Progress moved to
- * More and is linked from this page.
+ * Rank, the leaderboard and challenges were three destinations answering ONE question — how am I
+ * doing against where I was, and against everyone else. Splitting them across a Rank tab and a
+ * Community tab meant a member comparing themselves had to leave the screen that told them their
+ * standing to find the board they were standing on.
  *
- * Three reads, three failure modes handled separately rather than as one screen-wide blank: rank is
- * the headline and the page cannot be drawn without it, but the rung board, the tips and the badges
- * are additions — a member whose badge request drops should still see their rank rather than an
- * error page, and a section that could not load says so where it would have been.
+ * Tabs rather than one long scroll because the three have different shapes: standing is a headline
+ * and a ladder, the board is a list, challenges are cards you act on. Stacking them would make the
+ * page the "information bomb" the Train page had to be rescued from.
+ *
+ * The two mounted here are complete screens with their own loading, empty and failure states.
+ * Lazily, so opening Rank does not pay for the tab the member did not pick.
  */
+const RANK_TABS = [
+  { key: 'standing', label: 'Standing', icon: Shield },
+  { key: 'leaderboard', label: 'Leaderboard', icon: Trophy },
+  { key: 'challenges', label: 'Challenges', icon: Flag },
+] as const
+
+type RankTab = (typeof RANK_TABS)[number]['key']
+
 export default function MyRankPage() {
+  const [tab, setTab] = useState<RankTab>('standing')
   const experience = useMyExperience()
-  const ladder = useMyRankLadder()
-  const achievements = useMyAchievements()
   const acknowledge = useAcknowledgeRankPromotion()
   const unseen = experience.data?.rank.unseen ?? null
 
   return (
     <div className="space-y-4">
       {/* Server-owned, not local state: the promotion row carries `seen`, so closing the app before
-          dismissing means the celebration is still waiting next time rather than silently spent. */}
+          dismissing means the celebration is still waiting next time rather than silently spent.
+          Outside the tabs, because a promotion is the whole app's news, not the Standing tab's. */}
       {unseen && (
         <RankUpCelebration
           promotion={unseen}
@@ -561,11 +576,74 @@ export default function MyRankPage() {
         />
       )}
 
-      <div>
-        <h1 className="font-display text-2xl font-black tracking-tight">Rank</h1>
-        <p className="text-sm text-muted-foreground">What you have reached, and what is next.</p>
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-black tracking-tight">Rank</h1>
+          <p className="text-sm text-muted-foreground">Where you stand, and who you stand with.</p>
+        </div>
+        {/*
+          Progress is linked from the HEADER now, not from a button below thirteen badges and eight
+          ladder rungs. The complaint was that it was hidden, and the previous fix only changed the
+          button's weight — it was still the last node on a page several screens tall. A link at the
+          top is reachable without scrolling at all.
+        */}
+        <Link
+          to="/my-progress"
+          className="press flex shrink-0 items-center gap-1 text-sm font-semibold text-primary"
+        >
+          <TrendingUp className="size-4" />
+          Progress
+        </Link>
       </div>
 
+      <div className="flex gap-2">
+        {RANK_TABS.map((t) => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              aria-pressed={tab === t.key}
+              className={cn(
+                'press flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-3 font-display text-sm font-bold transition-colors',
+                tab === t.key
+                  ? 'bg-primary text-primary-foreground shadow-volt'
+                  : 'bg-muted text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Icon className="size-4" />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl shimmer" />}>
+        {tab === 'leaderboard' && <LeaderboardPage />}
+        {tab === 'challenges' && <MyChallengesPage />}
+      </Suspense>
+
+      {tab === 'standing' && <StandingTab />}
+    </div>
+  )
+}
+
+/**
+ * The member's own standing: the rung, the race on it, what to do next, and the shelf.
+ *
+ * Three reads, three failure modes handled separately rather than as one screen-wide blank: rank is
+ * the headline and the tab cannot be drawn without it, but the rung board, the tips and the badges
+ * are additions — a member whose badge request drops should still see their rank rather than an
+ * error page, and a section that could not load says so where it would have been.
+ */
+function StandingTab() {
+  const experience = useMyExperience()
+  const ladder = useMyRankLadder()
+  const achievements = useMyAchievements()
+
+  return (
+    <div className="space-y-4">
       {experience.isLoading && <Skeleton className="h-64 w-full rounded-3xl shimmer" />}
 
       {isStale(experience) && (
@@ -624,16 +702,6 @@ export default function MyRankPage() {
           )}
 
           <PromotionHistory rank={experience.data.rank} />
-
-          {/* Was a ghost-weight outline button at the very bottom of the page, which is where a link
-              goes to be missed. */}
-          <Button asChild variant="secondary" className="press h-12 w-full rounded-2xl font-bold">
-            <Link to="/my-progress">
-              <TrendingUp className="size-4" />
-              See the detail behind it
-              <ChevronRight className="size-4" />
-            </Link>
-          </Button>
         </>
       )}
     </div>

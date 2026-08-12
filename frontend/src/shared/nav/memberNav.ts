@@ -1,4 +1,4 @@
-import { Apple, CalendarDays, Dumbbell, Home, LayoutGrid, MapPin, MessageCircle, NotebookPen, Shield, Trophy, TrendingUp, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { Apple, CalendarDays, Dumbbell, Home, LayoutGrid, MapPin, MessageCircle, NotebookPen, Shield, TrendingUp, ShieldCheck, type LucideIcon } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/authStore'
 
@@ -48,10 +48,17 @@ export interface MemberTab {
  * and forgot to log is a genuinely different job from recording the set you just finished, and it
  * lives one level down under More where after-the-fact admin belongs.
  *
- * COMMUNITY TOOK THE FREED SLOT. The leaderboard and challenges were reachable from exactly one
- * place in the entire app — a row on the More page, below a full-bleed membership card and a
- * six-row Training group, which on a phone is below the fold. A social feature nobody can find is
- * not a social feature.
+ * COMMUNITY FOLDED INTO RANK. The leaderboard and challenges were reachable from exactly one place
+ * in the entire app — a row on the More page, below the fold on a phone — so they were given a tab
+ * of their own. That was half right: they were findable, but they answer the SAME question the rank
+ * screen does. "Where do I stand" against my own past and against everyone else is one question, and
+ * a member comparing themselves had to leave the screen showing their standing to find the board
+ * they were standing on. They are tabs inside Rank now.
+ *
+ * CLASSES TOOK THE SLOT THAT FREED UP. It is the highest-frequency thing left below the fold: a
+ * booking is a recurring transaction with a deadline attached, unlike Progress or the Passport,
+ * which are browses. It was also the screen the owner called congested — a destination people use
+ * enough to resent.
  *
  * Index 2 is dead centre and MemberTabBar renders that entry as the elevated round action; a centre
  * slot is only actually centred with an equal number of tabs either side, so this array's length and
@@ -62,7 +69,9 @@ export const MEMBER_TABS: MemberTab[] = [
   { label: 'Home', path: '/portal', icon: Home },
   // Rank, not Progress: it answers "where do I stand" in one look, which is the question a member
   // opens the app with. Progress is a sit-down-and-study screen and is linked from the top of Rank.
-  { label: 'Rank', path: '/my-rank', icon: Shield },
+  // Standing, the leaderboard and challenges are tabs on this one page — see MyRankPage. The three
+  // legacy paths stay listed so a bookmark or an inbound link still lights the right tab.
+  { label: 'Rank', path: '/my-rank', icon: Shield, alsoMatches: ['/leaderboard', '/my-challenges', '/community'] },
   {
     label: 'Train',
     path: '/my-training',
@@ -72,7 +81,7 @@ export const MEMBER_TABS: MemberTab[] = [
     // mid-session rather than the bar going dark on the screen they spend the most time on.
     alsoMatches: ['/workout'],
   },
-  { label: 'Community', path: '/community', icon: Trophy, alsoMatches: ['/leaderboard', '/my-challenges'] },
+  { label: 'Classes', path: '/my-classes', icon: CalendarDays },
   {
     label: 'More',
     path: '/more',
@@ -82,7 +91,7 @@ export const MEMBER_TABS: MemberTab[] = [
     // where the member was, and aria-current went with it. (/my-training and the community paths are
     // absent on purpose: they are their own tabs, and listing them would light two tabs at once.)
     alsoMatches: [
-      '/my-nutrition', '/my-classes', '/my-coach', '/my-passport', '/my-progress',
+      '/my-nutrition', '/my-coach', '/my-passport', '/my-progress',
       '/membership', '/account', '/log-activity',
     ],
   },
@@ -99,13 +108,12 @@ export interface MemberMoreLink {
 /**
  * Secondary destinations, surfaced on the More screen and grouped so it scans in one look.
  *
- * My Training and the two community screens are deliberately absent — they are top-level tabs now,
- * and a destination that is both a tab and a More row is the same place reached two ways, which is
- * how a menu starts feeling long.
+ * My Training, My Classes and the two community screens are deliberately absent — they are top-level
+ * tabs now (community as tabs inside Rank), and a destination that is both a tab and a More row is
+ * the same place reached two ways, which is how a menu starts feeling long.
  */
 export const MEMBER_MORE_LINKS: MemberMoreLink[] = [
   { group: 'Training', label: 'My Nutrition', description: "Today's macros, plans and water", path: '/my-nutrition', icon: Apple },
-  { group: 'Training', label: 'My Classes', description: 'Book and manage your classes', path: '/my-classes', icon: CalendarDays },
   { group: 'Training', label: 'My Coach', description: 'Talk to your trainer about your training', path: '/my-coach', icon: MessageCircle },
   { group: 'Training', label: 'Gym Passport', description: "What you've used here, and what you haven't", path: '/my-passport', icon: MapPin },
   // Reachable from here since the centre action became the live session. Everything recorded after
