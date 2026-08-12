@@ -224,7 +224,11 @@ export type OverloadSuggestion = 'InsufficientData' | 'Progressing' | 'ReadyToIn
 export interface MyExerciseSuggestion {
   exerciseId: string
   exerciseName: string
+  /** Canonical display name, resolved server-side through MuscleGroupVocabulary. */
   muscleGroup: string | null
+  /** Canonical key. Cross-referenced against MuscleRecovery.muscleGroupKey — both resolve the same
+   *  way server-side, so a fatigued group can never fail to hold back its own exercises. */
+  muscleGroupKey: string
   suggestion: OverloadSuggestion
   lastWeightKg: number | null
   lastTotalReps: number | null
@@ -392,7 +396,16 @@ export type RecoveryStatus = 'Fresh' | 'Ready' | 'Fatigued' | 'OvertrainingRisk'
 export type RecoveryKind = 'RestDay' | 'ActiveRecovery' | 'Mobility' | 'Stretching'
 
 export interface MuscleRecovery {
+  /** The canonical display name — "Legs", never the gym's own "Quads". */
   muscleGroup: string
+  /**
+   * The stable key from MuscleGroupVocabulary. The body map shades by THIS.
+   *
+   * It used to match its hard-coded zone names against `muscleGroup`, which is free text a gym owner
+   * types — the two agreed only because the seeder happens to spell them identically, so a gym that
+   * typed "Quads" got a fatigued group the map could not shade at all.
+   */
+  muscleGroupKey: string
   status: RecoveryStatus
   reason: string
   timesLast7Days: number

@@ -88,8 +88,14 @@ public class GetMyWorkoutSuggestionsQueryHandler(IApplicationDbContext db, ICurr
                 ? ProgressiveOverloadPolicy.SuggestedNextWeightKg(last.MaxWeightKg)
                 : null;
 
+            // Resolved, not passed through. The Train screen pulls a suggestion out of today's list
+            // when its muscle group is fatigued, and it matches on this value against the recovery
+            // breakdown — which resolves through the same vocabulary. Two different readings of the
+            // same free-text column would quietly stop the two agreeing.
+            var muscle = MuscleGroupVocabulary.Resolve(exercise.MuscleGroup);
+
             results.Add(new MyExerciseSuggestionDto(
-                exercise.Id, exercise.Name, exercise.MuscleGroup, suggestion,
+                exercise.Id, exercise.Name, muscle.DisplayName, muscle.Key, suggestion,
                 last.MaxWeightKg > 0 ? last.MaxWeightKg : null, last.TotalReps, suggestedNextWeight, last.LoggedAt));
         }
 

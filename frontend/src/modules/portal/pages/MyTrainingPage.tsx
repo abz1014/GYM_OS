@@ -13,6 +13,7 @@ import {
   type MyRecovery,
   type RecoveryStatus,
 } from '@/modules/portal/api/portalApi'
+import { useActiveWorkout } from '@/modules/portal/workout/activeWorkoutStore'
 import { isStale } from '@/shared/lib/queryTrust'
 
 /**
@@ -42,12 +43,38 @@ const ZONE_FILL = {
   rested: 'var(--surface-rested)',
   fatigued: 'var(--warning)',
   risk: 'var(--destructive)',
+  /*
+   * Never trained. Its own state, and the reason this map can now be trusted.
+   *
+   * Recovery only reports groups the member has ACTUALLY trained — GetMyRecoveryQuery builds its
+   * list from WorkoutLogEntries — so a group that never appears was silently falling through to the
+   * `rested` default. A member who has never once trained their back read a fully rested back, which
+   * is the single most misleading thing a recovery map can say: it is the same picture as somebody
+   * who trains back every week and has recovered from it.
+   *
+   * Rendered as an unfilled outline rather than another colour, because the honest statement is an
+   * absence of information, not a fifth grade of readiness.
+   */
+  untrained: 'none',
 } as const
 
 type ZoneState = keyof typeof ZONE_FILL
 
-/** No zone on the schematic. Not dropped — they appear in the recovery sheet, which is the full list. */
-const UNMAPPED_GROUPS = ['Cardio', 'Full Body']
+/**
+ * The groups no silhouette can honestly localise.
+ *
+ * A treadmill run trains the whole body; a rowing session is not a region you can shade. These were
+ * simply skipped, which meant a member whose only training was cardio saw an entirely untouched body
+ * and no explanation. They now get their own row beneath the figures, carrying the same status
+ * colours — present and accounted for rather than quietly dropped.
+ *
+ * Keyed on MuscleGroupVocabulary's canonical keys, which the server now sends, so this no longer
+ * depends on a gym spelling "Full Body" the way the seeder does.
+ */
+const WHOLE_BODY_KEYS = ['cardio', 'fullbody']
+
+/** Every zone the silhouettes can shade. Anything else is whole-body or Other. */
+const MAPPED_KEYS = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core']
 
 const STATUS_LABEL: Record<RecoveryStatus, string> = {
   Fresh: 'Fresh',
@@ -104,9 +131,12 @@ const ORDER: Record<MyExerciseSuggestion['suggestion'], number> = {
  * in the sheet.
  */
 function splitSuggestions(suggestions: MyExerciseSuggestion[], recovery: MyRecovery | undefined) {
-  const groupStatus = new Map((recovery?.muscleGroups ?? []).map((m) => [m.muscleGroup, m.status]))
+  // Keyed on the canonical key both sides now carry. Matching display names would work until a gym
+  // renamed a group, at which point a fatigued muscle would quietly stop holding back its own
+  // exercises — the screen contradicting itself in exactly the way this function exists to prevent.
+  const groupStatus = new Map((recovery?.muscleGroups ?? []).map((m) => [m.muscleGroupKey, m.status]))
   const isBlocked = (s: MyExerciseSuggestion) => {
-    const st = s.muscleGroup ? groupStatus.get(s.muscleGroup) : undefined
+    const st = groupStatus.get(s.muscleGroupKey)
     return st === 'Fatigued' || st === 'OvertrainingRisk'
   }
 
@@ -197,27 +227,72 @@ function buildWeek(sessionDates: string[]) {
 
 // ── Pieces ──────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Front and back, because half a body cannot show a back.
+ *
+ * The previous map was a single anterior silhouette with a `back` rectangle at y=39–48 — the gap
+ * between the chest and the abdomen, which on a front-facing figure is the solar plexus. So the one
+ * muscle group that is definitionally not visible from the front was drawn on the stomach, and a
+ * member reading their own body saw their back where their abs are. Two figures is the only honest
+ * fix: chest and core are anterior, back is posterior, and shoulders, arms and legs appear on both
+ * because they genuinely do.
+ *
+ * The layout mirrors <see cref="BodyView"/> in MuscleGroupVocabulary — a Domain type that has
+ * existed since the vocabulary was written and, until now, was consumed by nothing.
+ *
+ * One viewBox holding both figures rather than two SVGs: it keeps them on a shared scale and a
+ * shared baseline, so the pair reads as one body seen twice rather than two drawings that happen to
+ * sit beside each other.
+ */
 function BodyMap({ zones, ghost = false, className }: { zones: Record<string, ZoneState>; ghost?: boolean; className?: string }) {
   // stroke = the card colour, and it is load-bearing: it is what keeps two adjacent same-coloured
-  // zones legible as separate shapes at 84px. Without it they fuse into a single mass.
+  // zones legible as separate shapes at this size. Without it they fuse into a single mass.
   const common = ghost
     ? { fill: 'none', stroke: 'var(--border-ghost)', strokeWidth: 1.6, strokeDasharray: '3 3' }
     : { stroke: 'var(--card)', strokeWidth: 2.4 }
 
-  const fill = (zone: string) => (ghost ? 'none' : ZONE_FILL[zones[zone] ?? 'rested'])
+  /** Untrained keeps the silhouette's shape and drops the fill — an outline, not a fifth colour. */
+  const zoneProps = (zone: string) => {
+    if (ghost) return common
+    const state = zones[zone] ?? 'untrained'
+    if (state === 'untrained') {
+      return { fill: 'none', stroke: 'var(--border-ghost)', strokeWidth: 1.6, strokeDasharray: '3 3' }
+    }
+    return { fill: ZONE_FILL[state], ...common }
+  }
+
+  const head = ghost ? { fill: 'none', ...common } : { fill: 'var(--border-chip)', ...common }
 
   return (
-    <svg viewBox="0 0 100 116" className={className} aria-hidden>
-      <circle cx={50} cy={11} r={8} fill={ghost ? 'none' : 'var(--border-chip)'} {...common} />
-      <rect x={14} y={24} width={20} height={12} rx={6} fill={fill('shoulders')} {...common} />
-      <rect x={66} y={24} width={20} height={12} rx={6} fill={fill('shoulders')} {...common} />
-      <rect x={36} y={24} width={28} height={13} rx={6} fill={fill('chest')} {...common} />
-      <rect x={36} y={39} width={28} height={9} rx={4} fill={fill('back')} {...common} />
-      <rect x={14} y={39} width={13} height={30} rx={6} fill={fill('arms')} {...common} />
-      <rect x={73} y={39} width={13} height={30} rx={6} fill={fill('arms')} {...common} />
-      <rect x={38} y={50} width={24} height={15} rx={6} fill={fill('core')} {...common} />
-      <rect x={36} y={68} width={12} height={42} rx={6} fill={fill('legs')} {...common} />
-      <rect x={52} y={68} width={12} height={42} rx={6} fill={fill('legs')} {...common} />
+    <svg viewBox="0 0 214 128" className={className} role="img" aria-label="Front and back body map">
+      {/* ── FRONT ── chest and core are anterior; shoulders, arms and legs appear on both views. */}
+      <circle cx={50} cy={11} r={8} {...head} />
+      <rect x={14} y={24} width={20} height={12} rx={6} {...zoneProps('shoulders')} />
+      <rect x={66} y={24} width={20} height={12} rx={6} {...zoneProps('shoulders')} />
+      <rect x={36} y={24} width={28} height={14} rx={6} {...zoneProps('chest')} />
+      {/* The abdomen belongs to core. It used to be where `back` was drawn. */}
+      <rect x={37} y={41} width={26} height={24} rx={7} {...zoneProps('core')} />
+      <rect x={14} y={39} width={13} height={30} rx={6} {...zoneProps('arms')} />
+      <rect x={73} y={39} width={13} height={30} rx={6} {...zoneProps('arms')} />
+      <rect x={36} y={68} width={12} height={42} rx={6} {...zoneProps('legs')} />
+      <rect x={52} y={68} width={12} height={42} rx={6} {...zoneProps('legs')} />
+      <text x={50} y={124} textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--muted-foreground)">
+        FRONT
+      </text>
+
+      {/* ── BACK ── one continuous posterior torso, which is what a back is, plus glutes above the legs. */}
+      <circle cx={164} cy={11} r={8} {...head} />
+      <rect x={128} y={24} width={20} height={12} rx={6} {...zoneProps('shoulders')} />
+      <rect x={180} y={24} width={20} height={12} rx={6} {...zoneProps('shoulders')} />
+      <rect x={150} y={24} width={28} height={38} rx={7} {...zoneProps('back')} />
+      <rect x={128} y={39} width={13} height={30} rx={6} {...zoneProps('arms')} />
+      <rect x={187} y={39} width={13} height={30} rx={6} {...zoneProps('arms')} />
+      <rect x={150} y={65} width={28} height={11} rx={5} {...zoneProps('legs')} />
+      <rect x={150} y={79} width={12} height={31} rx={6} {...zoneProps('legs')} />
+      <rect x={166} y={79} width={12} height={31} rx={6} {...zoneProps('legs')} />
+      <text x={164} y={124} textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--muted-foreground)">
+        BACK
+      </text>
     </svg>
   )
 }
@@ -227,14 +302,56 @@ function Legend() {
     ['today', 'today'],
     ['rested', 'rested'],
     ['fatigued', 'not recovered'],
+    ['untrained', 'never trained'],
   ]
   return (
-    <div className="mt-[14px] flex gap-3">
+    <div className="mt-[14px] flex flex-wrap gap-x-3 gap-y-1.5">
       {items.map(([state, label]) => (
         <span key={label} className="flex items-center gap-1.5">
-          <span className="size-[7px] rounded-[2px]" style={{ background: ZONE_FILL[state] }} />
+          <span
+            className="size-[7px] rounded-[2px]"
+            style={
+              state === 'untrained'
+                ? { border: '1.5px dashed var(--border-ghost)' }
+                : { background: ZONE_FILL[state] }
+            }
+          />
           <span className="font-display text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
             {label}
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Cardio and full-body work, which no silhouette can localise.
+ *
+ * Shown only when the member has actually done some — an empty row would be a category invented for
+ * its own sake. Same status colours as the map, so the two read as one instrument.
+ */
+function WholeBodyRow({ groups }: { groups: MuscleRecovery[] }) {
+  if (groups.length === 0) return null
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {groups.map((g) => (
+        <span
+          key={g.muscleGroupKey}
+          className="flex items-center gap-1.5 rounded-full border border-border-chip bg-foreground/[0.05] py-1 pr-2.5 pl-2"
+        >
+          <span className="size-1.5 rounded-full" style={{ background: STATUS_COLOR[g.status] }} />
+          <span className="font-display text-[11px] font-bold">{g.muscleGroup}</span>
+          {/* "×0" is not a count, it is an absence dressed as one — and it appeared on every chip,
+              because a group trained a month ago has zero sessions in a seven-day window. Say when
+              it last happened instead, which is the thing that is actually true. */}
+          <span className="text-[10.5px] font-semibold text-muted-foreground tabular-nums">
+            {g.timesLast7Days > 0
+              ? `×${g.timesLast7Days}`
+              : g.daysSinceLastTrained === null
+                ? ''
+                : `${g.daysSinceLastTrained}d ago`}
           </span>
         </span>
       ))}
@@ -261,15 +378,40 @@ function DayStrip({ days }: { days: ReturnType<typeof buildWeek> }) {
   )
 }
 
-function ExerciseRow({ s, blocked, lighten }: { s: MyExerciseSuggestion; blocked: boolean; lighten: boolean }) {
+/**
+ * One movement, and — this is the change — a way to act on it.
+ *
+ * The owner asked whether this list was worthwhile. It is: it carries the progressive-overload
+ * verdict and the suggested next load, and neither exists anywhere else in the app, least of all in
+ * the exercise picker, which knows what you lifted but not whether you are ready to lift more. What
+ * it lacked was any way to DO the thing it was recommending — the member read "Bench Press ↑ 62.5kg"
+ * and then had to go to another screen and find bench press again from a list of sixty-five.
+ *
+ * Tapping a row now starts a session containing exactly that movement, pre-filled with the number
+ * the row is showing. A blocked row stays inert: it is telling the member not to train that today,
+ * so making it a button would be the screen arguing with itself.
+ */
+function ExerciseRow({
+  s, blocked, lighten, onStart,
+}: {
+  s: MyExerciseSuggestion
+  blocked: boolean
+  lighten: boolean
+  onStart: (s: MyExerciseSuggestion) => void
+}) {
   const t = targetFor(s, blocked, lighten)
+  const Row = blocked ? 'div' : 'button'
   return (
-    <li
-      className={cn(
-        'flex items-center justify-between gap-3 rounded-[18px] px-4 py-[14px] lg:px-5 lg:py-4',
-        blocked ? 'border border-dashed border-border bg-surface-dimmed opacity-[.72]' : 'border border-border bg-card',
-      )}
-    >
+    <li>
+      <Row
+        {...(blocked ? {} : { type: 'button' as const, onClick: () => onStart(s) })}
+        className={cn(
+          'flex w-full items-center justify-between gap-3 rounded-[18px] px-4 py-[14px] text-left lg:px-5 lg:py-4',
+          blocked
+            ? 'border border-dashed border-border bg-surface-dimmed opacity-[.72]'
+            : 'press border border-border bg-card hover:border-muted-foreground/40',
+        )}
+      >
       <span className="min-w-0">
         <span className="block truncate text-base font-semibold tracking-[-0.01em] lg:text-[17px]">{s.exerciseName}</span>
         <span className="mt-[3px] block text-xs font-medium text-muted-foreground tabular-nums">{microLine(s)}</span>
@@ -289,6 +431,7 @@ function ExerciseRow({ s, blocked, lighten }: { s: MyExerciseSuggestion; blocked
         </span>
         <span className="text-[11.5px] font-semibold text-muted-foreground">{t.unit}</span>
       </span>
+      </Row>
     </li>
   )
 }
@@ -318,13 +461,43 @@ export default function MyTrainingPage() {
   const assignments = useMyWorkoutAssignments()
   const workouts = useMyWorkoutLogs()
 
+  const addExercises = useActiveWorkout((s) => s.addExercises)
+
   const [sheet, setSheet] = useState<null | 'recovery' | 'history'>(null)
   const [expanded, setExpanded] = useState(false)
+
+  /**
+   * Start a session on the movement the member just tapped, carrying the number they were looking at.
+   *
+   * `lastTotalReps` is deliberately NOT used as the per-set rep count. It is a session total — the
+   * footer on this very list says so — and seeding "24 reps" into three sets would ask a member to
+   * do seventy-two. Three sets of eight is the same default the picker uses, and the member changes
+   * it in the session anyway; the load is the number worth carrying across, because that is the one
+   * this screen actually computed.
+   *
+   * addExercises starts the clock only if nothing is running, and skips a movement already in the
+   * session — so tapping a second row mid-session adds to it rather than replacing it.
+   */
+  const startWith = (s: MyExerciseSuggestion) => {
+    const weight = s.suggestion === 'ReadyToIncreaseWeight' && !lighten
+      ? s.suggestedNextWeightKg ?? s.lastWeightKg
+      : s.lastWeightKg
+
+    addExercises('Today', [
+      {
+        exerciseId: s.exerciseId,
+        exerciseName: s.exerciseName,
+        sets: Array.from({ length: 3 }, () => ({ weightKg: weight, reps: 8, done: false })),
+      },
+    ])
+    navigate('/workout')
+  }
 
   const rec = recovery.data
   const status = rec?.status ?? 'Fresh'
   const { today, rest, blocked } = useMemo(() => splitSuggestions(suggestions.data ?? [], rec), [suggestions.data, rec])
 
+  const targetKeys = useMemo(() => [...new Set(today.map((s) => s.muscleGroupKey))], [today])
   const targetGroups = useMemo(
     () => [...new Set(today.map((s) => s.muscleGroup).filter((g): g is string => !!g))],
     [today],
@@ -333,20 +506,35 @@ export default function MyTrainingPage() {
   const sessions = workouts.data ?? []
   const week = useMemo(() => buildWeek(sessions.map((w) => w.loggedAt)), [sessions])
 
-  // Fill precedence, highest first: risk → fatigued → in today's list → rested.
+  /*
+   * Fill precedence, highest first: risk → fatigued → in today's list → rested → untrained.
+   *
+   * Untrained is the DEFAULT rather than a case, which is the important part. Recovery only reports
+   * groups the member has actually trained, so every group absent from that list is a group they
+   * have never touched — and the old default of `rested` said the opposite. A key is only marked
+   * `today` if it is either already known or genuinely mappable, so a suggestion for a group the
+   * silhouettes cannot draw does not create a phantom zone.
+   *
+   * Keys come from the server's canonical vocabulary now, not from lower-casing free text.
+   */
   const zones = useMemo(() => {
     const z: Record<string, ZoneState> = {}
-    const key = (g: string) => g.toLowerCase().replace(/\s/g, '')
     for (const m of rec?.muscleGroups ?? []) {
-      if (UNMAPPED_GROUPS.includes(m.muscleGroup)) continue
-      z[key(m.muscleGroup)] = m.status === 'OvertrainingRisk' ? 'risk' : m.status === 'Fatigued' ? 'fatigued' : 'rested'
+      if (!MAPPED_KEYS.includes(m.muscleGroupKey)) continue
+      z[m.muscleGroupKey] = m.status === 'OvertrainingRisk' ? 'risk' : m.status === 'Fatigued' ? 'fatigued' : 'rested'
     }
-    for (const g of targetGroups) {
-      const k = key(g)
+    for (const k of targetKeys) {
+      if (!MAPPED_KEYS.includes(k)) continue
       if (z[k] !== 'risk' && z[k] !== 'fatigued') z[k] = 'today'
     }
     return z
-  }, [rec, targetGroups])
+  }, [rec, targetKeys])
+
+  /** Cardio and full-body work — real training the silhouettes cannot localise. */
+  const wholeBody = useMemo(
+    () => (rec?.muscleGroups ?? []).filter((m) => WHOLE_BODY_KEYS.includes(m.muscleGroupKey)),
+    [rec],
+  )
 
   const plan = assignments.data?.[0]
 
@@ -413,9 +601,18 @@ export default function MyTrainingPage() {
           </span>
         </div>
 
+        {/*
+          The map is now its own row rather than a thumbnail beside the headline.
+
+          Two figures at the old 84px slot would have given each one 42px of width, at which point
+          the whole exercise is decorative. Below the headline it gets the card's full width, the
+          FRONT/BACK captions are legible, and the headline keeps the type size that made it the
+          largest thing on the screen. On lg the pair sits beside the headline again, where there is
+          genuinely room for both.
+        */}
         <div className="edge-light rounded-[26px] border border-border bg-card p-[18px] lg:p-[26px]">
-          <div className="flex items-center gap-[14px] lg:gap-[26px]">
-            <div className="min-w-0 flex-1">
+          <div className="lg:flex lg:items-center lg:gap-[26px]">
+            <div className="min-w-0 lg:flex-1">
               <p className="font-display text-[10.5px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
                 {plan ? plan.workoutTemplateName : 'No plan'}
               </p>
@@ -427,12 +624,13 @@ export default function MyTrainingPage() {
               type="button"
               aria-label="Recovery by muscle group"
               onClick={() => rec && setSheet('recovery')}
-              className="press shrink-0"
+              className="press mt-4 block w-full lg:mt-0 lg:w-[210px] lg:shrink-0"
             >
-              <BodyMap zones={zones} ghost={isNewMember} className="h-[97px] w-[84px] lg:h-[153px] lg:w-[132px]" />
+              <BodyMap zones={zones} ghost={isNewMember} className="mx-auto h-[132px] w-full max-w-[240px] lg:h-[128px]" />
             </button>
           </div>
           <Legend />
+          <WholeBodyRow groups={wholeBody} />
           <DayStrip days={week} />
         </div>
 
@@ -489,10 +687,12 @@ export default function MyTrainingPage() {
           ) : (
             <ul className="space-y-2">
               {today.map((s) => (
-                <ExerciseRow key={s.exerciseId} s={s} blocked={false} lighten={lighten} />
+                <ExerciseRow key={s.exerciseId} s={s} blocked={false} lighten={lighten} onStart={startWith} />
               ))}
               {expanded &&
-                rest.map((s) => <ExerciseRow key={s.exerciseId} s={s} blocked={blocked.includes(s)} lighten={lighten} />)}
+                rest.map((s) => (
+                  <ExerciseRow key={s.exerciseId} s={s} blocked={blocked.includes(s)} lighten={lighten} onStart={startWith} />
+                ))}
             </ul>
           )}
 

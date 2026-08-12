@@ -113,8 +113,16 @@ public record MyRecoveryDto(
 /// </summary>
 public record MyRecoveryTodayDto(string Kind, string? Notes);
 
+/// <summary>
+/// One muscle group's recovery state.
+/// </summary>
+/// <param name="MuscleGroup">The canonical display name — "Legs", never the gym's "Quads".</param>
+/// <param name="MuscleGroupKey">The stable key from MuscleGroupVocabulary. The body map shades by
+/// THIS, not by the display name: the map used to match hard-coded zone names against free text a
+/// gym owner typed, which agreed only because the seeder happened to spell them the same way.</param>
 public record MuscleRecoveryDto(
     string MuscleGroup,
+    string MuscleGroupKey,
     string Status,
     string Reason,
     int TimesLast7Days,

@@ -4,6 +4,7 @@ using GymOS.Application.Modules.Experience.Dtos;
 using GymOS.Application.Modules.Portal;
 using GymOS.Domain.Common;
 using GymOS.Domain.Experience;
+using GymOS.Domain.Workouts;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -77,9 +78,28 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
                     .ToListAsync(cancellationToken))
                 .ToDictionary(x => x.Id, x => x.MuscleGroup!);
 
+            /*
+             * Grouped through MuscleGroupVocabulary, not on the raw string.
+             *
+             * Exercise.MuscleGroup is free text a gym owner types, and this query used it as a key
+             * directly. The body map on the Train screen then matched those keys against its own
+             * hard-coded zone names, so the two only agreed because the seeder happens to write
+             * exactly "Chest"/"Back"/"Legs". A gym that types "Quads" produced a fatigued group the
+             * map could not shade and a leg that stayed rested-looking through a leg day — the
+             * screen quietly showing the opposite of the truth.
+             *
+             * Resolving here rather than in the client is what makes that impossible: the DTO now
+             * carries the canonical key, so every consumer is grouping the same way by construction.
+             * The DISPLAY name is the vocabulary's too, so "Quads" and "quadriceps" both read "Legs"
+             * instead of two rows for one leg.
+             */
             muscleGroups = entryRows
                 .Where(r => groupByExercise.ContainsKey(r.ExerciseId))
-                .Select(r => new { Group = groupByExercise[r.ExerciseId], Date = GymDay.Of(r.LoggedAt, zone) })
+                .Select(r => new
+                {
+                    Group = MuscleGroupVocabulary.Resolve(groupByExercise[r.ExerciseId]),
+                    Date = GymDay.Of(r.LoggedAt, zone)
+                })
                 .GroupBy(x => x.Group)
                 .Select(g =>
                 {
@@ -87,8 +107,9 @@ public class GetMyRecoveryQueryHandler(IApplicationDbContext db, ICurrentUserSer
                     var times7 = dates.Count(d => d >= windowStart);
                     var daysSince = today.DayNumber - dates.Max().DayNumber;
                     var (status, reason) = RecoveryPolicy.ClassifyMuscleGroup(
-                        new RecoveryPolicy.MuscleRecoverySignals(g.Key, times7, daysSince));
-                    return new MuscleRecoveryDto(g.Key, status.ToString(), reason, times7, daysSince);
+                        new RecoveryPolicy.MuscleRecoverySignals(g.Key.DisplayName, times7, daysSince));
+                    return new MuscleRecoveryDto(
+                        g.Key.DisplayName, g.Key.Key, status.ToString(), reason, times7, daysSince);
                 })
                 .OrderByDescending(m => m.TimesLast7Days).ThenBy(m => m.MuscleGroup)
                 .ToList();
