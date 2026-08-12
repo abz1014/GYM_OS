@@ -13,6 +13,7 @@ public class GetExercisesListQueryHandler(IApplicationDbContext db) : IRequestHa
     public Task<List<ExerciseDto>> Handle(GetExercisesListQuery request, CancellationToken cancellationToken)
         => db.Exercises.AsNoTracking()
             .OrderBy(e => e.Name)
-            .Select(e => new ExerciseDto(e.Id, e.Name, e.MuscleGroup, e.Equipment, e.Description, e.VideoUrl))
+            .Select(e => new ExerciseDto(e.Id, e.Name, e.MuscleGroup, e.Equipment, e.Description, e.VideoUrl,
+                e.LoadType.ToString()))
             .ToListAsync(cancellationToken);
 }

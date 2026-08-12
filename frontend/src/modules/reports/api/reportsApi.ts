@@ -48,13 +48,20 @@ export interface CrmPipelineConversionReport {
   conversionRatePercent: number
 }
 
+/**
+ * Aggregates for one movement. Every measurement but sets is nullable: totalling reps across
+ * treadmill runs, or averaging a kilogram figure across planks, produces a number for something
+ * that was never measured. Null renders as an em dash, not a zero.
+ */
 export interface WorkoutActivityReportRow {
   exerciseName: string
   muscleGroup: string | null
   timesLogged: number
   totalSets: number
-  totalReps: number
+  totalReps: number | null
   avgWeightKg: number | null
+  totalDurationSeconds: number | null
+  totalDistanceMeters: number | null
 }
 
 export interface NutritionFoodItemRow {

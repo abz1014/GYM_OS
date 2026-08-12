@@ -43,11 +43,31 @@ public class GetCoachingPlateausQueryHandler(IApplicationDbContext db, ICurrentU
             return [];
         }
 
+        /*
+         * WEIGHTED MOVEMENTS ONLY, and this was a live falsehood shown to staff.
+         *
+         * ProgressiveOverloadPolicy compares max weight and total reps across sessions and has no
+         * other terms. GetMyWorkoutSuggestionsQuery — this query's own doc comment calls it "the same
+         * signal … just run across a trainer's whole roster" — has filtered on LoadType since the
+         * treadmill defect was found. This one never did. So the member screen correctly said nothing
+         * about a run while the TRAINER screen listed that member as plateaued on it and invited a
+         * message about adding weight.
+         *
+         * The trainer-facing version is the more expensive lie of the two, because a trainer acts on
+         * it: they send the message.
+         */
         var exerciseIds = entries.Select(e => e.ExerciseId).Distinct().ToList();
-        var exerciseNames = await db.Exercises.AsNoTracking()
-            .Where(x => exerciseIds.Contains(x.Id))
+        var weightedExercises = await db.Exercises.AsNoTracking()
+            .Where(x => exerciseIds.Contains(x.Id) && x.LoadType == ExerciseLoadType.Weighted)
             .Select(x => new { x.Id, x.Name })
             .ToDictionaryAsync(x => x.Id, x => x.Name, cancellationToken);
+
+        var exerciseNames = weightedExercises;
+        entries = entries.Where(e => weightedExercises.ContainsKey(e.ExerciseId)).ToList();
+        if (entries.Count == 0)
+        {
+            return [];
+        }
         var memberById = members.ToDictionary(m => m.Id);
 
         var rows = new List<PlateauRowDto>();
@@ -62,7 +82,7 @@ public class GetCoachingPlateausQueryHandler(IApplicationDbContext db, ICurrentU
                     {
                         LoggedAt = g.Key,
                         MaxWeightKg = g.Max(x => x.WeightKg) ?? 0m,
-                        TotalReps = g.Sum(x => x.SetsCompleted * x.RepsCompleted)
+                        TotalReps = g.Sum(x => x.SetsCompleted * (x.RepsCompleted ?? 0))
                     })
                     .OrderBy(s => s.LoggedAt)
                     .ToList();

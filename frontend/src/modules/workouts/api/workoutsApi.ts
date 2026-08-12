@@ -2,6 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/apiClient'
 
+/**
+ * How a movement is measured. Not a display detail — the write path REJECTS a rep count on a run
+ * and a load on a plank, so the logging form has to ask for the right fields or it produces a 400.
+ */
+export type ExerciseLoadType = 'Weighted' | 'Bodyweight' | 'Timed' | 'Distance'
+
 export interface Exercise {
   id: string
   name: string
@@ -9,6 +15,7 @@ export interface Exercise {
   equipment: string | null
   description: string | null
   videoUrl: string | null
+  loadType: ExerciseLoadType
 }
 
 export interface WorkoutTemplateListItem {
@@ -79,13 +86,20 @@ export function useCreateWorkoutTemplate() {
   })
 }
 
+/**
+ * One logged set. Every measurement except the set count is nullable, because which ones exist is
+ * decided by the movement: a run has a distance and a duration, a plank has a duration alone, and a
+ * press-up has reps and no load. Null means "this movement has no such measurement" — never zero.
+ */
 export interface WorkoutLogEntry {
   id: string
   exerciseId: string
   exerciseName: string
   setsCompleted: number
-  repsCompleted: number
+  repsCompleted: number | null
   weightKg: number | null
+  durationSeconds: number | null
+  distanceMeters: number | null
 }
 
 export interface WorkoutLog {
@@ -114,7 +128,14 @@ export function useMemberWorkoutLogs(memberId: string | undefined) {
 interface LogWorkoutInput {
   memberId: string
   workoutTemplateId?: string
-  entries: { exerciseId: string; setsCompleted: number; repsCompleted: number; weightKg?: number }[]
+  entries: {
+    exerciseId: string
+    setsCompleted: number
+    repsCompleted?: number | null
+    weightKg?: number | null
+    durationSeconds?: number | null
+    distanceMeters?: number | null
+  }[]
 }
 
 export function useLogWorkout() {

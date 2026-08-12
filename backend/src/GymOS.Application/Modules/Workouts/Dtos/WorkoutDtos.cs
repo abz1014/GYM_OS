@@ -1,6 +1,11 @@
 namespace GymOS.Application.Modules.Workouts.Dtos;
 
-public record ExerciseDto(Guid Id, string Name, string? MuscleGroup, string? Equipment, string? Description, string? VideoUrl);
+/// <param name="LoadType">Weighted, Bodyweight, Timed or Distance. Sent so the trainer's logging
+/// dialog can ask for the measurements this movement actually has — the write path REJECTS a rep
+/// count on a run, so a form that asks for one produces a 400 rather than a fiction.</param>
+public record ExerciseDto(
+    Guid Id, string Name, string? MuscleGroup, string? Equipment, string? Description, string? VideoUrl,
+    string LoadType);
 
 public record WorkoutTemplateExerciseDto(Guid Id, Guid ExerciseId, string ExerciseName, int SetsCount, int RepsCount, int OrderIndex);
 
@@ -8,7 +13,11 @@ public record WorkoutTemplateListItemDto(Guid Id, string Name, string? Descripti
 
 public record WorkoutTemplateDetailDto(Guid Id, string Name, string? Description, IReadOnlyList<WorkoutTemplateExerciseDto> Exercises);
 
-public record WorkoutLogEntryDto(Guid Id, Guid ExerciseId, string ExerciseName, int SetsCompleted, int RepsCompleted, decimal? WeightKg);
+/// <param name="RepsCompleted">Null where the movement has none. A dash reads as "not measured";
+/// a zero would read as "measured, and it was nothing".</param>
+public record WorkoutLogEntryDto(
+    Guid Id, Guid ExerciseId, string ExerciseName, int SetsCompleted, int? RepsCompleted, decimal? WeightKg,
+    int? DurationSeconds, decimal? DistanceMeters);
 
 /// <summary>
 /// <paramref name="Character"/> is what the session was, derived from the muscle groups trained (see

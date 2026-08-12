@@ -662,6 +662,8 @@ export interface LoggableExercise {
   name: string
   muscleGroup: string | null
   equipment: string | null
+  /** Decides which measurements the quick logger asks for. See WorkoutEntryInput. */
+  loadType: ExerciseLoadType
 }
 
 export interface LoggableFood {
@@ -722,11 +724,18 @@ export function useMyTrainingVolume(daysBack = 30) {
   })
 }
 
+/**
+ * One movement in a logged session. Which fields carry a value is decided by the exercise's load
+ * type — the server REJECTS a rep count on a run rather than storing it, so sending one is a visible
+ * 400 rather than the quiet fiction it used to be.
+ */
 export interface WorkoutEntryInput {
   exerciseId: string
   setsCompleted: number
-  repsCompleted: number
+  repsCompleted: number | null
   weightKg: number | null
+  durationSeconds?: number | null
+  distanceMeters?: number | null
 }
 
 /**

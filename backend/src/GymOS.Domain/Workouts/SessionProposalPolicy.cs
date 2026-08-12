@@ -14,7 +14,10 @@ public enum SessionProposalSource
 }
 
 /// <summary>One movement in a proposed session, already filled in and ready to confirm.</summary>
-public record ProposedEntry(Guid ExerciseId, string ExerciseName, int Sets, int Reps, decimal? WeightKg);
+/// <param name="Reps">Null for a movement that has none — a run, a plank. Proposing a rep count
+/// for one is how the fabricated 8 became self-perpetuating: the proposal re-served it, the member
+/// confirmed it, and it came back as their own history.</param>
+public record ProposedEntry(Guid ExerciseId, string ExerciseName, int Sets, int? Reps, decimal? WeightKg);
 
 /// <summary>An exercise a trainer's plan prescribes. Carries no load — templates never store weight.</summary>
 public record PlannedExercise(Guid ExerciseId, string ExerciseName, int Sets, int Reps);

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
+import { describeSets } from '@/lib/measurement'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -108,8 +109,14 @@ function MemberWorkoutLogs() {
                 <div className="flex flex-wrap gap-1">
                   {log.entries.map((e) => (
                     <Badge key={e.id} variant="outline">
-                      {e.exerciseName}: {e.setsCompleted}×{e.repsCompleted}
-                      {e.weightKg ? ` @ ${e.weightKg}kg` : ''}
+                      {e.exerciseName}:{' '}
+                      {describeSets({
+                        sets: e.setsCompleted,
+                        reps: e.repsCompleted,
+                        weightKg: e.weightKg,
+                        durationSeconds: e.durationSeconds,
+                        distanceMeters: e.distanceMeters,
+                      })}
                     </Badge>
                   ))}
                 </div>
@@ -196,3 +203,4 @@ export default function WorkoutsPage() {
     </div>
   )
 }
+

@@ -428,8 +428,20 @@ function WorkoutsTab() {
               { header: 'Muscle Group', render: (r) => r.muscleGroup ?? '—' },
               { header: 'Times Logged', render: (r) => r.timesLogged },
               { header: 'Total Sets', render: (r) => r.totalSets },
-              { header: 'Total Reps', render: (r) => r.totalReps },
+              { header: 'Total Reps', render: (r) => r.totalReps ?? '—' },
               { header: 'Avg Weight (kg)', render: (r) => r.avgWeightKg?.toFixed(1) ?? '—' },
+              {
+                header: 'Total Time',
+                render: (r) =>
+                  r.totalDurationSeconds === null
+                    ? '—'
+                    : `${Math.floor(r.totalDurationSeconds / 60)}:${String(r.totalDurationSeconds % 60).padStart(2, '0')}`,
+              },
+              {
+                header: 'Total Distance (km)',
+                render: (r) =>
+                  r.totalDistanceMeters === null ? '—' : (r.totalDistanceMeters / 1000).toFixed(2),
+              },
             ]}
           />
         </CardBody>

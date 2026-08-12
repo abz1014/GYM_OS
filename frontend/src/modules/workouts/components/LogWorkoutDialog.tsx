@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -19,6 +19,7 @@ import {
   useLogWorkout,
   useWorkoutTemplate,
   useWorkoutTemplatesList,
+  type ExerciseLoadType,
 } from '@/modules/workouts/api/workoutsApi'
 
 interface EntryRow {
@@ -26,9 +27,47 @@ interface EntryRow {
   setsCompleted: string
   repsCompleted: string
   weightKg: string
+  seconds: string
+  metres: string
 }
 
-const emptyRow: EntryRow = { exerciseId: '', setsCompleted: '3', repsCompleted: '10', weightKg: '' }
+const emptyRow: EntryRow = {
+  exerciseId: '',
+  setsCompleted: '3',
+  repsCompleted: '10',
+  weightKg: '',
+  seconds: '',
+  metres: '',
+}
+
+/**
+ * Which measurements a movement actually has. The same four rules the server enforces and the
+ * member's own logger applies — kept here rather than inferred from the field being blank, because a
+ * blank rep box on a treadmill row and a blank rep box on a squat row mean different things.
+ *
+ * Weight is offered on a Distance movement on purpose: a farmer's carry is measured in distance AND
+ * load, and the server allows exactly that. LoadType names the primary measurement, not the only one.
+ */
+function fieldsFor(loadType: ExerciseLoadType | undefined) {
+  switch (loadType) {
+    case 'Timed':
+      return { reps: false, weight: false, seconds: true, metres: false }
+    case 'Distance':
+      return { reps: false, weight: true, seconds: true, metres: true }
+    case 'Bodyweight':
+      return { reps: true, weight: false, seconds: false, metres: false }
+    default:
+      return { reps: true, weight: true, seconds: false, metres: false }
+  }
+}
+
+/** A number the trainer actually typed, or null. Empty is absence, never zero. */
+function typed(value: string): number | null {
+  const trimmed = value.trim()
+  if (trimmed === '') return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 export function LogWorkoutDialog({ memberId }: { memberId: string }) {
   const [open, setOpen] = useState(false)
@@ -39,6 +78,12 @@ export function LogWorkoutDialog({ memberId }: { memberId: string }) {
   const { data: exercises } = useExercisesList()
   const { data: template } = useWorkoutTemplate(templateId || undefined)
   const logWorkout = useLogWorkout()
+
+  // Load type by exercise id, so each row can ask for what its own movement is measured in.
+  const byId = useMemo(
+    () => new Map(exercises?.map((e) => [e.id, e.loadType]) ?? []),
+    [exercises],
+  )
 
   const applyTemplate = (id: string) => {
     setTemplateId(id)
@@ -55,6 +100,8 @@ export function LogWorkoutDialog({ memberId }: { memberId: string }) {
           setsCompleted: String(e.setsCount),
           repsCompleted: String(e.repsCount),
           weightKg: '',
+          seconds: '',
+          metres: '',
         }))
       )
     }
@@ -83,12 +130,19 @@ export function LogWorkoutDialog({ memberId }: { memberId: string }) {
       {
         memberId,
         workoutTemplateId: templateId || undefined,
-        entries: entries.map((r) => ({
-          exerciseId: r.exerciseId,
-          setsCompleted: Number(r.setsCompleted) || 0,
-          repsCompleted: Number(r.repsCompleted) || 0,
-          weightKg: r.weightKg ? Number(r.weightKg) : undefined,
-        })),
+        // Only the measurements the movement has are sent. Sending a rep count for a run is a 400,
+        // which is the point of the guard: the fabricated 8 used to be stored silently instead.
+        entries: entries.map((r) => {
+          const fields = fieldsFor(byId.get(r.exerciseId))
+          return {
+            exerciseId: r.exerciseId,
+            setsCompleted: Number(r.setsCompleted) || 0,
+            repsCompleted: fields.reps ? typed(r.repsCompleted) : null,
+            weightKg: fields.weight ? typed(r.weightKg) : null,
+            durationSeconds: fields.seconds ? typed(r.seconds) : null,
+            distanceMeters: fields.metres ? typed(r.metres) : null,
+          }
+        }),
       },
       {
         onSuccess: () => {
@@ -96,7 +150,13 @@ export function LogWorkoutDialog({ memberId }: { memberId: string }) {
           setOpen(false)
           reset()
         },
-        onError: () => toast.error('Could not log workout.'),
+        // The write path refuses measurements a movement does not have, and says which movement and
+        // why. ExceptionHandlingMiddleware puts that sentence in ProblemDetails.title — swallowing it
+        // for a generic "Could not log workout" is exactly the failure that middleware exists to fix.
+        onError: (error) => {
+          const detail = (error as { response?: { data?: { title?: string } } }).response?.data?.title
+          toast.error(detail ?? 'Could not log workout.')
+        },
       }
     )
   }
@@ -162,23 +222,47 @@ export function LogWorkoutDialog({ memberId }: { memberId: string }) {
                   value={row.setsCompleted}
                   onChange={(e) => updateRow(i, { setsCompleted: e.target.value })}
                 />
-                <Input
-                  className="w-16"
-                  type="number"
-                  min={0}
-                  placeholder="Reps"
-                  value={row.repsCompleted}
-                  onChange={(e) => updateRow(i, { repsCompleted: e.target.value })}
-                />
-                <Input
-                  className="w-20"
-                  type="number"
-                  min={0}
-                  step="0.5"
-                  placeholder="kg"
-                  value={row.weightKg}
-                  onChange={(e) => updateRow(i, { weightKg: e.target.value })}
-                />
+                {fieldsFor(byId.get(row.exerciseId)).reps && (
+                  <Input
+                    className="w-16"
+                    type="number"
+                    min={0}
+                    placeholder="Reps"
+                    value={row.repsCompleted}
+                    onChange={(e) => updateRow(i, { repsCompleted: e.target.value })}
+                  />
+                )}
+                {fieldsFor(byId.get(row.exerciseId)).seconds && (
+                  <Input
+                    className="w-16"
+                    type="number"
+                    min={0}
+                    placeholder="Secs"
+                    value={row.seconds}
+                    onChange={(e) => updateRow(i, { seconds: e.target.value })}
+                  />
+                )}
+                {fieldsFor(byId.get(row.exerciseId)).metres && (
+                  <Input
+                    className="w-20"
+                    type="number"
+                    min={0}
+                    placeholder="Metres"
+                    value={row.metres}
+                    onChange={(e) => updateRow(i, { metres: e.target.value })}
+                  />
+                )}
+                {fieldsFor(byId.get(row.exerciseId)).weight && (
+                  <Input
+                    className="w-20"
+                    type="number"
+                    min={0}
+                    step="0.5"
+                    placeholder="kg"
+                    value={row.weightKg}
+                    onChange={(e) => updateRow(i, { weightKg: e.target.value })}
+                  />
+                )}
                 <Button
                   type="button"
                   size="icon"

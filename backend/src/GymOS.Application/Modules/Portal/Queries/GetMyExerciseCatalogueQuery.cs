@@ -102,6 +102,10 @@ public class GetMyExerciseCatalogueQueryHandler(IApplicationDbContext db, ICurre
                         last?.LastPerformedAt,
                         last?.TimesPerformed ?? 0,
                         last?.Sets,
+                        // Reps come back only where the movement has them. Serving the stored value
+                        // unguarded is how the fabricated 8 was shown back to the member as their own
+                        // history — "3 × 8 · 4d ago" for a treadmill — which made it indistinguishable
+                        // from something they had really done.
                         last?.RepsCompleted,
                         // A load is only ever shown for a movement that has one. A plank's "weight"
                         // is not a small number, it is not a number.

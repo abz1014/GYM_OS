@@ -39,7 +39,8 @@ public class GetMemberWorkoutLogsQueryHandler(IApplicationDbContext db) : IReque
                 l.LoggedAt,
                 l.Entries
                     .Select(e => new WorkoutLogEntryDto(
-                        e.Id, e.ExerciseId, exercises.GetValueOrDefault(e.ExerciseId)?.Name ?? string.Empty, e.SetsCompleted, e.RepsCompleted, e.WeightKg))
+                        e.Id, e.ExerciseId, exercises.GetValueOrDefault(e.ExerciseId)?.Name ?? string.Empty,
+                        e.SetsCompleted, e.RepsCompleted, e.WeightKg, e.DurationSeconds, e.DistanceMeters))
                     .ToList()))
             .ToList();
     }

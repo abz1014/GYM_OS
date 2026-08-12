@@ -140,10 +140,19 @@ public class WorkoutProgressionService(IApplicationDbContext db, ICurrentUserSer
 
         mastery.Sessions = history.Select(h => h.WorkoutLogId).Distinct().Count();
         mastery.TotalSets = history.Sum(h => h.SetsCompleted);
-        mastery.TotalReps = history.Sum(h => (long)h.RepsCompleted);
-        mastery.TotalVolume = history.Sum(h => h.SetsCompleted * h.RepsCompleted * (h.WeightKg ?? 0));
+        /*
+         * An entry with no reps contributes nothing to a rep total or a volume, rather than zero.
+         *
+         * `?? 0` would compile and would be a different lie: it says a run was zero reps, which then
+         * enters a sum as though it had been measured. Skipping is what "there is no rep count here"
+         * actually means. TotalVolume already collapsed to zero for these rows via the null weight,
+         * so only TotalReps changes value — and it was the fabricated 8 that made it wrong before.
+         */
+        mastery.TotalReps = history.Sum(h => (long)(h.RepsCompleted ?? 0));
+        mastery.TotalVolume = history.Sum(h => h.SetsCompleted * (h.RepsCompleted ?? 0) * (h.WeightKg ?? 0));
         mastery.BestWeightKg = history.Max(h => h.WeightKg ?? 0);
-        mastery.BestEstimatedOneRepMax = history.Max(h => OneRepMax.Epley(h.WeightKg ?? 0, h.RepsCompleted));
+        mastery.BestEstimatedOneRepMax = history.Max(h =>
+            h.RepsCompleted is null ? 0m : OneRepMax.Epley(h.WeightKg ?? 0, h.RepsCompleted.Value));
         mastery.LastTrainedAt = history.Count > 0 ? history.Max(h => h.LoggedAt) : fallbackLastTrained;
         mastery.UpdatedAt = dateTimeProvider.UtcNow;
     }

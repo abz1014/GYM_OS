@@ -1,17 +1,64 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-/** One set as the member is filling it in. `done` is what separates a plan from a record. */
+import type { ExerciseLoadType } from '@/modules/portal/api/portalApi'
+
+/**
+ * One set as the member is filling it in. `done` is what separates a plan from a record.
+ *
+ * Every measurement is nullable because which ones apply is decided by the movement, not by the
+ * form. A run has a distance and a duration and no reps; a plank has a duration and nothing else.
+ * The app used to store a single shape for all four load types and fill the gaps with a constant —
+ * DEFAULT_REPS of 8 — which is how "8 reps of running" reached the database.
+ */
 export interface ActiveSet {
   weightKg: number | null
-  reps: number
+  reps: number | null
+  durationSeconds: number | null
+  distanceMeters: number | null
   done: boolean
 }
 
 export interface ActiveExercise {
   exerciseId: string
   exerciseName: string
+  /**
+   * What this movement is measured in. Drives which fields the session asks for and which are sent.
+   *
+   * Optional because the store is `persist`ed: a member mid-session when this shipped has exercises
+   * saved without it, and losing their session to a schema change would be worse than the defect
+   * being fixed. Absent reads as Weighted, which is exactly how those sessions already behaved.
+   */
+  loadType?: ExerciseLoadType
   sets: ActiveSet[]
+}
+
+/** An empty set for a movement, carrying only the measurements that movement actually has. */
+export function emptySet(loadType: ExerciseLoadType | undefined, previous?: ActiveSet): ActiveSet {
+  return {
+    weightKg: previous?.weightKg ?? null,
+    reps: loadType === 'Timed' || loadType === 'Distance' ? null : previous?.reps ?? 8,
+    durationSeconds: loadType === 'Timed' || loadType === 'Distance' ? previous?.durationSeconds ?? null : null,
+    distanceMeters: loadType === 'Distance' ? previous?.distanceMeters ?? null : null,
+    done: false,
+  }
+}
+
+/**
+ * Whether a set carries enough to be recorded. The rule differs by movement, which is the point.
+ *
+ * Used both to enable the confirm tick and to filter what is sent, so the two can never disagree —
+ * a set that looked logged and was then silently dropped by the send filter was a real defect.
+ */
+export function isSetMeasured(set: ActiveSet, loadType: ExerciseLoadType | undefined): boolean {
+  switch (loadType) {
+    case 'Timed':
+      return (set.durationSeconds ?? 0) > 0
+    case 'Distance':
+      return (set.distanceMeters ?? 0) > 0 || (set.durationSeconds ?? 0) > 0
+    default:
+      return (set.reps ?? 0) > 0
+  }
 }
 
 /** Fixed default rest between sets. Nothing in the product prescribes one per exercise, so this is a
@@ -101,11 +148,9 @@ export const useActiveWorkout = create<ActiveWorkoutState>()(
             if (i !== exerciseIndex) return ex
             // A new set starts from the last one: the member is far more often repeating a load than
             // choosing a fresh one, and an empty row asks them to retype what is already on the bar.
-            const previous = ex.sets.at(-1)
-            return {
-              ...ex,
-              sets: [...ex.sets, { weightKg: previous?.weightKg ?? null, reps: previous?.reps ?? 8, done: false }],
-            }
+            // emptySet applies the movement's own shape, so this no longer hard-codes a rep count —
+            // it was the second independent source of the fabricated 8.
+            return { ...ex, sets: [...ex.sets, emptySet(ex.loadType, ex.sets.at(-1))] }
           }),
         })),
 
@@ -169,16 +214,22 @@ export function firstUnfinishedSet(exercise: ActiveExercise | undefined): number
  *  reps, weight) rows and the projections behind it reduce all rows sharing an exercise together
  *  (PersonalRecordPolicy.StatsFor takes the list; mastery counts DISTINCT workout logs, not entries),
  *  so per-set rows record what actually happened — 85kg then 85kg then 87.5kg — instead of flattening
- *  three different loads into one average nobody lifted. */
+ *  three different loads into one average nobody lifted.
+ *
+ *  Each measurement is sent only where the movement has it. The server now REJECTS a rep count on a
+ *  Distance movement rather than storing it, so sending one is a 400 rather than a quiet fiction —
+ *  which is the point: the guard makes the bug loud instead of invisible. */
 export function completedEntries(exercises: ActiveExercise[]) {
   return exercises.flatMap((ex) =>
     ex.sets
-      .filter((s) => s.done && s.reps > 0)
+      .filter((s) => s.done && isSetMeasured(s, ex.loadType))
       .map((s) => ({
         exerciseId: ex.exerciseId,
         setsCompleted: 1,
-        repsCompleted: s.reps,
-        weightKg: s.weightKg,
+        repsCompleted: ex.loadType === 'Timed' || ex.loadType === 'Distance' ? null : s.reps,
+        weightKg: ex.loadType === 'Bodyweight' || ex.loadType === 'Timed' ? null : s.weightKg,
+        durationSeconds: ex.loadType === 'Timed' || ex.loadType === 'Distance' ? s.durationSeconds : null,
+        distanceMeters: ex.loadType === 'Distance' ? s.distanceMeters : null,
       })),
   )
 }

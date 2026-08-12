@@ -43,7 +43,9 @@ public record MyNewAchievementDto(string Code, string Name, string Description, 
 public record MyChallengeStepDto(string Name, int WorkoutsLogged, int TargetWorkoutCount, bool JustCompleted);
 
 /// <summary>One pre-filled movement in a proposed session.</summary>
-public record MyProposedEntryDto(Guid ExerciseId, string ExerciseName, int Sets, int Reps, decimal? WeightKg);
+/// <param name="Reps">Null for a movement that has none. Proposing one for a run is how the
+/// fabricated rep count became self-perpetuating — see ProposedEntry.</param>
+public record MyProposedEntryDto(Guid ExerciseId, string ExerciseName, int Sets, int? Reps, decimal? WeightKg);
 
 /// <summary>
 /// The session the app believes the member is about to do, ready to confirm in one tap.

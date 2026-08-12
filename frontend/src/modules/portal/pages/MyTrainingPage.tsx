@@ -500,7 +500,9 @@ export default function MyTrainingPage() {
       {
         exerciseId: s.exerciseId,
         exerciseName: s.exerciseName,
-        sets: Array.from({ length: 3 }, () => ({ weightKg: weight, reps: 8, done: false })),
+        sets: Array.from({ length: 3 }, () => ({
+          weightKg: weight, reps: 8, durationSeconds: null, distanceMeters: null, done: false,
+        })),
       },
     ])
     navigate('/workout')

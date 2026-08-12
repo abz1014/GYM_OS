@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import { useMyExerciseCatalogue, type CatalogueExercise } from '@/modules/portal/api/portalApi'
+import type { ActiveExercise } from '@/modules/portal/workout/activeWorkoutStore'
 import { isStale } from '@/shared/lib/queryTrust'
 
 /** Sets a movement opens with when the member has never done it. Three is the default everywhere. */
@@ -33,29 +34,49 @@ function daysAgoLabel(iso: string | null): string | null {
 /**
  * What the member last did on a movement, said only when it is true.
  *
- * Weighted movements read "3 × 8 · 60kg"; a plank reads "3 × 8" with no load, because it has none.
- * A movement they have never done says nothing at all rather than showing a zero or a dash that
- * looks like a measurement.
+ * Weighted movements read "3 × 8 · 60kg"; a press-up reads "3 × 8" with no load, because it has
+ * none. A movement measured in time or distance says only WHEN it was last done — the catalogue
+ * carries no duration or distance to report, and inventing a shape for one would be the same class
+ * of fiction this whole change exists to remove. A movement they have never done says nothing at
+ * all rather than showing a zero or a dash that looks like a measurement.
  */
 function lastLine(exercise: CatalogueExercise): string | null {
   const when = daysAgoLabel(exercise.lastPerformedAt)
-  if (!when || exercise.lastSets === null || exercise.lastReps === null) return null
+  if (!when) return null
+
+  // A movement with no reps says only when it was done. It used to read "3 × 8 · 4d ago" for a
+  // treadmill, which is where the fabricated rep count was shown back to the member as their own
+  // history — and once it looks like history, it is indistinguishable from something real.
+  if (exercise.lastSets === null || exercise.lastReps === null) {
+    return `Last done ${when}`
+  }
 
   const load = exercise.lastWeightKg !== null ? ` · ${exercise.lastWeightKg}kg` : ''
   return `${exercise.lastSets} × ${exercise.lastReps}${load} · ${when}`
 }
 
-/** What a picked movement becomes in the live session, pre-filled from the member's own history. */
-export function toActiveExercise(exercise: CatalogueExercise) {
+/**
+ * What a picked movement becomes in the live session, pre-filled from the member's own history.
+ *
+ * DEFAULT_REPS is applied ONLY to movements that have reps. It used to be applied to everything,
+ * without consulting `loadType` — which is on this very object and was served by the backend all
+ * along — so picking Treadmill Run seeded eight reps of running and the session dutifully sent them.
+ */
+export function toActiveExercise(exercise: CatalogueExercise): ActiveExercise {
   const sets = exercise.lastSets ?? DEFAULT_SETS
-  const reps = exercise.lastReps ?? DEFAULT_REPS
+  const hasReps = exercise.loadType === 'Weighted' || exercise.loadType === 'Bodyweight'
 
   return {
     exerciseId: exercise.exerciseId,
     exerciseName: exercise.name,
-    sets: Array.from({ length: Math.max(1, sets) }, () => ({
-      weightKg: exercise.lastWeightKg,
-      reps,
+    loadType: exercise.loadType,
+    sets: Array.from({ length: Math.max(1, hasReps ? sets : 1) }, () => ({
+      weightKg: exercise.loadType === 'Bodyweight' || exercise.loadType === 'Timed' ? null : exercise.lastWeightKg,
+      reps: hasReps ? exercise.lastReps ?? DEFAULT_REPS : null,
+      // Nothing is pre-filled for time or distance: unlike a load, there is no "what you did last
+      // time" to carry across, and a default here would be the same invention in a new field.
+      durationSeconds: null,
+      distanceMeters: null,
       done: false,
     })),
   }

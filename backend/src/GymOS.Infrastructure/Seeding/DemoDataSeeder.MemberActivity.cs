@@ -169,17 +169,34 @@ public partial class DemoDataSeeder
                         TenantId = tenantId,
                         ExerciseId = exercise.Id,
                         SetsCompleted = rng.Next(3, 6),
-                        RepsCompleted = rng.Next(6, 13),
                         /*
-                         * Load comes from the exercise's TYPE, not from string-matching Equipment.
+                         * EVERY measurement now comes from the exercise's TYPE, not just the load.
                          *
-                         * The old test was `Equipment == "Bodyweight"`, which is why the database
-                         * ended up holding rows like "Treadmill Run, 4x9, 17.5 kg": a treadmill is
-                         * not equipped with bodyweight, so it fell through and got a barbell's load.
-                         * Only Weighted movements carry kilograms; everything else records null,
-                         * which the engine already handles.
+                         * The load already did: the old test was `Equipment == "Bodyweight"`, which
+                         * is why the database held rows like "Treadmill Run, 4x9, 17.5 kg" — a
+                         * treadmill is not equipped with bodyweight, so it fell through and got a
+                         * barbell's load. Reps were left unguarded in that fix, so the seeder went on
+                         * writing 6-12 reps against every plank and rowing session, and the picker's
+                         * DEFAULT_REPS did the same for anything a member logged by hand.
+                         *
+                         * A run gets a distance and a duration; a plank gets a duration; a lift gets
+                         * reps and a load; a press-up gets reps. Nothing gets a number its movement
+                         * does not have — which is also what the write path now REJECTS, so a seeder
+                         * that got this wrong would fail loudly rather than quietly seeding fiction.
                          */
-                        WeightKg = exercise.LoadType == ExerciseLoadType.Weighted ? weight : null
+                        RepsCompleted = exercise.LoadType is ExerciseLoadType.Weighted or ExerciseLoadType.Bodyweight
+                            ? rng.Next(6, 13)
+                            : null,
+                        WeightKg = exercise.LoadType == ExerciseLoadType.Weighted ? weight : null,
+                        DurationSeconds = exercise.LoadType switch
+                        {
+                            ExerciseLoadType.Timed => rng.Next(30, 121),          // a 30s-2min hold
+                            ExerciseLoadType.Distance => rng.Next(900, 2701),     // a 15-45min effort
+                            _ => null
+                        },
+                        DistanceMeters = exercise.LoadType == ExerciseLoadType.Distance
+                            ? rng.Next(3000, 8001)
+                            : null
                     });
                 }
 

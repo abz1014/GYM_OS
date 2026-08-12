@@ -19,9 +19,12 @@ import {
   REST_SECONDS,
   completedEntries,
   firstUnfinishedSet,
+  isSetMeasured,
   useActiveWorkout,
   type ActiveExercise,
+  type ActiveSet,
 } from '@/modules/portal/workout/activeWorkoutStore'
+import { describeSets } from '@/lib/measurement'
 import { ExercisePicker, toActiveExercise } from '@/modules/portal/workout/ExercisePicker'
 import { isStale } from '@/shared/lib/queryTrust'
 
@@ -43,37 +46,103 @@ function clock(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
+/** One numeric field in a set row, sized to be read at arm's length and tapped without looking. */
+function SetField({
+  id, label, value, step, placeholder, disabled, active, onChange,
+}: {
+  id: string
+  label: string
+  value: number | null
+  step?: string
+  placeholder?: string
+  disabled: boolean
+  active: boolean
+  onChange: (value: number | null) => void
+}) {
+  return (
+    <>
+      <label className="sr-only" htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        type="number"
+        inputMode={step ? 'decimal' : 'numeric'}
+        step={step}
+        min={0}
+        disabled={disabled}
+        value={value ?? ''}
+        placeholder={placeholder ?? '—'}
+        onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+        className={cn(
+          // 21px/800 on an ink ground: this is read at arm's length, one-handed, mid-set. The active
+          // row's fields take a dim olive border rather than a volt one — the row itself is already
+          // outlined in volt, and a second volt line inside it competes with the first.
+          'h-12 min-w-0 flex-1 rounded-xl border bg-background px-3 text-center font-display text-[21px] font-extrabold tabular-nums outline-none',
+          active ? 'border-[#3A3E1F] text-foreground' : 'border-transparent',
+          disabled ? 'bg-transparent text-muted-foreground' : 'text-foreground',
+        )}
+      />
+    </>
+  )
+}
+
+/**
+ * The column headings for a movement, and the fields under them. One place, so they cannot disagree.
+ *
+ * A run is measured in distance and time; a plank in time; a press-up in reps; a bench press in reps
+ * and kilograms. The row used to render "Kg" and "Reps" for every one of them, which is not a display
+ * bug — it is where the fabricated data came from, because a field the member cannot leave blank gets
+ * filled with something.
+ */
+const FIELDS_FOR: Record<string, { key: keyof ActiveSet; label: string; step?: string }[]> = {
+  Weighted: [
+    { key: 'weightKg', label: 'Kg', step: '0.5' },
+    { key: 'reps', label: 'Reps' },
+  ],
+  Bodyweight: [{ key: 'reps', label: 'Reps' }],
+  Timed: [{ key: 'durationSeconds', label: 'Seconds' }],
+  Distance: [
+    { key: 'distanceMeters', label: 'Metres' },
+    { key: 'durationSeconds', label: 'Seconds' },
+  ],
+}
+
+function fieldsFor(loadType: ActiveExercise['loadType']) {
+  return FIELDS_FOR[loadType ?? 'Weighted'] ?? FIELDS_FOR.Weighted
+}
+
 /**
  * One row of the set table. The set being worked on is the only one that looks editable, because it
  * is the only one that is: finished sets are the record of what happened and are read back dimmed.
  */
 function SetRow({
   index,
-  weightKg,
-  reps,
-  done,
+  set,
+  loadType,
   active,
   onChange,
   onComplete,
 }: {
   index: number
-  weightKg: number | null
-  reps: number
-  done: boolean
+  set: ActiveSet
+  loadType: ActiveExercise['loadType']
   active: boolean
-  onChange: (patch: { weightKg?: number | null; reps?: number }) => void
+  onChange: (patch: Partial<ActiveSet>) => void
   onComplete: () => void
 }) {
+  const done = set.done
+  // The SAME predicate the send filter uses, so a set can never look logged and then be dropped.
+  const measured = isSetMeasured(set, loadType)
+
   return (
     // Three states that must be told apart at a glance, mid-set, at arm's length. Done is dimmed
     // because it is history; upcoming keeps full-contrast text because it is still to do; only the
     // active row is outlined. Done and upcoming previously differed by a background one step apart on
     // a dark surface, which made a set the member had not started look like one they had finished.
     //
-    // The active row now carries three signals at once — a 1.5px volt border, a 4px halo and a
-    // coloured drop shadow — because one of them alone is a border, and a border is what every other
-    // row already has. The width is 1.5px on ALL three states so the stack never reflows by a
-    // half-pixel as the active row moves down it.
+    // The active row carries three signals at once — a 1.5px volt border, a 4px halo and a coloured
+    // drop shadow — because one of them alone is a border, and a border is what every other row
+    // already has. The width is 1.5px on ALL three states so the stack never reflows by a half-pixel
+    // as the active row moves down it.
     <div
       className={cn(
         'flex items-center gap-2 rounded-2xl border-[1.5px] p-2 transition-all duration-[240ms] ease-[var(--ease-uplift)]',
@@ -92,76 +161,44 @@ function SetRow({
         {index + 1}
       </span>
 
-      <label className="sr-only" htmlFor={`set-${index}-weight`}>
-        Set {index + 1} weight in kilograms
-      </label>
-      <input
-        id={`set-${index}-weight`}
-        type="number"
-        inputMode="decimal"
-        step="0.5"
-        min={0}
-        disabled={done}
-        value={weightKg ?? ''}
-        placeholder="—"
-        onChange={(e) => onChange({ weightKg: e.target.value === '' ? null : Number(e.target.value) })}
-        className={cn(
-          // 21px/800 on an ink ground: this is read at arm's length, one-handed, mid-set. The active
-          // row's fields take a dim olive border rather than a volt one — the row itself is already
-          // outlined in volt, and a second volt line inside it competes with the first.
-          'h-12 min-w-0 flex-1 rounded-xl border bg-background px-3 text-center font-display text-[21px] font-extrabold tabular-nums outline-none',
-          active ? 'border-[#3A3E1F] text-foreground' : 'border-transparent',
-          done ? 'bg-transparent text-muted-foreground' : 'text-foreground',
-        )}
-      />
-
-      <label className="sr-only" htmlFor={`set-${index}-reps`}>
-        Set {index + 1} reps
-      </label>
-      <input
-        id={`set-${index}-reps`}
-        type="number"
-        inputMode="numeric"
-        min={1}
-        disabled={done}
-        value={reps || ''}
-        onChange={(e) => onChange({ reps: Number(e.target.value) })}
-        className={cn(
-          'h-12 min-w-0 flex-1 rounded-xl border bg-background px-3 text-center font-display text-[21px] font-extrabold tabular-nums outline-none',
-          active ? 'border-[#3A3E1F] text-foreground' : 'border-transparent',
-          done ? 'bg-transparent text-muted-foreground' : 'text-foreground',
-        )}
-      />
+      {fieldsFor(loadType).map((field) => (
+        <SetField
+          key={field.key}
+          id={`set-${index}-${field.key}`}
+          label={`Set ${index + 1} ${field.label}`}
+          value={set[field.key] as number | null}
+          step={field.step}
+          disabled={done}
+          active={active}
+          onChange={(value) => onChange({ [field.key]: value } as Partial<ActiveSet>)}
+        />
+      ))}
 
       <button
         type="button"
         aria-label={done ? `Set ${index + 1} logged` : `Log set ${index + 1}`}
         /*
-         * Cannot be confirmed without a rep count, because completedEntries filters on `reps > 0`.
+         * Cannot be confirmed without the measurement its movement is actually measured in.
          *
          * A member who cleared the field and tapped this saw a green, ticked, apparently-logged set
-         * that would never reach the server — and the Finish button beside it counted the filtered
-         * list, so the screen showed N ticks and a smaller number at the same time. If it was the
-         * only set, finishing rejected with "Log at least one set first" while a completed-looking
-         * row sat on screen. Disabling here is the honest version: the tick means recorded.
+         * that the send filter then dropped — and the Finish button beside it counted the filtered
+         * list, so the screen showed N ticks and a smaller number at the same time.
          */
-        disabled={done || !active || reps <= 0}
+        disabled={done || !active || !measured}
         onClick={onComplete}
         className={cn(
           // Filled at every stage, never an outline. This is the most-tapped control in the product
           // and it is tapped without looking; an empty circle asks the member to find an edge.
-          // The transition is spelled out rather than using `press`, which would replace the colour
-          // transition with a transform-only one and make the fill snap on log.
           'flex size-12 shrink-0 items-center justify-center rounded-xl transition-[transform,background-color,color] duration-[120ms] ease-[var(--ease-uplift)] active:scale-[.97]',
           done
             ? 'bg-success text-success-foreground'
-            : active && reps > 0
+            : active && measured
               ? 'bg-primary text-primary-foreground shadow-volt'
               : 'bg-muted',
         )}
       >
         {done && <Check className="size-5" />}
-        {!done && active && reps > 0 && <Check className="size-5" />}
+        {!done && active && measured && <Check className="size-5" />}
       </button>
     </div>
   )
@@ -216,6 +253,11 @@ export default function ActiveWorkoutPage() {
     sets: Array.from({ length: Math.max(1, e.sets) }, () => ({
       weightKg: e.weightKg,
       reps: e.reps,
+      // The proposal carries no duration or distance — GetMyNextSessionQuery reduces a previous
+      // session's load and reps only. A movement measured in time starts blank rather than
+      // pre-filled, which is correct: there is nothing to carry across.
+      durationSeconds: null,
+      distanceMeters: null,
       done: false,
     })),
   }))
@@ -317,10 +359,13 @@ export default function ActiveWorkoutPage() {
                 <li key={e.exerciseId} className="flex items-baseline justify-between gap-3">
                   <span className="min-w-0 truncate font-display font-bold tracking-tight">{e.exerciseName}</span>
                   <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
-                    {e.sets.length} × {e.sets[0]?.reps}
-                    {e.sets[0]?.weightKg !== null && e.sets[0]?.weightKg !== undefined
-                      ? ` · ${e.sets[0].weightKg}kg`
-                      : ''}
+                    {describeSets({
+                      sets: e.sets.length,
+                      reps: e.sets[0]?.reps,
+                      weightKg: e.sets[0]?.weightKg,
+                      durationSeconds: e.sets[0]?.durationSeconds,
+                      distanceMeters: e.sets[0]?.distanceMeters,
+                    })}
                   </span>
                 </li>
               ))}
@@ -428,9 +473,12 @@ export default function ActiveWorkoutPage() {
           )}
 
           <div className="mt-4 flex items-center gap-2 px-2 text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+            {/* Headings come from the same table the fields do, so they can never label the wrong
+                box — a run reads "Metres | Seconds", a plank reads "Seconds". */}
             <span className="w-7 shrink-0 text-center">Set</span>
-            <span className="flex-1 text-center">Kg</span>
-            <span className="flex-1 text-center">Reps</span>
+            {fieldsFor(exercise.loadType).map((f) => (
+              <span key={f.key} className="flex-1 text-center">{f.label}</span>
+            ))}
             <span className="size-12 shrink-0" />
           </div>
 
@@ -439,9 +487,8 @@ export default function ActiveWorkoutPage() {
               <SetRow
                 key={i}
                 index={i}
-                weightKg={s.weightKg}
-                reps={s.reps}
-                done={s.done}
+                set={s}
+                loadType={exercise.loadType}
                 active={i === activeSetIndex}
                 onChange={(patch) => editSet(currentIndex, i, patch)}
                 onComplete={() => completeSet(currentIndex, i)}

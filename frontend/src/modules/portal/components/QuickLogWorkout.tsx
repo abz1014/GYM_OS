@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MemberLoadError } from '@/modules/portal/components/portalShared'
+import { describeSets } from '@/lib/measurement'
 import { WorkoutCelebration } from '@/modules/portal/components/WorkoutCelebration'
 import {
   SESSION_SOURCE_LABEL,
@@ -16,6 +17,7 @@ import {
   useMyWorkoutSuggestions,
   type MyWorkoutResult,
   type WorkoutEntryInput,
+  type ExerciseLoadType,
 } from '@/modules/portal/api/portalApi'
 import { isStale } from '@/shared/lib/queryTrust'
 
@@ -35,9 +37,12 @@ interface PendingEntry {
   key: number
   exerciseId: string
   exerciseName: string
+  loadType: ExerciseLoadType
   sets: number
-  reps: number
+  reps: number | null
   weight: number | null
+  seconds: number | null
+  metres: number | null
 }
 
 let entryKey = 0
@@ -100,7 +105,7 @@ export function QuickLogWorkout() {
   // Holds the just-logged session's result while the celebration is on screen; null means dismissed.
   const [celebration, setCelebration] = useState<MyWorkoutResult | null>(null)
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
-  const [draft, setDraft] = useState({ sets: 3, reps: 10, weight: 0 })
+  const [draft, setDraft] = useState({ sets: 3, reps: 10, weight: 0, seconds: 0, metres: 0 })
   const [showAll, setShowAll] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -112,6 +117,24 @@ export function QuickLogWorkout() {
   // two screens disagree: it ignored an active trainer plan, and a log with no entries (a check-in
   // with nothing recorded against it) hid this shortcut entirely while home still offered a session.
   const proposed = proposal.data?.canConfirm ? proposal.data.entries : []
+
+  /**
+   * What the open movement is measured in.
+   *
+   * This screen was the SECOND independent source of the fabricated rep count — it defaulted to 10
+   * reps for everything, with no reference to load type, exactly as the picker defaulted to 8. The
+   * server now rejects a rep count on a run, so without this the form would simply 400.
+   *
+   * "Usual lifts" come from the overload suggestions, which are Weighted-only by construction, so
+   * anything reached that way is a lift; only the browse list can surface a run or a plank.
+   */
+  const openLoadType = useMemo(() => {
+    if (!openExerciseId) return 'Weighted'
+    const fromCatalogue = options.data?.exercises.find((e) => e.id === openExerciseId)
+    return (fromCatalogue?.loadType ?? 'Weighted') as ExerciseLoadType
+  }, [openExerciseId, options.data?.exercises])
+
+  const hasReps = openLoadType === 'Weighted' || openLoadType === 'Bodyweight'
 
   const otherExercises = useMemo(() => {
     const usualIds = new Set(usualLifts.map((s) => s.exerciseId))
@@ -135,6 +158,10 @@ export function QuickLogWorkout() {
       sets,
       reps: reps ? Math.max(1, Math.round(reps / sets)) : 10,
       weight: weight ?? 0,
+      // Nothing is pre-filled for time or distance: unlike a load there is no "what you did last
+      // time" carried on the suggestion, and a default would be the same invention in a new field.
+      seconds: 0,
+      metres: 0,
     })
     setSearch('')
     setShowAll(false)
@@ -144,7 +171,17 @@ export function QuickLogWorkout() {
   const addPending = (exerciseId: string, exerciseName: string) => {
     setPending((p) => [
       ...p,
-      { key: entryKey++, exerciseId, exerciseName, sets: draft.sets, reps: draft.reps, weight: draft.weight || null },
+      {
+        key: entryKey++,
+        exerciseId,
+        exerciseName,
+        loadType: openLoadType,
+        sets: hasReps ? draft.sets : 1,
+        reps: hasReps ? draft.reps : null,
+        weight: openLoadType === 'Bodyweight' || openLoadType === 'Timed' ? null : draft.weight || null,
+        seconds: hasReps ? null : draft.seconds || null,
+        metres: openLoadType === 'Distance' ? draft.metres || null : null,
+      },
     ])
     setOpenExerciseId(null)
   }
@@ -157,8 +194,11 @@ export function QuickLogWorkout() {
         exerciseId: e.exerciseId,
         exerciseName: e.exerciseName,
         sets: e.sets,
+        loadType: 'Weighted' as ExerciseLoadType,
         reps: e.reps,
         weight: e.weightKg,
+        seconds: null,
+        metres: null,
       })),
     )
     toast.success('Loaded — tweak anything, then finish.')
@@ -170,6 +210,8 @@ export function QuickLogWorkout() {
       setsCompleted: p.sets,
       repsCompleted: p.reps,
       weightKg: p.weight,
+      durationSeconds: p.seconds,
+      distanceMeters: p.metres,
     }))
     logWorkout.mutate(entries, {
       // The result replaces the old toast entirely. That toast claimed a flat "+50 XP" whatever the
@@ -262,9 +304,23 @@ export function QuickLogWorkout() {
               {usualLifts.find((s) => s.exerciseId === openExerciseId)?.exerciseName ??
                 options.data?.exercises.find((e) => e.id === openExerciseId)?.name}
             </p>
-            <Stepper label="Weight" value={draft.weight} step={WEIGHT_STEP} suffix="kg" onChange={(weight) => setDraft((d) => ({ ...d, weight }))} />
-            <Stepper label="Sets" value={draft.sets} min={1} onChange={(sets) => setDraft((d) => ({ ...d, sets }))} />
-            <Stepper label="Reps" value={draft.reps} min={1} onChange={(reps) => setDraft((d) => ({ ...d, reps }))} />
+            {/* Only the measurements this movement has. A field a member cannot leave blank gets
+                filled with something, which is precisely how the fabricated numbers got in. */}
+            {openLoadType !== 'Bodyweight' && openLoadType !== 'Timed' && (
+              <Stepper label="Weight" value={draft.weight} step={WEIGHT_STEP} suffix="kg" onChange={(weight) => setDraft((d) => ({ ...d, weight }))} />
+            )}
+            {hasReps && (
+              <>
+                <Stepper label="Sets" value={draft.sets} min={1} onChange={(sets) => setDraft((d) => ({ ...d, sets }))} />
+                <Stepper label="Reps" value={draft.reps} min={1} onChange={(reps) => setDraft((d) => ({ ...d, reps }))} />
+              </>
+            )}
+            {openLoadType === 'Distance' && (
+              <Stepper label="Distance" value={draft.metres} step={100} suffix="m" onChange={(metres) => setDraft((d) => ({ ...d, metres }))} />
+            )}
+            {!hasReps && (
+              <Stepper label="Time" value={draft.seconds} step={30} suffix="s" onChange={(seconds) => setDraft((d) => ({ ...d, seconds }))} />
+            )}
             <Button
               className="h-12 w-full text-base"
               onClick={() =>
@@ -343,8 +399,13 @@ export function QuickLogWorkout() {
                 <span className="min-w-0 truncate text-sm">
                   <span className="font-medium">{p.exerciseName}</span>{' '}
                   <span className="text-muted-foreground">
-                    {p.sets}×{p.reps}
-                    {p.weight ? ` @ ${p.weight}kg` : ''}
+                    {describeSets({
+                      sets: p.sets,
+                      reps: p.reps,
+                      weightKg: p.weight,
+                      durationSeconds: p.seconds,
+                      distanceMeters: p.metres,
+                    })}
                   </span>
                 </span>
                 <Button

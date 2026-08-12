@@ -19,8 +19,14 @@ public record InventoryStockMovementReportRowDto(
 public record CrmPipelineConversionReportDto(
     IReadOnlyDictionary<string, int> ByStage, int TotalLeads, int ConvertedCount, decimal ConversionRatePercent);
 
+/// <param name="TotalReps">Null for movements that have no reps — runs, planks. A dash says "not
+/// measured"; a zero would say "measured, and it was nothing", which for a gym's busiest cardio
+/// machine is the more misleading of the two.</param>
+/// <param name="TotalDurationSeconds">Time held or worked, where that is the measurement.</param>
+/// <param name="TotalDistanceMeters">Distance covered, where that is the measurement.</param>
 public record WorkoutActivityReportRowDto(
-    string ExerciseName, string? MuscleGroup, int TimesLogged, int TotalSets, int TotalReps, decimal? AvgWeightKg);
+    string ExerciseName, string? MuscleGroup, int TimesLogged, int TotalSets, int? TotalReps,
+    decimal? AvgWeightKg, int? TotalDurationSeconds, decimal? TotalDistanceMeters);
 
 public record NutritionFoodItemRowDto(string FoodItemName, int TimesLogged, decimal TotalCaloriesLogged);
 

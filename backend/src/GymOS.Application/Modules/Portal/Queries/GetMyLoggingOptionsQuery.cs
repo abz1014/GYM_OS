@@ -27,7 +27,7 @@ public class GetMyLoggingOptionsQueryHandler(
 
         var exercises = await db.Exercises.AsNoTracking()
             .OrderBy(e => e.Name)
-            .Select(e => new LoggableExerciseDto(e.Id, e.Name, e.MuscleGroup, e.Equipment))
+            .Select(e => new LoggableExerciseDto(e.Id, e.Name, e.MuscleGroup, e.Equipment, e.LoadType.ToString()))
             .ToListAsync(cancellationToken);
 
         var foods = await db.FoodItems.AsNoTracking()
@@ -102,8 +102,8 @@ public class GetMyTrainingVolumeQueryHandler(
             .Select(r => new
             {
                 Date = GymDay.Of(r.LoggedAt, zone),
-                Volume = r.SetsCompleted * r.RepsCompleted * (r.WeightKg ?? 0m),
-                Reps = r.SetsCompleted * r.RepsCompleted
+                Volume = r.SetsCompleted * (r.RepsCompleted ?? 0) * (r.WeightKg ?? 0m),
+                Reps = r.SetsCompleted * (r.RepsCompleted ?? 0)
             })
             .Where(r => r.Date >= windowStart && r.Date <= today)
             .GroupBy(r => r.Date)

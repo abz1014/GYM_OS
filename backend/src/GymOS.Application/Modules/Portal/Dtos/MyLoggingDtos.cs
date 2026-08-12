@@ -1,7 +1,10 @@
 namespace GymOS.Application.Modules.Portal.Dtos;
 
 /// <summary>An exercise the member can pick when logging a workout.</summary>
-public record LoggableExerciseDto(Guid Id, string Name, string? MuscleGroup, string? Equipment);
+/// <param name="LoadType">Weighted, Bodyweight, Timed or Distance. The quick logger asks for the
+/// measurement this movement actually has — without it, that screen was the second independent
+/// source of a fabricated rep count.</param>
+public record LoggableExerciseDto(Guid Id, string Name, string? MuscleGroup, string? Equipment, string LoadType);
 
 /// <summary>A food item the member can pick when logging a meal, with the per-serving macros the
 /// picker shows so they can choose without a second round trip.</summary>

@@ -39,7 +39,9 @@ public class GetMyWorkoutSuggestionsQueryHandler(IApplicationDbContext db, ICurr
                 g.Key.ExerciseId,
                 g.Key.LoggedAt,
                 MaxWeightKg = g.Max(x => x.WeightKg) ?? 0m,
-                TotalReps = g.Sum(x => x.SetsCompleted * x.RepsCompleted)
+                // The Weighted-only filter below means these are always present; coalescing is
+                // belt-and-braces for a row written before that guard existed.
+                TotalReps = g.Sum(x => x.SetsCompleted * (x.RepsCompleted ?? 0))
             })
             .GroupBy(x => x.ExerciseId)
             .ToList();

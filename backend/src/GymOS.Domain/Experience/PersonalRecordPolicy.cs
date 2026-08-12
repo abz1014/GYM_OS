@@ -12,7 +12,15 @@ public record ExerciseSessionStats(decimal MaxWeightKg, decimal BestEstimatedOne
 /// </summary>
 public static class PersonalRecordPolicy
 {
-    public static ExerciseSessionStats StatsFor(IEnumerable<(int Sets, int Reps, decimal? WeightKg)> entries)
+    /// <summary>
+    /// Reduces a session's entries to the three figures a record can be set on.
+    ///
+    /// Reps are nullable because a run and a plank have none. An entry without them still reports its
+    /// LOAD — a farmer's carry is genuinely loaded — but contributes no estimated 1RM and no volume,
+    /// because both are defined as functions of reps and there is no honest value to substitute. Zero
+    /// would be a measurement of nothing rather than the absence of one, and it would enter a sum.
+    /// </summary>
+    public static ExerciseSessionStats StatsFor(IEnumerable<(int Sets, int? Reps, decimal? WeightKg)> entries)
     {
         decimal maxWeight = 0, bestOneRm = 0, volume = 0;
 
@@ -24,13 +32,18 @@ public static class PersonalRecordPolicy
                 maxWeight = weight;
             }
 
-            var oneRm = OneRepMax.Epley(weight, reps);
+            if (reps is null)
+            {
+                continue;
+            }
+
+            var oneRm = OneRepMax.Epley(weight, reps.Value);
             if (oneRm > bestOneRm)
             {
                 bestOneRm = oneRm;
             }
 
-            volume += sets * reps * weight;
+            volume += sets * reps.Value * weight;
         }
 
         return new ExerciseSessionStats(maxWeight, bestOneRm, volume);

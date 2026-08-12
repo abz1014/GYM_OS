@@ -31,7 +31,9 @@ public class GetWorkoutActivityReportQueryHandler(IApplicationDbContext db, IDat
                 ex.MuscleGroup,
                 x.e.SetsCompleted,
                 x.e.RepsCompleted,
-                x.e.WeightKg
+                x.e.WeightKg,
+                x.e.DurationSeconds,
+                x.e.DistanceMeters
             })
             .ToListAsync(cancellationToken);
 
@@ -42,8 +44,13 @@ public class GetWorkoutActivityReportQueryHandler(IApplicationDbContext db, IDat
                 g.Key.MuscleGroup,
                 g.Count(),
                 g.Sum(x => x.SetsCompleted),
-                g.Sum(x => x.RepsCompleted),
-                g.Any(x => x.WeightKg is not null) ? Math.Round(g.Where(x => x.WeightKg is not null).Average(x => x.WeightKg!.Value), 1) : null))
+                // Each of these is null unless at least one row actually carried the measurement, so
+                // a treadmill reports distance and duration and stays blank on reps, rather than
+                // reporting a confident zero for all three.
+                g.Any(x => x.RepsCompleted is not null) ? g.Sum(x => x.RepsCompleted ?? 0) : null,
+                g.Any(x => x.WeightKg is not null) ? Math.Round(g.Where(x => x.WeightKg is not null).Average(x => x.WeightKg!.Value), 1) : null,
+                g.Any(x => x.DurationSeconds is not null) ? g.Sum(x => x.DurationSeconds ?? 0) : null,
+                g.Any(x => x.DistanceMeters is not null) ? g.Sum(x => x.DistanceMeters ?? 0m) : null))
             .OrderByDescending(r => r.TimesLogged)
             .ToList();
     }

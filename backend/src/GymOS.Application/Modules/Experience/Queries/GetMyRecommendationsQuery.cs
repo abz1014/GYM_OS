@@ -90,7 +90,8 @@ public class GetMyRecommendationsQueryHandler(
         foreach (var row in rows)
         {
             var date = GymDay.Of(row.LoggedAt, zone);
-            var volume = row.SetsCompleted * row.RepsCompleted * (row.WeightKg ?? 0m);
+            // No reps means no volume, not zero volume — see WorkoutLogEntry.RepsCompleted.
+            var volume = row.SetsCompleted * (row.RepsCompleted ?? 0) * (row.WeightKg ?? 0m);
 
             if (date >= currentWindowStart)
             {
@@ -132,10 +133,14 @@ public class GetMyRecommendationsQueryHandler(
         var exerciseIds = nodes.Select(n => n.ExerciseId).Distinct().ToList();
         var bestReps = (await db.WorkoutLogEntries.AsNoTracking()
                 .Where(e => exerciseIds.Contains(e.ExerciseId) && e.WorkoutLog!.MemberId == memberId)
-                .Select(e => new { e.ExerciseId, e.RepsCompleted })
+                .Where(e => e.RepsCompleted != null)
+                .Select(e => new { e.ExerciseId, Reps = e.RepsCompleted!.Value })
                 .ToListAsync(cancellationToken))
             .GroupBy(e => e.ExerciseId)
-            .ToDictionary(g => g.Key, g => g.Max(e => e.RepsCompleted));
+            // A skill node unlocks on a rep count, so an entry that HAS no rep count cannot unlock
+            // one. Filtering rather than coalescing keeps a run out of the comparison entirely,
+            // instead of entering it as a zero that would always fail and look deliberate.
+            .ToDictionary(g => g.Key, g => g.Max(e => e.Reps));
 
         var result = new List<Recommendation>();
         foreach (var tree in nodes.GroupBy(n => n.SkillTreeId))
