@@ -141,6 +141,15 @@ public class PortalController(ISender mediator) : ControllerBase
     public async Task<ActionResult<MySessionProposalDto>> NextSession(CancellationToken cancellationToken)
         => Ok(await mediator.Send(new GetMyNextSessionQuery(), cancellationToken));
 
+    /// <summary>
+    /// Everything the member could train today, grouped by muscle and carrying their own last
+    /// numbers — the read behind the exercise picker. See GetMyExerciseCatalogueQuery.
+    /// </summary>
+    [HttpGet("exercises")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyExerciseCatalogueDto>> Exercises(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyExerciseCatalogueQuery(), cancellationToken));
+
     /// <summary>Takes back a just-recorded session. Window enforced by WorkoutUndoPolicy.</summary>
     [HttpDelete("workouts/{workoutLogId:guid}")]
     [RequirePermission(PermissionCodes.Portal.View)]

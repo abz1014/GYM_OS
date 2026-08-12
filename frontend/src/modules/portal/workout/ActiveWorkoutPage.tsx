@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowUp, Check, Dumbbell, Loader2, Plus, X } from 'lucide-react'
+import { ArrowUp, Check, Dumbbell, ListPlus, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import {
   useActiveWorkout,
   type ActiveExercise,
 } from '@/modules/portal/workout/activeWorkoutStore'
+import { ExercisePicker, toActiveExercise } from '@/modules/portal/workout/ExercisePicker'
 import { isStale } from '@/shared/lib/queryTrust'
 
 /** Ticks once a second so every derived clock on this screen re-reads the wall clock. */
@@ -172,32 +173,39 @@ export default function ActiveWorkoutPage() {
   const logWorkout = useLogMyWorkout()
   const [celebration, setCelebration] = useState<MyWorkoutResult | null>(null)
 
-  const { startedAt, sourceLabel, exercises, currentIndex, restEndsAt, start, abandon, editSet, completeSet, addSet, goToExercise, skipRest } =
-    useActiveWorkout()
+  const {
+    startedAt, sourceLabel, exercises, currentIndex, restEndsAt,
+    start, abandon, editSet, completeSet, addSet, addExercises, removeExercise, goToExercise, skipRest,
+  } = useActiveWorkout()
 
   const running = startedAt !== null
   const now = useNow(running)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   /**
-   * Seed the session from the server's proposal the first time this screen opens, and never again
-   * while one is running — a member who navigates away mid-session and returns must find the sets
-   * they logged, not a fresh copy of the plan.
+   * The server's proposal, turned into a session the member could start — but NOT started.
+   *
+   * This used to run in an effect the moment the screen mounted, which made two claims that were
+   * not true. It started the clock before the member had agreed to train, so a session's elapsed
+   * time counted whatever they did between opening the app and picking up a weight. And it made the
+   * proposal the only session available: the screen showed whatever was proposed and offered no way
+   * to say "actually, today is back". Where the last log held one movement, that is a workout screen
+   * with one exercise on it and nothing to add.
+   *
+   * Now the proposal is an offer beside a picker, and the clock starts on whichever one the member
+   * taps. See ExercisePicker.
    */
-  useEffect(() => {
-    if (running || !proposal.data?.canConfirm) return
-    const seeded: ActiveExercise[] = proposal.data.entries.map((e) => ({
-      exerciseId: e.exerciseId,
-      exerciseName: e.exerciseName,
-      // The proposal says "3 sets of 8 at 60kg"; the session turns that into three individual sets
-      // the member confirms one at a time, each free to differ from the plan.
-      sets: Array.from({ length: Math.max(1, e.sets) }, () => ({
-        weightKg: e.weightKg,
-        reps: e.reps,
-        done: false,
-      })),
-    }))
-    start(SESSION_SOURCE_LABEL[proposal.data.source] || 'Your session', seeded)
-  }, [running, proposal.data, start])
+  const proposed: ActiveExercise[] = (proposal.data?.entries ?? []).map((e) => ({
+    exerciseId: e.exerciseId,
+    exerciseName: e.exerciseName,
+    // The proposal says "3 sets of 8 at 60kg"; the session turns that into three individual sets
+    // the member confirms one at a time, each free to differ from the plan.
+    sets: Array.from({ length: Math.max(1, e.sets) }, () => ({
+      weightKg: e.weightKg,
+      reps: e.reps,
+      done: false,
+    })),
+  }))
 
   const exercise = exercises[currentIndex]
   const activeSetIndex = firstUnfinishedSet(exercise)
@@ -238,49 +246,98 @@ export default function ActiveWorkoutPage() {
     navigate('/portal')
   }
 
+  const picker = (
+    <ExercisePicker
+      open={pickerOpen}
+      onClose={() => setPickerOpen(false)}
+      alreadyInSession={exercises.map((e) => e.exerciseId)}
+      onAdd={(picked) => addExercises('Your session', picked.map(toActiveExercise))}
+    />
+  )
+
   if (proposal.isLoading && !running) {
     return <Skeleton className="h-96 w-full rounded-3xl shimmer" />
   }
 
   /**
-   * The screen below is reached through `!proposal.data?.canConfirm`, which a failed request satisfies
-   * exactly as well as a member with no plan — so a dropped fetch told someone standing at a rack that
-   * their trainer hadn't set them anything and there was nothing to start. It is the one sentence on
-   * this screen that cannot be checked from where the member is standing.
+   * Before a session starts, this screen is a choice between two doors: take what the app already
+   * knows you were going to do, or say what you are actually doing today.
    *
-   * Whole-screen rather than per-section here, unlike the portal pages: before a session starts, the
-   * proposal IS the screen. The manual logger comes along because the member is in the gym now and a
-   * retry that fails twice shouldn't end with them having nowhere to record what they did.
+   * The proposal comes first because it is right most of the time — most sessions are a repeat with
+   * a small change — but it is never the only option, and it is never presented as one. A member
+   * whose plan is a single movement, or who came in for something else entirely, reaches the picker
+   * in one tap rather than being handed a one-exercise workout and no way out of it.
+   *
+   * A failed proposal fetch is stated rather than absorbed. `!canConfirm` is satisfied equally by "no
+   * history yet" and "the request didn't land", and telling someone standing at a rack that their
+   * trainer hasn't set them anything — when in fact we just couldn't ask — is the one sentence here
+   * they cannot check from where they are. The picker stays available underneath either way: it
+   * reads a different endpoint, and the member is in the gym now.
    */
-  if (isStale(proposal) && !running) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-4">
-        <MemberLoadError
-          title="We couldn't load your session"
-          hint="Your plan and your history are safe — we just can't reach the gym right now."
-          onRetry={() => void proposal.refetch()}
-          isRetrying={proposal.isFetching}
-        />
-        <Button asChild variant="outline" className="press h-12 w-full rounded-2xl">
-          <Link to="/log-activity">Log a workout manually</Link>
-        </Button>
-      </div>
-    )
-  }
-
-  // Nothing to propose — no plan, no history, no catalogue. The manual logger is the honest fallback
-  // rather than an empty session with nothing in it to tick off.
   if (!running) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4 text-center">
-        <Dumbbell className="mx-auto size-10 text-muted-foreground" />
-        <h1 className="font-display text-2xl font-black tracking-tight">Nothing to start yet</h1>
-        <p className="text-sm text-muted-foreground">
-          Once you've logged a session or your trainer sets you a plan, this becomes one tap.
-        </p>
-        <Button asChild className="press h-12 w-full rounded-2xl shadow-volt">
-          <Link to="/log-activity">Log a workout manually</Link>
+      <div className="mx-auto max-w-2xl space-y-4 pb-32">
+        <div className="text-center">
+          <Dumbbell className="mx-auto size-9 text-primary" />
+          <h1 className="mt-3 font-display text-2xl font-black tracking-tight">Ready to train</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick what you're doing today — then just log sets and weight.
+          </p>
+        </div>
+
+        {isStale(proposal) && (
+          <MemberLoadError
+            title="We couldn't load your last session"
+            hint="Your plan and your history are safe — we just can't reach them right now. You can still pick your exercises below."
+            onRetry={() => void proposal.refetch()}
+            isRetrying={proposal.isFetching}
+          />
+        )}
+
+        {proposal.data?.canConfirm && proposed.length > 0 && (
+          <div className="rounded-3xl border border-border bg-card p-4 edge-light">
+            <p className="text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
+              {SESSION_SOURCE_LABEL[proposal.data.source] || 'Your session'}
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {proposed.map((e) => (
+                <li key={e.exerciseId} className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate font-display font-bold tracking-tight">{e.exerciseName}</span>
+                  <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
+                    {e.sets.length} × {e.sets[0]?.reps}
+                    {e.sets[0]?.weightKg !== null && e.sets[0]?.weightKg !== undefined
+                      ? ` · ${e.sets[0].weightKg}kg`
+                      : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <Button
+              className="press mt-4 h-12 w-full rounded-2xl font-bold shadow-volt"
+              onClick={() => start(SESSION_SOURCE_LABEL[proposal.data!.source] || 'Your session', proposed)}
+            >
+              Start this session
+            </Button>
+          </div>
+        )}
+
+        <Button
+          variant={proposal.data?.canConfirm ? 'outline' : 'default'}
+          className={cn(
+            'press h-12 w-full rounded-2xl font-bold',
+            !proposal.data?.canConfirm && 'shadow-volt',
+          )}
+          onClick={() => setPickerOpen(true)}
+        >
+          <ListPlus className="size-4" />
+          {proposal.data?.canConfirm ? 'Pick different exercises' : 'Pick your exercises'}
         </Button>
+
+        <Button asChild variant="ghost" className="press h-11 w-full rounded-2xl text-muted-foreground">
+          <Link to="/log-activity">Log a past workout instead</Link>
+        </Button>
+
+        {picker}
       </div>
     )
   }
@@ -398,8 +455,36 @@ export default function ActiveWorkoutPage() {
               Next: {exercises[currentIndex + 1].exerciseName}
             </Button>
           )}
+
+          {/* Dropping a movement is only offered while it is still only a plan. Once a set on it has
+              been logged it is a record of something that happened, and removing it here would
+              silently delete work the member did. */}
+          {exercise.sets.every((s) => !s.done) && exercises.length > 1 && (
+            <button
+              type="button"
+              onClick={() => removeExercise(currentIndex)}
+              className="press mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-medium text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="size-4" />
+              Remove {exercise.exerciseName}
+            </button>
+          )}
         </>
       )}
+
+      {/*
+        A session is not a fixed list. Members add a movement halfway through constantly — a machine
+        was taken, they felt good and did one more, a friend suggested something — and before this
+        the only way to record it was to finish, then log a second session that would count as two.
+      */}
+      <button
+        type="button"
+        onClick={() => setPickerOpen(true)}
+        className="press mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground"
+      >
+        <ListPlus className="size-4" />
+        Add exercise
+      </button>
 
       {/*
         Docked at the bottom so both the rest clock and the finish sit under the thumb. It carries the
@@ -454,6 +539,8 @@ export default function ActiveWorkoutPage() {
           </div>
         </div>
       </div>
+
+      {picker}
 
       {celebration && (
         <WorkoutCelebration

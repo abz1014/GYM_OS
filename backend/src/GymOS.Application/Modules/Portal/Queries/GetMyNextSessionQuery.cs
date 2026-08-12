@@ -126,11 +126,31 @@ public class GetMyNextSessionQueryHandler(
             .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.LoggedAt).First().WeightKg!.Value);
 
         // 3. A starter session for someone with neither, so a first workout is still one tap.
-        var starterCatalogue = await db.Exercises.AsNoTracking()
-            .OrderBy(e => e.Name)
-            .Take(SessionProposalPolicy.StarterExerciseCount)
+        //
+        // The named movements first, in the order SessionProposalPolicy lists them, then anything else
+        // alphabetically to make up the numbers. Taking the first three by name alone was fine against
+        // a fifteen-movement catalogue that happened to start at Barbell Squat; against the real one
+        // it opens a beginner's first session with Ab Wheel Rollout, Arnold Press and Barbell Curl.
+        var starterNames = SessionProposalPolicy.StarterExerciseNames.ToList();
+        var starterCatalogue = (await db.Exercises.AsNoTracking()
+                .Where(e => starterNames.Contains(e.Name))
+                .Select(e => new { e.Id, e.Name })
+                .ToListAsync(cancellationToken))
+            .OrderBy(e => starterNames.IndexOf(e.Name))
             .Select(e => new PlannedExercise(e.Id, e.Name, 3, 10))
-            .ToListAsync(cancellationToken);
+            .ToList();
+
+        if (starterCatalogue.Count < SessionProposalPolicy.StarterExerciseCount)
+        {
+            var fillIn = await db.Exercises.AsNoTracking()
+                .Where(e => !starterNames.Contains(e.Name))
+                .OrderBy(e => e.Name)
+                .Take(SessionProposalPolicy.StarterExerciseCount)
+                .Select(e => new PlannedExercise(e.Id, e.Name, 3, 10))
+                .ToListAsync(cancellationToken);
+
+            starterCatalogue.AddRange(fillIn);
+        }
 
         var proposal = SessionProposalPolicy.Propose(planExercises, lastSession, lastWeightByExercise, starterCatalogue);
 

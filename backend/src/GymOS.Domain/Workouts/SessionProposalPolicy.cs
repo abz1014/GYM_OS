@@ -53,6 +53,21 @@ public static class SessionProposalPolicy
     /// <summary>Movements in a starter session — enough to be a workout, few enough to finish.</summary>
     public const int StarterExerciseCount = 3;
 
+    /// <summary>
+    /// The movements a first session is built from, most important first.
+    ///
+    /// Named rather than "the first three in the catalogue". That shortcut worked only while the
+    /// catalogue held fifteen movements and alphabetical order happened to start at Barbell Squat;
+    /// against a real catalogue it opens a beginner's first ever workout with Ab Wheel Rollout,
+    /// Arnold Press and Barbell Curl — three movements that share no purpose and skip both legs and
+    /// back. A push, a pull and a squat is the oldest full-body template there is.
+    ///
+    /// A gym whose catalogue has none of these still gets a session: the query falls back to what it
+    /// has. The names are matched, not required.
+    /// </summary>
+    public static readonly IReadOnlyList<string> StarterExerciseNames =
+        ["Barbell Squat", "Bench Press", "Bent-Over Row"];
+
     public static SessionProposal Propose(
         IReadOnlyList<PlannedExercise> todaysPlan,
         IReadOnlyList<ProposedEntry> lastSession,

@@ -755,6 +755,61 @@ export function useMyNextSession() {
   })
 }
 
+/** How a movement is measured. Decides which fields the logger asks for — see CatalogueExercise. */
+export type ExerciseLoadType = 'Weighted' | 'Bodyweight' | 'Timed' | 'Distance'
+
+/**
+ * One movement in the picker. Everything here except the name exists so the member does not have to
+ * type it: the muscle group is the category they browse by, and the `last*` fields pre-fill the sets
+ * and weight so choosing a movement is the whole interaction.
+ *
+ * `lastPerformedAt` is null until they have actually done it. Nothing on this object is a
+ * recommendation — every number came from a session the member logged themselves.
+ */
+export interface CatalogueExercise {
+  exerciseId: string
+  name: string
+  muscleGroupKey: string
+  muscleGroupName: string
+  equipment: string | null
+  loadType: ExerciseLoadType
+  lastPerformedAt: string | null
+  /** Distinct sessions, not sets. */
+  timesPerformed: number
+  lastSets: number | null
+  lastReps: number | null
+  /** Always null for anything that is not Weighted — a plank has no kilograms. */
+  lastWeightKg: number | null
+}
+
+export interface ExerciseGroup {
+  key: string
+  name: string
+  exercises: CatalogueExercise[]
+}
+
+export interface MyExerciseCatalogue {
+  /** Already in catalogue order — big compound groups first, cardio last. */
+  groups: ExerciseGroup[]
+}
+
+/**
+ * The whole exercise catalogue, grouped by muscle and carrying the member's own last numbers.
+ *
+ * A long stale time on purpose: a gym's exercise list changes when someone edits it in the console,
+ * which is close to never, and the picker opening instantly is worth more than being current within
+ * the minute. The last-performed numbers do move — after logging — so `invalidateAfterLogging`
+ * clears this key along with everything else a session touches.
+ */
+export function useMyExerciseCatalogue() {
+  return useQuery({
+    queryKey: ['portal', 'exercise-catalogue'],
+    queryFn: async () => (await apiClient.get<MyExerciseCatalogue>('/api/me/exercises')).data,
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+}
+
 /** How long the "Undo" on the confirmation toast stays reachable. */
 export const UNDO_TOAST_MS = 20_000
 

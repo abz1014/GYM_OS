@@ -54,6 +54,42 @@ public record MyProposedEntryDto(Guid ExerciseId, string ExerciseName, int Sets,
 public record MySessionProposalDto(string Source, bool CanConfirm, IReadOnlyList<MyProposedEntryDto> Entries);
 
 /// <summary>
+/// One movement in the picker, with everything needed to choose it and nothing that needs typing.
+/// </summary>
+/// <param name="MuscleGroupKey">The canonical group — see MuscleGroupVocabulary. Stable, for code.</param>
+/// <param name="MuscleGroupName">The same group, for people.</param>
+/// <param name="LoadType">Weighted, Bodyweight, Timed or Distance. The screen asks for a weight only
+/// when there is one to ask for.</param>
+/// <param name="LastPerformedAt">Null until the member has done this movement. Drives "Recent".</param>
+/// <param name="TimesPerformed">Distinct sessions, not sets — how familiar this movement is.</param>
+/// <param name="LastSets">Sets in the member's most recent session of this movement, summed across
+/// the per-set rows the logger writes. Null with no history.</param>
+/// <param name="LastReps">Reps from the heaviest set of that session.</param>
+/// <param name="LastWeightKg">Load from the heaviest set of that session. Always null for anything
+/// that is not Weighted — a plank has no kilograms, and a placeholder zero would be a claim.</param>
+public record MyCatalogueExerciseDto(
+    Guid ExerciseId,
+    string Name,
+    string MuscleGroupKey,
+    string MuscleGroupName,
+    string? Equipment,
+    string LoadType,
+    DateTimeOffset? LastPerformedAt,
+    int TimesPerformed,
+    int? LastSets,
+    int? LastReps,
+    decimal? LastWeightKg);
+
+/// <summary>One muscle group's worth of the catalogue, already sorted by name.</summary>
+public record MyExerciseGroupDto(string Key, string Name, IReadOnlyList<MyCatalogueExerciseDto> Exercises);
+
+/// <summary>
+/// The whole picker in one call — see GetMyExerciseCatalogueQuery. Groups arrive in catalogue order
+/// (the big compound groups first, cardio last) so the client never has to know that ordering.
+/// </summary>
+public record MyExerciseCatalogueDto(IReadOnlyList<MyExerciseGroupDto> Groups);
+
+/// <summary>
 /// The member's coach and the conversation with them.
 /// </summary>
 /// <param name="CanSend">False once a pairing ends — the history stays readable, but there is

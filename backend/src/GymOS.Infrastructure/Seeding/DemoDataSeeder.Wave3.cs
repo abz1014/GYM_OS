@@ -49,31 +49,19 @@ public partial class DemoDataSeeder
 
     private async Task SeedExerciseLibraryAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        // LoadType is what the progress rules read; MuscleGroup and Equipment are labels for people.
-        // Getting these right is the whole point of the discriminator — a run typed Weighted would
-        // put the treadmill straight back into the overload suggestions.
-        var exercises = new (string Name, string MuscleGroup, string Equipment, ExerciseLoadType LoadType)[]
+        // The list itself lives in ExerciseCatalog, because an existing gym has to get it too and a
+        // seeder that only runs against an empty database cannot deliver it — see
+        // AddFullExerciseCatalogue, which inserts the same rows into tenants that already exist.
+        foreach (var entry in ExerciseCatalog.All)
         {
-            ("Barbell Squat", "Legs", "Barbell", ExerciseLoadType.Weighted),
-            ("Bench Press", "Chest", "Barbell", ExerciseLoadType.Weighted),
-            ("Deadlift", "Back", "Barbell", ExerciseLoadType.Weighted),
-            ("Overhead Press", "Shoulders", "Barbell", ExerciseLoadType.Weighted),
-            ("Bent-Over Row", "Back", "Barbell", ExerciseLoadType.Weighted),
-            ("Pull-Up", "Back", "Bodyweight", ExerciseLoadType.Bodyweight),
-            ("Push-Up", "Chest", "Bodyweight", ExerciseLoadType.Bodyweight),
-            ("Dumbbell Curl", "Arms", "Dumbbell", ExerciseLoadType.Weighted),
-            ("Tricep Pushdown", "Arms", "Cable Machine", ExerciseLoadType.Weighted),
-            ("Lat Pulldown", "Back", "Cable Machine", ExerciseLoadType.Weighted),
-            ("Leg Press", "Legs", "Machine", ExerciseLoadType.Weighted),
-            ("Leg Curl", "Legs", "Machine", ExerciseLoadType.Weighted),
-            ("Plank", "Core", "Bodyweight", ExerciseLoadType.Timed),
-            ("Treadmill Run", "Cardio", "Treadmill", ExerciseLoadType.Distance),
-            ("Rowing Machine", "Full Body", "Rowing Machine", ExerciseLoadType.Distance),
-        };
-
-        foreach (var (name, muscleGroup, equipment, loadType) in exercises)
-        {
-            db.Exercises.Add(new Exercise { TenantId = tenantId, Name = name, MuscleGroup = muscleGroup, Equipment = equipment, LoadType = loadType });
+            db.Exercises.Add(new Exercise
+            {
+                TenantId = tenantId,
+                Name = entry.Name,
+                MuscleGroup = entry.MuscleGroup,
+                Equipment = entry.Equipment,
+                LoadType = entry.LoadType
+            });
         }
 
         await db.SaveChangesAsync(cancellationToken);

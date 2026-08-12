@@ -33,6 +33,10 @@ interface ActiveWorkoutState {
   editSet: (exerciseIndex: number, setIndex: number, patch: Partial<ActiveSet>) => void
   completeSet: (exerciseIndex: number, setIndex: number) => void
   addSet: (exerciseIndex: number) => void
+  /** Append movements mid-session, skipping any already in it. Starts the session if none is running. */
+  addExercises: (sourceLabel: string, exercises: ActiveExercise[]) => void
+  /** Drop a movement the member is not doing after all. Only ever called on one with no logged sets. */
+  removeExercise: (exerciseIndex: number) => void
   goToExercise: (index: number) => void
   skipRest: () => void
 }
@@ -104,6 +108,45 @@ export const useActiveWorkout = create<ActiveWorkoutState>()(
             }
           }),
         })),
+
+      /*
+       * The picker's write path, and the reason the session no longer has to be decided up front.
+       *
+       * Two properties matter. It is idempotent per exercise — picking Bench Press twice adds it
+       * once, because two entries with the same exerciseId would split one movement's sets across
+       * two cards and read back as two exercises. And it STARTS the session when nothing is
+       * running, which is what makes the clock begin on the member's first pick rather than on a
+       * screen they happened to open: a session that starts on navigation counts the time someone
+       * spent deciding whether to train at all.
+       */
+      addExercises: (sourceLabel, incoming) =>
+        set((s) => {
+          const already = new Set(s.exercises.map((e) => e.exerciseId))
+          const fresh = incoming.filter((e) => !already.has(e.exerciseId))
+          if (fresh.length === 0) return s
+
+          const running = s.startedAt !== null
+          return {
+            startedAt: running ? s.startedAt : Date.now(),
+            sourceLabel: running ? s.sourceLabel : sourceLabel,
+            exercises: [...s.exercises, ...fresh],
+            // Jump straight to the first new movement when adding to a session in progress: the
+            // member picked it because it is what they are about to do.
+            currentIndex: running ? s.exercises.length : 0,
+            restEndsAt: running ? s.restEndsAt : null,
+          }
+        }),
+
+      removeExercise: (exerciseIndex) =>
+        set((s) => {
+          const exercises = s.exercises.filter((_, i) => i !== exerciseIndex)
+          return {
+            exercises,
+            // Keep the member on the movement they were looking at where that still exists, and
+            // clamp rather than letting currentIndex point past the end of a shortened list.
+            currentIndex: Math.max(0, Math.min(s.currentIndex, exercises.length - 1)),
+          }
+        }),
 
       goToExercise: (index) => set({ currentIndex: index, restEndsAt: null }),
 
