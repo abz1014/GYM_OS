@@ -71,7 +71,10 @@ public class GetMyTodayQueryHandler(
         // query over DateTimeOffset in this codebase makes. A member's own bookings are a small set.
         var myBookings = await db.ClassBookings.AsNoTracking()
             .Where(b => b.MemberId == memberId
-                        && (b.Status == ClassBookingStatus.Booked || b.Status == ClassBookingStatus.Waitlisted))
+                        && (b.Status == ClassBookingStatus.Booked || b.Status == ClassBookingStatus.Waitlisted)
+                        // A booking on a cancelled session must never become "today's class" — the
+                        // stranded-row case this screen was caught rendering.
+                        && b.ClassSession!.Status != ClassSessionStatus.Cancelled)
             .Select(b => new MyClassBookingDto(
                 b.Id,
                 b.ClassSessionId,

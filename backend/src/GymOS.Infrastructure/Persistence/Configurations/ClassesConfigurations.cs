@@ -47,5 +47,23 @@ public class ClassBookingConfiguration : IEntityTypeConfiguration<ClassBooking>
         // The roster query, the capacity count, and waitlist promotion all read a session's bookings
         // in status order, so index the session + status pair those hit.
         builder.HasIndex(b => new { b.ClassSessionId, b.Status });
+
+        /*
+         * One active place per member per session, enforced where races cannot reach it.
+         *
+         * The handler's "already booked" check is a read followed by a write, and under concurrency
+         * every racer passes the read before any commits — observed live as one member holding three
+         * simultaneous Booked rows for one session, rendered three times on their own membership
+         * page. A partial unique index is the only version of this rule that holds under load.
+         * Cancelled and NoShow rows stay out of the filter on purpose: rebooking after cancelling,
+         * or after missing a class, is normal life.
+         *
+         * The filter string works on both providers this codebase runs (Postgres and the SQLite test
+         * harness), because Status is stored as text and both quote identifiers the same way.
+         */
+        builder.HasIndex(b => new { b.ClassSessionId, b.MemberId })
+            .IsUnique()
+            .HasDatabaseName("IX_ClassBookings_OneActivePerMemberSession")
+            .HasFilter("\"Status\" IN ('Booked', 'Waitlisted', 'CheckedIn')");
     }
 }

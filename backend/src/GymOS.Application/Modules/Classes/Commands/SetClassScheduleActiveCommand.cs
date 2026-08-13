@@ -29,13 +29,35 @@ public class SetClassScheduleActiveCommandHandler(IApplicationDbContext db, IDat
         {
             schedule.IsActive = false;
 
-            var upcoming = await db.ClassSessions
-                .Where(s => s.ClassScheduleId == schedule.Id && s.StartsAt > now && s.Status == ClassSessionStatus.Scheduled)
+            // Status filters in SQL; the StartsAt cut reduces in memory — the DateTimeOffset
+            // comparison SQLite cannot translate, and a slot's Scheduled set is bounded by the
+            // generation window anyway. The same trade every query over StartsAt here makes.
+            var scheduled = await db.ClassSessions
+                .Where(s => s.ClassScheduleId == schedule.Id && s.Status == ClassSessionStatus.Scheduled)
                 .ToListAsync(cancellationToken);
+            var upcoming = scheduled.Where(s => s.StartsAt > now).ToList();
 
             foreach (var session in upcoming)
             {
                 session.Status = ClassSessionStatus.Cancelled;
+            }
+
+            /*
+             * Release the people, not just the slots. Cancelling the sessions without their bookings
+             * left members holding live Booked rows on classes that no longer ran — the Today page
+             * (which reads booking status, correctly) kept telling them to turn up. Same release
+             * CancelClassSessionCommand performs for a single session, applied to the whole slot.
+             */
+            var sessionIds = upcoming.Select(s => s.Id).ToList();
+            var strandedBookings = await db.ClassBookings
+                .Where(b => sessionIds.Contains(b.ClassSessionId)
+                            && (b.Status == ClassBookingStatus.Booked || b.Status == ClassBookingStatus.Waitlisted))
+                .ToListAsync(cancellationToken);
+
+            foreach (var booking in strandedBookings)
+            {
+                booking.Status = ClassBookingStatus.Cancelled;
+                booking.CancelledAt = now;
             }
         }
         else

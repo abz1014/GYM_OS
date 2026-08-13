@@ -80,6 +80,90 @@ public class ClassBookingCommandHandlerTests : ApplicationTestBase
         statuses.ShouldAllBe(s => s == ClassBookingStatus.Cancelled);
     }
 
+    [Fact]
+    public async Task Deactivating_a_schedule_releases_the_bookings_on_its_cancelled_sessions()
+    {
+        /*
+         * Found on a member's own Today page: "we stopped running Monday Spin" cancelled the future
+         * sessions but left their bookings Booked, so members were still told to turn up. The slot's
+         * discontinuation must release its people exactly as cancelling one session does.
+         */
+        var ctx = await SeedAsync(capacity: 5);
+        CurrentUser.TenantId = ctx.TenantId;
+        CurrentUser.UserId = ctx.StaffUserId;
+
+        Guid scheduleId;
+        using (var scope = CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+            var session = await db.ClassSessions.SingleAsync(s => s.Id == ctx.SessionId);
+            var schedule = new ClassSchedule
+            {
+                TenantId = ctx.TenantId, BranchId = session.BranchId, ClassTypeId = session.ClassTypeId,
+                DayOfWeek = DayOfWeek.Monday, StartTime = new TimeOnly(18, 0),
+                DurationMinutes = 45, Capacity = 5, IsActive = true
+            };
+            db.ClassSchedules.Add(schedule);
+            session.ClassScheduleId = schedule.Id;
+            await db.SaveChangesAsync();
+            scheduleId = schedule.Id;
+        }
+
+        await SendAsync(new BookClassSessionCommand(ctx.SessionId, ctx.MemberA));
+        await SendAsync(new BookClassSessionCommand(ctx.SessionId, ctx.MemberB));
+
+        await SendAsync(new SetClassScheduleActiveCommand(scheduleId, IsActive: false));
+
+        using var verify = CreateScope();
+        var verifyDb = verify.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        (await verifyDb.ClassSessions.SingleAsync(s => s.Id == ctx.SessionId))
+            .Status.ShouldBe(ClassSessionStatus.Cancelled);
+        (await verifyDb.ClassBookings.Where(b => b.ClassSessionId == ctx.SessionId).Select(b => b.Status).ToListAsync())
+            .ShouldAllBe(s => s == ClassBookingStatus.Cancelled);
+    }
+
+    [Fact]
+    public async Task The_database_itself_refuses_a_second_active_booking_when_application_checks_are_bypassed()
+    {
+        /*
+         * The handler's "already booked" guard is a read-then-write, and under concurrency every
+         * racer passes the read — one live member ended up with three simultaneous Booked rows on
+         * one session. The partial unique index is the version of the rule races cannot beat; this
+         * test writes around the handler on purpose to prove the DATABASE holds the line.
+         */
+        var ctx = await SeedAsync(capacity: 10);
+        // Reads below run through the fail-closed tenant filter, handler or no handler.
+        CurrentUser.TenantId = ctx.TenantId;
+        CurrentUser.UserId = ctx.StaffUserId;
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var session = await db.ClassSessions.SingleAsync(s => s.Id == ctx.SessionId);
+
+        ClassBooking Raw(ClassBookingStatus status) => new()
+        {
+            TenantId = ctx.TenantId, BranchId = session.BranchId,
+            ClassSessionId = ctx.SessionId, MemberId = ctx.MemberA,
+            Status = status, BookedAt = DateTimeOffset.UtcNow
+        };
+
+        db.ClassBookings.Add(Raw(ClassBookingStatus.Booked));
+        await db.SaveChangesAsync();
+
+        db.ClassBookings.Add(Raw(ClassBookingStatus.Waitlisted));
+        await Should.ThrowAsync<DbUpdateException>(async () => await db.SaveChangesAsync());
+        db.ChangeTracker.Clear();
+
+        // A cancelled row does not block a fresh booking — rebooking after cancelling is normal.
+        var active = await db.ClassBookings.SingleAsync(b => b.ClassSessionId == ctx.SessionId && b.MemberId == ctx.MemberA);
+        active.Status = ClassBookingStatus.Cancelled;
+        await db.SaveChangesAsync();
+
+        db.ClassBookings.Add(Raw(ClassBookingStatus.Booked));
+        await db.SaveChangesAsync();
+    }
+
     private async Task<Guid> BookingIdFor(Guid sessionId, Guid memberId)
     {
         using var scope = CreateScope();

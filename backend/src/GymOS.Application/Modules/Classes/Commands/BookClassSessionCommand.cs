@@ -31,6 +31,27 @@ public class BookClassSessionCommandHandler(IApplicationDbContext db, IDateTimeP
 {
     public async Task<ClassBookingStatus> Handle(BookClassSessionCommand request, CancellationToken cancellationToken)
     {
+        /*
+         * Serialise bookings per session. Every check below — "already booked", the occupancy count —
+         * reads state that another in-flight booking is about to change, and under load they all
+         * passed together: 12 concurrent requests against a capacity-2 session produced 6 confirmed
+         * places, and one member ended up holding 3 simultaneous Booked rows for one session (found
+         * live, on a member's own screen). An advisory lock keyed on the session makes concurrent
+         * bookings for the SAME session queue behind each other, while different sessions stay fully
+         * parallel. Transaction-scoped (TransactionBehavior wraps every command), so it releases on
+         * commit or rollback with nothing to clean up.
+         *
+         * Postgres-only by provider check: SQLite (the test harness) runs single-threaded, and the
+         * duplicate-booking half of the race is also closed structurally by the partial unique index
+         * on active (session, member) rows — the lock is what protects the CAPACITY half.
+         */
+        if (db.Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
+        {
+            await db.Database.ExecuteSqlAsync(
+                $"SELECT pg_advisory_xact_lock(hashtextextended({request.ClassSessionId.ToString()}, 0))",
+                cancellationToken);
+        }
+
         var session = await db.ClassSessions.FirstOrDefaultAsync(s => s.Id == request.ClassSessionId, cancellationToken)
             ?? throw new NotFoundException(nameof(ClassSession), request.ClassSessionId);
 

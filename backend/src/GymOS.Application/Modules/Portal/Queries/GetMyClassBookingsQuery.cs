@@ -26,6 +26,9 @@ public class GetMyClassBookingsQueryHandler(IApplicationDbContext db, ICurrentUs
             .Include(b => b.ClassSession!).ThenInclude(s => s.Trainer!).ThenInclude(t => t.User)
             .Where(b => b.MemberId == memberId
                         && (b.Status == ClassBookingStatus.Booked || b.Status == ClassBookingStatus.Waitlisted)
+                        // Belt to the write-side braces: session cancellation releases bookings, but
+                        // rows stranded before that fix must still never render as classes to attend.
+                        && b.ClassSession!.Status != ClassSessionStatus.Cancelled
                         && b.ClassSession!.StartsAt >= now)
             .OrderBy(b => b.ClassSession!.StartsAt)
             .Select(b => new MyClassBookingDto(
