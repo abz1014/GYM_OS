@@ -102,6 +102,11 @@ export function QuickLogWorkout() {
   const logWorkout = useLogMyWorkout()
 
   const [pending, setPending] = useState<PendingEntry[]>([])
+  // yyyy-mm-dd; defaults to today. The whole reason this screen exists under "Log something else"
+  // is the session you did on Tuesday and forgot — the server accepts up to 30 days back.
+  const today = new Date().toISOString().slice(0, 10)
+  const minDate = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
+  const [loggedOn, setLoggedOn] = useState(today)
   // Holds the just-logged session's result while the celebration is on screen; null means dismissed.
   const [celebration, setCelebration] = useState<MyWorkoutResult | null>(null)
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
@@ -215,13 +220,14 @@ export function QuickLogWorkout() {
       durationSeconds: p.seconds,
       distanceMeters: p.metres,
     }))
-    logWorkout.mutate(entries, {
+    logWorkout.mutate({ entries, loggedOn: loggedOn !== today ? loggedOn : undefined }, {
       // The result replaces the old toast entirely. That toast claimed a flat "+50 XP" whatever the
       // engine actually awarded, and vanished in three seconds — a poor answer to the only effort
       // the app asks a member to make.
       onSuccess: (result) => {
         setCelebration(result)
         setPending([])
+        setLoggedOn(today)
       },
       onError: () => toast.error("Couldn't save that workout."),
     })
@@ -278,7 +284,19 @@ export function QuickLogWorkout() {
       ) : null}
 
       <div>
-        <p className="mb-2 text-sm font-medium">What did you do today?</p>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium">{loggedOn === today ? 'What did you do today?' : 'What did you do?'}</p>
+          {/* The date this session actually happened — the promise on the More screen, kept. */}
+          <input
+            type="date"
+            aria-label="When was this session?"
+            className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
+            value={loggedOn}
+            min={minDate}
+            max={today}
+            onChange={(e) => setLoggedOn(e.target.value)}
+          />
+        </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {usualLifts.map((s) => (
             <div key={s.exerciseId} className="contents">

@@ -52,7 +52,18 @@ public class GetMemberByIdQueryHandler(IApplicationDbContext db) : IRequestHandl
             member.Measurements.Select(x => new MemberMeasurementDto(
                 x.Id, x.MeasuredOn, x.WeightKg, x.BodyFatPercentage, x.ChestCm, x.WaistCm, x.HipCm, x.ArmCm, x.ThighCm, x.Notes)).ToList(),
             member.ProgressPhotos.Select(p => new ProgressPhotoDto(p.Id, p.PhotoUrl, p.TakenAt, p.Notes)).ToList(),
-            member.MemberMemberships.Select(mm => new MemberMembershipDto(
+            // Deterministic order, live plan first. Unordered, two screens picked two different
+            // "current" memberships from the same payload and could show two different plans.
+            member.MemberMemberships
+                .OrderBy(mm => mm.Status switch
+                {
+                    MemberMembershipStatus.Active => 0,
+                    MemberMembershipStatus.Frozen => 1,
+                    MemberMembershipStatus.PendingActivation => 2,
+                    _ => 3,
+                })
+                .ThenByDescending(mm => mm.EndDate)
+                .Select(mm => new MemberMembershipDto(
                 mm.Id, mm.MembershipPlanId, mm.MembershipPlan?.Name ?? string.Empty, mm.StartDate, mm.EndDate,
                 mm.Status, mm.AutoRenew, mm.FreezeStartDate, mm.FreezeEndDate,
                 mm.FreezeDaysUsed, mm.MembershipPlan?.MaxFreezeDays,

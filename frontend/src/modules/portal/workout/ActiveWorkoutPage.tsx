@@ -288,7 +288,7 @@ export default function ActiveWorkoutPage() {
       toast.error('Log at least one set first.')
       return
     }
-    logWorkout.mutate(entries, {
+    logWorkout.mutate({ entries }, {
       onSuccess: (result) => {
         setCelebration(result)
         abandon()

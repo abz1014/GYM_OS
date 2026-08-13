@@ -1,9 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronRight, LogOut, QrCode } from 'lucide-react'
+import { ChevronRight, IdCard, LogOut } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useLogout } from '@/modules/auth/api/authApi'
-import { useMyToday, useMyProfile } from '@/modules/portal/api/portalApi'
+import { currentMembership, statusLabel, useMyToday, useMyProfile } from '@/modules/portal/api/portalApi'
 import { useAuthStore } from '@/stores/authStore'
 import { Bloom, GrainOverlay } from '@/shared/components/uplift'
 import { MemberLoadError } from '@/modules/portal/components/portalShared'
@@ -45,13 +45,9 @@ export default function MorePage() {
     navigate('/login')
   }
 
-  /**
-   * The membership actually in force. Members carry a history of them (renewals are new rows), so
-   * the latest-ending one is the current plan; an expired-only history correctly yields the most
-   * recent, which is what its own "Expired" badge should then say.
-   */
-  const membership = [...(profile.data?.memberMemberships ?? [])]
-    .sort((a, b) => b.endDate.localeCompare(a.endDate))[0]
+  // The membership actually in force — the shared helper, so this card and the membership page can
+  // never name two different plans for the same person (they used to sort differently).
+  const membership = currentMembership(profile.data?.memberMemberships)
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -117,17 +113,20 @@ export default function MorePage() {
                   : 'shrink-0 rounded-full bg-muted px-3 py-1 text-[11px] font-bold tracking-wider text-muted-foreground uppercase'
               }
             >
-              {profile.data.status}
+              {statusLabel(profile.data.status)}
             </span>
           </div>
 
           <div className="relative mt-4 flex items-center gap-3 border-t border-border pt-4">
+            {/* An ID card, not a QR glyph: nothing in this app renders a scannable code, and an icon
+                that promises one sends members waving their phone at a scanner that will never
+                answer. The desk matches on the typed code. */}
             <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-volt">
-              <QrCode className="size-6" />
+              <IdCard className="size-6" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                Member code
+                Member code — show at the front desk
               </span>
               <span className="block truncate font-display text-lg font-black tracking-tight tabular-nums">
                 {profile.data.memberCode}

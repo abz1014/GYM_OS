@@ -359,6 +359,9 @@ function LogMeasurementsTab() {
   const logMeasurement = useLogMyMeasurement()
   const [values, setValues] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState('')
+  const today = new Date().toISOString().slice(0, 10)
+  const minDate = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
+  const [measuredOn, setMeasuredOn] = useState(today)
 
   const hasAny = MEASUREMENT_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== '')
 
@@ -374,12 +377,14 @@ function LogMeasurementsTab() {
         armCm: num('armCm'),
         thighCm: num('thighCm'),
         notes: notes.trim() || null,
+        measuredOn: measuredOn !== today ? measuredOn : undefined,
       },
       {
         onSuccess: () => {
           toast.success('Measurements saved — your progress chart just updated.')
           setValues({})
           setNotes('')
+          setMeasuredOn(today)
         },
         onError: () => toast.error("Couldn't save those measurements."),
       },
@@ -388,9 +393,18 @@ function LogMeasurementsTab() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center gap-2">
+      <CardHeader className="flex flex-row flex-wrap items-center gap-2">
         <Ruler className="size-4 text-violet-500" />
-        <CardTitle className="text-base">Today's measurements</CardTitle>
+        <CardTitle className="text-base">{measuredOn === today ? "Today's measurements" : 'Measurements'}</CardTitle>
+        <input
+          type="date"
+          aria-label="When were these taken?"
+          className="ml-auto rounded-lg border border-input bg-background px-2 py-1 text-xs"
+          value={measuredOn}
+          min={minDate}
+          max={today}
+          onChange={(e) => setMeasuredOn(e.target.value)}
+        />
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

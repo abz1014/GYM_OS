@@ -8,6 +8,9 @@ import { StatCard } from '@/shared/components/StatCard'
 import { useAuthStore } from '@/stores/authStore'
 import { MemberLoadError, SectionCard, dateFormat, dateTimeFormat, classTimeFormat } from '@/modules/portal/components/portalShared'
 import {
+  checkInMethodLabel,
+  currentMembership,
+  statusLabel,
   useMyAttendance,
   useMyClassBookings,
   useMyExperience,
@@ -46,10 +49,14 @@ export default function MemberPortalPage() {
     )
   }
 
-  const activeMembership = profile.data?.memberMemberships.find((m) => m.status === 'Active')
-  const currentPlanLabel = activeMembership
-    ? `${activeMembership.membershipPlanName} — active through ${dateFormat.format(new Date(activeMembership.endDate))}`
-    : (profile.data?.memberMemberships[0]?.status ?? 'No membership on file')
+  // The same helper the More card uses — the two screens used to compute "current" differently
+  // and could name different plans for the same person.
+  const membership = currentMembership(profile.data?.memberMemberships)
+  const currentPlanLabel = membership?.status === 'Active'
+    ? `${membership.membershipPlanName} — active through ${dateFormat.format(new Date(membership.endDate))}`
+    : membership
+      ? `${membership.membershipPlanName} — ${statusLabel(membership.status).toLowerCase()}`
+      : 'No membership on file'
 
   return (
     <div className="space-y-6">
@@ -203,7 +210,7 @@ export default function MemberPortalPage() {
               {attendance.data.items.slice(0, 8).map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-2 border-b pb-2 last:border-0">
                   <span>{dateTimeFormat.format(new Date(a.checkInAt))}</span>
-                  <span className="text-xs text-muted-foreground">{a.method}</span>
+                  <span className="text-xs text-muted-foreground">{checkInMethodLabel(a.method)}</span>
                 </li>
               ))}
             </ul>

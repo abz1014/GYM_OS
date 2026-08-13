@@ -283,6 +283,9 @@ export interface MyExerciseSuggestion {
   /** Canonical key. Cross-referenced against MuscleRecovery.muscleGroupKey — both resolve the same
    *  way server-side, so a fatigued group can never fail to hold back its own exercises. */
   muscleGroupKey: string
+  /** Every canonical group the movement touches, primary and secondary — what the Train headline
+   *  classifies the day by, so a deadlift can never read as pure upper body. */
+  allMuscleGroupKeys: string[]
   suggestion: OverloadSuggestion
   lastWeightKg: number | null
   lastTotalReps: number | null
@@ -1041,8 +1044,10 @@ export function useOfferUndo() {
 export function useLogMyWorkout() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (entries: WorkoutEntryInput[]) =>
-      (await apiClient.post<MyWorkoutResult>('/api/me/workouts', { entries })).data,
+    // loggedOn (yyyy-mm-dd, up to 30 days back) is what makes "log a past workout" a true sentence;
+    // omitted, the server stamps now — the live-session path.
+    mutationFn: async (input: { entries: WorkoutEntryInput[]; loggedOn?: string }) =>
+      (await apiClient.post<MyWorkoutResult>('/api/me/workouts', input)).data,
     onSuccess: () => invalidateAfterLogging(queryClient),
   })
 }
@@ -1078,6 +1083,8 @@ export interface LogMeasurementInput {
   armCm: number | null
   thighCm: number | null
   notes: string | null
+  /** yyyy-mm-dd, up to 30 days back; omitted means today. */
+  measuredOn?: string
 }
 
 export function useLogMyMeasurement() {
@@ -1201,4 +1208,38 @@ export function useMyPassport() {
     queryFn: async () => (await apiClient.get<MyPassport>('/api/me/passport')).data,
     retry: false,
   })
+}
+
+// ── Shared readings of the profile payload ──────────────────────────────────────────────────────
+
+/**
+ * The one definition of "the membership that matters right now": live statuses first
+ * (Active, then Frozen, then PendingActivation), latest end date as the tiebreak.
+ *
+ * This exists because two screens each invented their own reading — one took the first Active row
+ * with `[0]` as a fallback, the other sorted by end date alone — and the backend used to return the
+ * list unordered, so the More card and the Membership page could name two different plans for the
+ * same person. The server now orders the list the same way; this helper keeps every screen honest
+ * even against a cached older payload.
+ */
+export function currentMembership<T extends { status: string; endDate: string }>(
+  memberships: T[] | undefined,
+): T | undefined {
+  if (!memberships?.length) return undefined
+  const rank = (s: string) => (s === 'Active' ? 0 : s === 'Frozen' ? 1 : s === 'PendingActivation' ? 2 : 3)
+  return [...memberships].sort((a, b) => rank(a.status) - rank(b.status) || b.endDate.localeCompare(a.endDate))[0]
+}
+
+/** Backend enum values are identifiers, not sentences — "PendingActivation" is not something to
+ *  print at a member. Splits camel case into words; already-single words pass through untouched. */
+export function statusLabel(value: string): string {
+  return value.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+}
+
+/** Check-in methods as a member should read them. "QrSimulated" is a developer's word — it leaked
+ *  verbatim into the member's own check-in history. */
+export function checkInMethodLabel(method: string): string {
+  if (method === 'QrSimulated') return 'QR scan'
+  if (method === 'Manual') return 'Front desk'
+  return statusLabel(method)
 }

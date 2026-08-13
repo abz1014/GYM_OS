@@ -98,7 +98,7 @@ const STATUS_COLOR: Record<RecoveryStatus, string> = {
 
 // ── Derivation: the logic that matters more than the pixels ─────────────────────────────────────
 
-const UPPER = ['Chest', 'Back', 'Shoulders', 'Arms', 'Core']
+const UPPER_KEYS = ['chest', 'back', 'shoulders', 'arms', 'core']
 
 /**
  * Two or three words, the largest type on screen, derived from what today's list actually targets —
@@ -106,14 +106,18 @@ const UPPER = ['Chest', 'Back', 'Shoulders', 'Arms', 'Core']
  *
  * The plan name is never the headline. "Strength Base" does not tell you what to do this afternoon;
  * "Upper body today" does. The plan is the eyebrow above it.
+ *
+ * Classified over EVERYTHING each movement touches, not just its primary — a deadlift's primary is
+ * back, and filing it by that alone put it under "Upper body today", which any lifter reads as
+ * wrong. If any movement in the list reaches legs, the day is not an upper-body day.
  */
-function headlineFor(status: RecoveryStatus, targetGroups: string[]): string {
+function headlineFor(status: RecoveryStatus, targetKeys: string[]): string {
   if (status === 'OvertrainingRisk') return 'Rest today'
   if (status === 'Fatigued') return 'Keep it light'
-  if (targetGroups.length === 0) return 'First session'
+  if (targetKeys.length === 0) return 'First session'
 
-  const hasLegs = targetGroups.includes('Legs')
-  const hasUpper = targetGroups.some((g) => UPPER.includes(g))
+  const hasLegs = targetKeys.includes('legs')
+  const hasUpper = targetKeys.some((k) => UPPER_KEYS.includes(k))
 
   if (hasLegs && hasUpper) return 'Full body today'
   if (hasLegs) return 'Legs today'
@@ -513,8 +517,10 @@ export default function MyTrainingPage() {
   const { today, rest, blocked } = useMemo(() => splitSuggestions(suggestions.data ?? [], rec), [suggestions.data, rec])
 
   const targetKeys = useMemo(() => [...new Set(today.map((s) => s.muscleGroupKey))], [today])
-  const targetGroups = useMemo(
-    () => [...new Set(today.map((s) => s.muscleGroup).filter((g): g is string => !!g))],
+  // For the headline: everything today's movements touch, secondaries included — with the primary
+  // as fallback for exercises created before the multi-muscle data existed.
+  const allTouchedKeys = useMemo(
+    () => [...new Set(today.flatMap((s) => (s.allMuscleGroupKeys?.length ? s.allMuscleGroupKeys : [s.muscleGroupKey])))],
     [today],
   )
 
@@ -571,7 +577,7 @@ export default function MyTrainingPage() {
   const failed = isStale(workouts) || isStale(recovery) || isStale(suggestions)
   const isNewMember = !failed && !workouts.isLoading && sessions.length === 0
   const lighten = status === 'Fatigued'
-  const headline = failed ? 'Train today' : isNewMember ? 'First session' : headlineFor(status, targetGroups)
+  const headline = failed ? 'Train today' : isNewMember ? 'First session' : headlineFor(status, allTouchedKeys)
 
   return (
     /*

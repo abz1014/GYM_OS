@@ -24,5 +24,8 @@ public record MyNutritionSummaryDto(
 /// their own screen has just marked as needing rest.</param>
 public record MyExerciseSuggestionDto(
     Guid ExerciseId, string ExerciseName, string? MuscleGroup, string MuscleGroupKey,
+    // Every canonical group the movement touches, primary and secondary alike — the Train screen's
+    // headline reads this, because a deadlift classified by its primary alone is "upper body".
+    IReadOnlyList<string> AllMuscleGroupKeys,
     OverloadSuggestion Suggestion,
     decimal? LastWeightKg, int? LastTotalReps, decimal? SuggestedNextWeightKg, DateTimeOffset LastLoggedAt);

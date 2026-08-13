@@ -56,6 +56,16 @@ public class GetMyWorkoutSuggestionsQueryHandler(IApplicationDbContext db, ICurr
             .Where(e => exerciseIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id, cancellationToken);
 
+        // Everything a movement touches, not just its primary. The Train screen's headline reads
+        // this list: classifying a deadlift by its primary alone ("Back") filed it under
+        // "Upper body today", which any lifter reads as wrong — its secondaries include legs.
+        var muscleKeysByExercise = (await db.ExerciseMuscles.AsNoTracking()
+                .Where(m => exerciseIds.Contains(m.ExerciseId))
+                .Select(m => new { m.ExerciseId, m.MuscleGroupKey })
+                .ToListAsync(cancellationToken))
+            .GroupBy(m => m.ExerciseId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(m => m.MuscleGroupKey).Distinct().ToList());
+
         var results = new List<MyExerciseSuggestionDto>();
         foreach (var group in sessionsByExercise)
         {
@@ -96,8 +106,12 @@ public class GetMyWorkoutSuggestionsQueryHandler(IApplicationDbContext db, ICurr
             // same free-text column would quietly stop the two agreeing.
             var muscle = MuscleGroupVocabulary.Resolve(exercise.MuscleGroup);
 
+            // Exercises created before the multi-muscle work carry no ExerciseMuscles rows;
+            // their primary is then the whole truth we have.
+            var allKeys = muscleKeysByExercise.TryGetValue(exercise.Id, out var keys) ? keys : [muscle.Key];
+
             results.Add(new MyExerciseSuggestionDto(
-                exercise.Id, exercise.Name, muscle.DisplayName, muscle.Key, suggestion,
+                exercise.Id, exercise.Name, muscle.DisplayName, muscle.Key, allKeys, suggestion,
                 last.MaxWeightKg > 0 ? last.MaxWeightKg : null, last.TotalReps, suggestedNextWeight, last.LoggedAt));
         }
 

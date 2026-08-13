@@ -22,7 +22,13 @@ public record WorkoutLogEntryInput(
     int? DurationSeconds = null,
     decimal? DistanceMeters = null);
 
-public record LogWorkoutCommand(Guid MemberId, Guid? WorkoutTemplateId, IReadOnlyList<WorkoutLogEntryInput> Entries) : ICommand<Guid>;
+/// <param name="LoggedOn">The day the session actually happened, when it is being recorded after the
+/// fact. Null means "now". Safe to backdate because every consumer of this log — XP, personal
+/// records, mastery, streaks, the week ring — reads the log's own LoggedAt rather than the clock at
+/// write time; the nav's promise of "a past workout" was a lie until this parameter existed.</param>
+public record LogWorkoutCommand(
+    Guid MemberId, Guid? WorkoutTemplateId, IReadOnlyList<WorkoutLogEntryInput> Entries,
+    DateOnly? LoggedOn = null) : ICommand<Guid>;
 
 /// <summary>
 /// The shape rules, on the SHARED command rather than only the member-facing one.
@@ -116,11 +122,22 @@ public class LogWorkoutCommandHandler(IApplicationDbContext db, IDateTimeProvide
             }
         }
 
+        if (request.LoggedOn is { } loggedOn
+            && loggedOn > DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime))
+        {
+            throw new ValidationException("A workout cannot be logged for a day that has not happened yet.");
+        }
+
         var log = new WorkoutLog
         {
             MemberId = request.MemberId,
             WorkoutTemplateId = request.WorkoutTemplateId,
-            LoggedAt = dateTimeProvider.UtcNow
+            // Noon UTC for a backdated day: it stays on the same calendar date through GymDay's
+            // timezone conversion for any gym zone, so the streak and ring count the day the
+            // member named rather than its neighbour.
+            LoggedAt = request.LoggedOn is { } d
+                ? new DateTimeOffset(d.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero)
+                : dateTimeProvider.UtcNow
         };
 
         foreach (var entry in request.Entries)

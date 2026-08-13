@@ -27,7 +27,11 @@ namespace GymOS.Application.Modules.Portal.Commands;
 /// command, so validation and business rules live in exactly one place and the member path can
 /// never diverge from the staff path. No command here accepts a member id from the caller.
 /// </summary>
-public record LogMyWorkoutCommand(IReadOnlyList<WorkoutLogEntryInput> Entries) : ICommand<MyWorkoutResultDto>;
+/// <param name="LoggedOn">The day the session happened, for recording one after the fact — the
+/// "Tuesday you forgot to log" job this screen exists for. Null means today. Bounded to the last
+/// 30 days so the deep history stays a staff conversation rather than a self-serve rewrite.</param>
+public record LogMyWorkoutCommand(IReadOnlyList<WorkoutLogEntryInput> Entries, DateOnly? LoggedOn = null)
+    : ICommand<MyWorkoutResultDto>;
 
 public class LogMyWorkoutCommandValidator : AbstractValidator<LogMyWorkoutCommand>
 {
@@ -73,6 +77,11 @@ public class LogMyWorkoutCommandHandler(
         var character = GymOS.Domain.Workouts.SessionCharacterPolicy.Describe(
             request.Entries.Select(e => muscleGroupById.GetValueOrDefault(e.ExerciseId)));
 
+        if (request.LoggedOn is { } loggedOn && (loggedOn > today || loggedOn < today.AddDays(-30)))
+        {
+            throw new ValidationException("A past workout can be logged up to 30 days back, and never in the future.");
+        }
+
         // Snapshot the "before" side of everything worth celebrating. Reported figures are a genuine
         // diff across the log rather than the client's guess at what the engine would award.
         var (xpBefore, levelBefore) = await ReadProgressionAsync(memberId, cancellationToken);
@@ -84,7 +93,7 @@ public class LogMyWorkoutCommandHandler(
 
         // Delegate: LogWorkoutCommand is what raises WorkoutLoggedEvent, which is what drives XP,
         // personal records, mastery, achievements, streaks and challenge progress.
-        var workoutLogId = await sender.Send(new LogWorkoutCommand(memberId, null, request.Entries), cancellationToken);
+        var workoutLogId = await sender.Send(new LogWorkoutCommand(memberId, null, request.Entries, request.LoggedOn), cancellationToken);
 
         var (xpAfter, levelAfter) = await ReadProgressionAsync(memberId, cancellationToken);
         var workoutDates = await WorkoutDatesAsync(memberId, zone, cancellationToken);
@@ -223,9 +232,11 @@ public class LogMyMealCommandHandler(
 
 /// <summary>A member recording their own body measurements — the source series behind the weight
 /// trend chart and the transformation timeline.</summary>
+/// <param name="MeasuredOn">The day the measurement was taken, for entering one after the fact.
+/// Null means today; bounded to the last 30 days like a backdated workout.</param>
 public record LogMyMeasurementCommand(
     decimal? WeightKg, decimal? BodyFatPercentage, decimal? ChestCm, decimal? WaistCm,
-    decimal? HipCm, decimal? ArmCm, decimal? ThighCm, string? Notes) : ICommand<Guid>;
+    decimal? HipCm, decimal? ArmCm, decimal? ThighCm, string? Notes, DateOnly? MeasuredOn = null) : ICommand<Guid>;
 
 public class LogMyMeasurementCommandValidator : AbstractValidator<LogMyMeasurementCommand>
 {
@@ -253,9 +264,14 @@ public class LogMyMeasurementCommandHandler(
         var zone = await MyMemberResolver.ResolveGymZoneAsync(db, memberId, cancellationToken);
         var today = GymDay.Of(dateTimeProvider.UtcNow, zone);
 
+        if (request.MeasuredOn is { } measuredOn && (measuredOn > today || measuredOn < today.AddDays(-30)))
+        {
+            throw new ValidationException("A measurement can be entered up to 30 days back, and never in the future.");
+        }
+
         return await sender.Send(
             new AddMeasurementCommand(
-                memberId, today, request.WeightKg, request.BodyFatPercentage, request.ChestCm,
+                memberId, request.MeasuredOn ?? today, request.WeightKg, request.BodyFatPercentage, request.ChestCm,
                 request.WaistCm, request.HipCm, request.ArmCm, request.ThighCm, request.Notes),
             cancellationToken);
     }
