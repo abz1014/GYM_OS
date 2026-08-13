@@ -321,7 +321,11 @@ export default function MembersListPage() {
             {/* Below the table, above the pager, and sticky — so it stays reachable while the person
                 scrolls a long list ticking boxes, which is exactly when they need it. Renders nothing
                 without a selection, and nothing for a role holding neither batch permission. */}
-            <MembersActionBar selectedIds={[...checkedIds]} onClear={() => setCheckedIds(new Set())} />
+            <MembersActionBar
+              selectedIds={[...checkedIds]}
+              onClear={() => setCheckedIds(new Set())}
+              onKeepOnly={(ids) => setCheckedIds(new Set(ids))}
+            />
 
             <Pagination
               page={data.page}

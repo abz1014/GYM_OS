@@ -712,7 +712,12 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
                       </Link>
                     )}
                     {canManageMembership && mm.status === 'Active' && (
-                      <FreezeMembershipDialog memberId={member.id} memberMembershipId={mm.id} />
+                      <FreezeMembershipDialog
+                        memberId={member.id}
+                        memberMembershipId={mm.id}
+                        freezeDaysUsed={mm.freezeDaysUsed}
+                        planMaxFreezeDays={mm.planMaxFreezeDays}
+                      />
                     )}
                     {canManageMembership && mm.status === 'Frozen' && (
                       <ResumeMembershipButton memberId={member.id} memberMembershipId={mm.id} />

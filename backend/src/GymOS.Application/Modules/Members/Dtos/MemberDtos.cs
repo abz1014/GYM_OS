@@ -22,9 +22,13 @@ public record MemberMeasurementDto(
 
 public record ProgressPhotoDto(Guid Id, string PhotoUrl, DateTimeOffset TakenAt, string? Notes);
 
+// FreezeDaysUsed + PlanMaxFreezeDays travel together so the freeze dialog can state the remaining
+// allowance BEFORE a request is made — until these existed, the only carrier of that number was the
+// 400 message a refused freeze came back with.
 public record MemberMembershipDto(
     Guid Id, Guid MembershipPlanId, string MembershipPlanName, DateOnly StartDate, DateOnly EndDate,
     MemberMembershipStatus Status, bool AutoRenew, DateOnly? FreezeStartDate, DateOnly? FreezeEndDate,
+    int FreezeDaysUsed, int? PlanMaxFreezeDays,
     decimal PricePaid, string Currency, Guid? InvoiceId, string? CancellationReason);
 
 public record MemberDetailDto(

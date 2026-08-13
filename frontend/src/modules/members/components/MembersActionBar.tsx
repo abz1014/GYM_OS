@@ -28,16 +28,19 @@ function reportBatch(result: BatchResult, verb: string) {
     return
   }
 
-  const reasons = [...new Set(result.outcomes.filter((o) => !o.succeeded && o.reason).map((o) => o.reason!))]
-  const shown = reasons.slice(0, 2).join(' ')
-  const more = reasons.length > 2 ? ` (+${reasons.length - 2} more reasons)` : ''
+  // WHO, then why. The DTO carries a name per outcome precisely so this toast can say which six
+  // were skipped — a count with an anonymous reason left staff scanning 20 rows for the difference.
+  const failures = result.outcomes.filter((o) => !o.succeeded)
+  const named = failures.slice(0, 3).map((o) => `${o.memberName ?? 'Unknown member'} — ${o.reason ?? 'no reason given'}`)
+  const more = failures.length > 3 ? ` (+${failures.length - 3} more)` : ''
+  const shown = named.join('; ') + more
 
   if (result.succeeded === 0) {
-    toast.error(`Nothing ${verb}. ${shown}${more}`)
+    toast.error(`Nothing ${verb}. ${shown}`, { duration: 10000 })
     return
   }
 
-  toast.warning(`${result.succeeded} of ${result.requested} ${verb}. ${result.failed} skipped: ${shown}${more}`)
+  toast.warning(`${result.succeeded} of ${result.requested} ${verb}. Skipped: ${shown}`, { duration: 10000 })
 }
 
 /** Today, and a fortnight out — the shape of freeze most members ask for, still fully editable. */
@@ -58,10 +61,14 @@ function defaultRange() {
  * a BULK button that 403s would be that failure multiplied by the size of the selection.
  */
 export function MembersActionBar({
-  selectedIds, onClear,
+  selectedIds, onClear, onKeepOnly,
 }: {
   selectedIds: string[]
   onClear: () => void
+  /** Shrink the selection to just these members — how a partial batch leaves only the failures
+      selected, so pressing the action again retries the skipped six rather than re-submitting all
+      twenty (where the fourteen just-frozen would each fail with "no active membership"). */
+  onKeepOnly: (memberIds: string[]) => void
 }) {
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const [freezeOpen, setFreezeOpen] = useState(false)
@@ -88,9 +95,10 @@ export function MembersActionBar({
         onSuccess: (result) => {
           reportBatch(result, 'frozen')
           setFreezeOpen(false)
-          // Only clear when every member went through. A partial result leaves the selection intact
-          // so the person can see what they were acting on and retry the ones that were skipped.
+          // Full success clears the selection; a partial one keeps ONLY the skipped members
+          // selected, so the visible selection matches the toast and a retry acts on exactly them.
           if (result.failed === 0) onClear()
+          else onKeepOnly(result.outcomes.filter((o) => !o.succeeded).map((o) => o.memberId))
         },
         onError: () => toast.error('Could not freeze the selected memberships.'),
       },
@@ -106,6 +114,7 @@ export function MembersActionBar({
           setNoteOpen(false)
           setNote('')
           if (result.failed === 0) onClear()
+          else onKeepOnly(result.outcomes.filter((o) => !o.succeeded).map((o) => o.memberId))
         },
         onError: () => toast.error('Could not add the note.'),
       },
@@ -143,8 +152,9 @@ export function MembersActionBar({
           <DialogHeader>
             <DialogTitle>Freeze {count} {count === 1 ? 'membership' : 'memberships'}</DialogTitle>
             <DialogDescription>
-              Each plan sets its own maximum freeze length, so members on a plan that allows less than
-              this will be skipped and listed back to you.
+              Each plan sets its own maximum, and freeze days already taken count against it — so a
+              member whose plan allows less than this, or who has spent their allowance, is skipped
+              and named back to you.
             </DialogDescription>
           </DialogHeader>
 

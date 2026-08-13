@@ -10,7 +10,14 @@ export function ResumeMembershipButton({ memberId, memberMembershipId }: { membe
   const handleResume = () => {
     resumeMembership.mutate(memberMembershipId, {
       onSuccess: () => toast.success('Membership resumed.'),
-      onError: () => toast.error('Could not resume membership.'),
+      // Surface the server's reason ("Only a frozen membership can be resumed.") — this button
+      // only renders on Frozen rows, so when it does 400 it is a stale-cache situation and the
+      // generic text explained nothing.
+      onError: (err) =>
+        toast.error(
+          (err as { response?: { data?: { title?: string } } })?.response?.data?.title
+            ?? 'Could not resume membership.'
+        ),
     })
   }
 

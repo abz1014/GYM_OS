@@ -54,7 +54,9 @@ public class GetMemberByIdQueryHandler(IApplicationDbContext db) : IRequestHandl
             member.ProgressPhotos.Select(p => new ProgressPhotoDto(p.Id, p.PhotoUrl, p.TakenAt, p.Notes)).ToList(),
             member.MemberMemberships.Select(mm => new MemberMembershipDto(
                 mm.Id, mm.MembershipPlanId, mm.MembershipPlan?.Name ?? string.Empty, mm.StartDate, mm.EndDate,
-                mm.Status, mm.AutoRenew, mm.FreezeStartDate, mm.FreezeEndDate, mm.PricePaid, mm.Currency, mm.InvoiceId,
+                mm.Status, mm.AutoRenew, mm.FreezeStartDate, mm.FreezeEndDate,
+                mm.FreezeDaysUsed, mm.MembershipPlan?.MaxFreezeDays,
+                mm.PricePaid, mm.Currency, mm.InvoiceId,
                 mm.CancellationReason)).ToList());
     }
 }

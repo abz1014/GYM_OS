@@ -122,6 +122,107 @@ public class RecurringBillingJobTests : ApplicationTestBase
         (await db.Invoices.IgnoreQueryFilters().CountAsync(i => i.Notes!.StartsWith("Auto-renewal"))).ShouldBe(1);
     }
 
+    [Fact]
+    public async Task A_membership_cancelled_after_the_renewal_was_raised_is_neither_charged_nor_revived()
+    {
+        /*
+         * Found adversarially, chasing the freeze-resurrection bug into the job: attempts were
+         * selected by THEIR status and nothing re-read the membership's, so a membership cancelled
+         * between raise and collection still had its card charged — and the success path then set it
+         * back to Active, CancellationReason and all. A background job must not overrule a member's
+         * decision to leave, and it especially must not bill them for doing so.
+         */
+        await SeedAsync(dueMemberships: 1);
+
+        await RunJobAsync(alwaysSucceed: false); // raises the attempt, first charge declines
+
+        using (var scope = CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+            var membership = await db.MemberMemberships.IgnoreQueryFilters().SingleAsync();
+            membership.Status = MemberMembershipStatus.Cancelled;
+            membership.CancellationReason = "member quit";
+            await db.SaveChangesAsync();
+        }
+
+        DateTimeProvider.UtcNow = DateTimeProvider.UtcNow.AddDays(7); // the retry comes due
+        await RunJobAsync(alwaysSucceed: true);                       // and the card would work
+
+        using var verify = CreateScope();
+        var verifyDb = verify.ServiceProvider.GetRequiredService<GymOsDbContext>();
+
+        var attempt = await verifyDb.RecurringBillingAttempts.IgnoreQueryFilters().SingleAsync();
+        attempt.Status.ShouldBe(RecurringBillingStatus.Abandoned);
+
+        (await verifyDb.Payments.IgnoreQueryFilters().CountAsync()).ShouldBe(0); // nothing left the card
+
+        var after = await verifyDb.MemberMemberships.IgnoreQueryFilters().SingleAsync();
+        after.Status.ShouldBe(MemberMembershipStatus.Cancelled);
+        after.CancellationReason.ShouldBe("member quit");
+    }
+
+    [Fact]
+    public async Task A_paid_renewal_extends_but_does_not_unfreeze_a_member_requested_freeze()
+    {
+        /*
+         * The success path set Status = Active unconditionally, which stomped a member's real freeze
+         * — window still on the row, nothing credited. A member-requested freeze is recognisable by
+         * its window (the dunning suspension never sets one), so a paid renewal now extends the
+         * membership and leaves the pause running.
+         */
+        await SeedAsync(dueMemberships: 1);
+
+        await RunJobAsync(alwaysSucceed: false); // raises the attempt
+
+        var today = DateOnly.FromDateTime(DateTimeProvider.UtcNow.UtcDateTime);
+        using (var scope = CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+            var membership = await db.MemberMemberships.IgnoreQueryFilters().SingleAsync();
+            membership.Status = MemberMembershipStatus.Frozen; // the member froze in the meantime
+            membership.FreezeStartDate = today;
+            membership.FreezeEndDate = today.AddDays(14);
+            await db.SaveChangesAsync();
+        }
+
+        DateTimeProvider.UtcNow = DateTimeProvider.UtcNow.AddDays(7);
+        await RunJobAsync(alwaysSucceed: true);
+
+        using var verify = CreateScope();
+        var verifyDb = verify.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var after = await verifyDb.MemberMemberships.IgnoreQueryFilters().SingleAsync();
+
+        after.Status.ShouldBe(MemberMembershipStatus.Frozen); // the pause survives the payment
+        after.FreezeStartDate.ShouldBe(today);                // window untouched, still creditable
+        after.EndDate.ShouldBeGreaterThan(today);             // but the paid period was granted
+    }
+
+    [Fact]
+    public async Task An_auto_renewal_grants_the_new_period_a_fresh_freeze_allowance()
+    {
+        // Manual renewal creates a new row whose FreezeDaysUsed is zero; auto-renewal reuses the
+        // row, so without this reset the two paths quietly sold different products — one allowance
+        // per period over the counter, one per lifetime on autopay.
+        await SeedAsync(dueMemberships: 1);
+
+        using (var scope = CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+            var membership = await db.MemberMemberships.IgnoreQueryFilters().SingleAsync();
+            membership.FreezeDaysUsed = 12; // spent during the period now ending
+            await db.SaveChangesAsync();
+        }
+
+        await RunJobAsync(alwaysSucceed: true);
+
+        using var verify = CreateScope();
+        var verifyDb = verify.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        var after = await verifyDb.MemberMemberships.IgnoreQueryFilters().SingleAsync();
+
+        after.Status.ShouldBe(MemberMembershipStatus.Active);
+        after.FreezeDaysUsed.ShouldBe(0);
+    }
+
     private async Task<int> RunJobAsync(bool alwaysSucceed)
     {
         using var scope = CreateScope();

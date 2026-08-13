@@ -131,6 +131,26 @@ public class RecurringBillingJob(
         foreach (var attempt in dueAttempts)
         {
             /*
+             * A dead membership is not collected on, full stop.
+             *
+             * Attempts are selected by THEIR status, and nothing here re-read the membership's — so
+             * a membership cancelled between the attempt being raised and this run still got its
+             * card charged, and the success path below then set it back to Active: a membership the
+             * member explicitly ended, revived and billed by a background job. Cancel now abandons
+             * its pending attempts at decision time; this guard covers attempts that predate that
+             * fix and any future path that forgets to.
+             *
+             * Expired is deliberately NOT in this list: an auto-renewing membership that ticked past
+             * its EndDate before collection is the normal renewal case, not a decision to leave.
+             */
+            if (attempt.MemberMembership?.Status is MemberMembershipStatus.Cancelled or MemberMembershipStatus.Transferred)
+            {
+                attempt.Status = RecurringBillingStatus.Abandoned;
+                attempt.LastFailureReason = "Membership was cancelled before the renewal was collected.";
+                continue;
+            }
+
+            /*
              * Charge what is still owed, not what the attempt was raised for.
              *
              * This charged attempt.Amount — the full renewal — no matter what had happened to the
@@ -256,13 +276,31 @@ public class RecurringBillingJob(
         {
             membership.StartDate = membership.EndDate;
             membership.EndDate = membership.EndDate.AddDays(membership.MembershipPlan.DurationDays);
-            membership.Status = MemberMembershipStatus.Active;
             membership.InvoiceId = attempt.InvoiceId;
 
-            var member = await db.Members.IgnoreQueryFilters().FirstOrDefaultAsync(m => m.Id == membership.MemberId, cancellationToken);
-            if (member is not null && member.Status is MemberStatus.Expired or MemberStatus.Frozen)
+            // A new paid period starts with its freeze allowance intact — the same deal a manual
+            // renewal gets, which creates a fresh row whose FreezeDaysUsed is zero. Before this
+            // reset the two renewal paths quietly disagreed: auto-renewers spent one allowance for
+            // the life of the row, walk-up renewers got a new one every period.
+            membership.FreezeDaysUsed = 0;
+
+            /*
+             * Guarded, where it used to be unconditional. This line was how a paid renewal stomped
+             * a member's real freeze back to Active — window still on the row, nothing credited —
+             * and how a cancelled membership came back from the dead (that path is now also cut off
+             * before the charge, above). A member-requested freeze is recognisable by its window;
+             * the dunning suspension below never sets one, so a paid-up dunning-frozen membership
+             * still returns to Active here, which is the point of paying.
+             */
+            if (membership.FreezeStartDate is null)
             {
-                member.Status = MemberStatus.Active;
+                membership.Status = MemberMembershipStatus.Active;
+
+                var member = await db.Members.IgnoreQueryFilters().FirstOrDefaultAsync(m => m.Id == membership.MemberId, cancellationToken);
+                if (member is not null && member.Status is MemberStatus.Expired or MemberStatus.Frozen)
+                {
+                    member.Status = MemberStatus.Active;
+                }
             }
         }
     }
@@ -284,9 +322,14 @@ public class RecurringBillingJob(
         // Out of retries: stop chasing and suspend access until someone settles it.
         attempt.Status = RecurringBillingStatus.Abandoned;
 
-        if (attempt.MemberMembership is not null)
+        // Only an Active membership gets suspended. Unguarded, this flipped ANY status to Frozen —
+        // including Cancelled, which then satisfied Resume's only entry check and let a cancelled
+        // membership walk back to Active without ever passing Reactivate. Note the suspension sets
+        // no freeze window: this is not a member freeze, spends no allowance, and resuming it
+        // credits nothing.
+        if (attempt.MemberMembership is { Status: MemberMembershipStatus.Active } suspended)
         {
-            attempt.MemberMembership.Status = MemberMembershipStatus.Frozen;
+            suspended.Status = MemberMembershipStatus.Frozen;
         }
 
         if (attempt.Invoice is not null)

@@ -46,13 +46,15 @@ public class BatchFreezeMembershipsCommandValidator : AbstractValidator<BatchFre
 /// not found: a batch endpoint must not become an oracle that confirms a member id exists in a
 /// branch the caller cannot see.
 /// </summary>
-public class BatchFreezeMembershipsCommandHandler(IApplicationDbContext db, ICurrentUserService currentUser)
+public class BatchFreezeMembershipsCommandHandler(
+    IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
     : IRequestHandler<BatchFreezeMembershipsCommand, BatchResultDto>
 {
     public async Task<BatchResultDto> Handle(BatchFreezeMembershipsCommand request, CancellationToken cancellationToken)
     {
         var accessibleBranchIds = await BranchAccessResolver.GetAccessibleBranchIdsAsync(db, currentUser, cancellationToken);
         var requestedIds = request.MemberIds.Distinct().ToList();
+        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime);
 
         var members = await db.Members
             .Where(m => requestedIds.Contains(m.Id) && accessibleBranchIds.Contains(m.BranchId))
@@ -83,7 +85,11 @@ public class BatchFreezeMembershipsCommandHandler(IApplicationDbContext db, ICur
             }
 
             var maxFreezeDays = membership.MembershipPlan?.MaxFreezeDays ?? MembershipFreezePolicy.NoFreezeAllowance;
-            var (allowed, reason) = MembershipFreezePolicy.Evaluate(maxFreezeDays, request.FreezeStartDate, request.FreezeEndDate);
+            // Same cumulative allowance as the single-membership path — a rule that only one of two
+            // callers enforces is not a rule.
+            var (allowed, reason) = MembershipFreezePolicy.Evaluate(
+                maxFreezeDays, membership.FreezeDaysUsed, membership.StartDate, today,
+                request.FreezeStartDate, request.FreezeEndDate);
             if (!allowed)
             {
                 outcomes.Add(new BatchMemberOutcomeDto(id, name, false, reason));

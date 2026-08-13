@@ -35,6 +35,8 @@ export interface MemberMembership {
   autoRenew: boolean
   freezeStartDate: string | null
   freezeEndDate: string | null
+  freezeDaysUsed: number
+  planMaxFreezeDays: number | null
   pricePaid: number
   currency: string
   invoiceId: string | null

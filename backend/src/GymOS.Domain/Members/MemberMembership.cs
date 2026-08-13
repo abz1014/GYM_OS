@@ -25,6 +25,15 @@ public class MemberMembership : BaseEntity
 
     public DateOnly? FreezeEndDate { get; set; }
 
+    /// <summary>
+    /// Freeze days this membership has already consumed and been credited for, across every freeze
+    /// it has ever had.
+    ///
+    /// Without this the plan's MaxFreezeDays was a per-REQUEST limit rather than a per-MEMBERSHIP
+    /// one, so the same allowance could be spent again on every cycle. See MembershipFreezePolicy.
+    /// </summary>
+    public int FreezeDaysUsed { get; set; }
+
     public decimal PricePaid { get; set; }
 
     public string Currency { get; set; } = string.Empty;

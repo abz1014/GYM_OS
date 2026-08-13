@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -15,13 +16,23 @@ import {
 } from '@/components/ui/dialog'
 import { useFreezeMembership } from '@/modules/members/api/membersApi'
 
-export function FreezeMembershipDialog({ memberId, memberMembershipId }: { memberId: string; memberMembershipId: string }) {
+export function FreezeMembershipDialog({
+  memberId, memberMembershipId, freezeDaysUsed, planMaxFreezeDays,
+}: {
+  memberId: string
+  memberMembershipId: string
+  /** Both come off the membership row itself, so the sentence below is real data, not a guess. */
+  freezeDaysUsed: number
+  planMaxFreezeDays: number | null
+}) {
   const [open, setOpen] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
   const [freezeStartDate, setFreezeStartDate] = useState(today)
   const [freezeEndDate, setFreezeEndDate] = useState(today)
 
   const freeze = useFreezeMembership(memberId)
+
+  const remaining = planMaxFreezeDays !== null ? Math.max(0, planMaxFreezeDays - freezeDaysUsed) : null
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +43,14 @@ export function FreezeMembershipDialog({ memberId, memberMembershipId }: { membe
           toast.success('Membership frozen.')
           setOpen(false)
         },
-        onError: () => toast.error('Could not freeze membership — check the plan allows freezing.'),
+        // The server's refusal names the actual rule that fired — "has N of its M freeze day(s)
+        // left", "already frozen", "starts before this membership does". The old hardcoded text
+        // told staff to check the plan when the plan was often not the problem.
+        onError: (err) =>
+          toast.error(
+            (err as { response?: { data?: { title?: string } } })?.response?.data?.title
+              ?? 'Could not freeze membership.'
+          ),
       }
     )
   }
@@ -48,6 +66,15 @@ export function FreezeMembershipDialog({ memberId, memberMembershipId }: { membe
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Freeze membership</DialogTitle>
+          {/* The remaining allowance, stated BEFORE the attempt — otherwise the only carrier of
+              this number is the 400 a too-long request comes back with. */}
+          {remaining !== null && planMaxFreezeDays !== null && planMaxFreezeDays > 0 && (
+            <DialogDescription>
+              {freezeDaysUsed > 0
+                ? `This membership has ${remaining} of its ${planMaxFreezeDays} freeze days left.`
+                : `This plan allows up to ${planMaxFreezeDays} freeze days.`}
+            </DialogDescription>
+          )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">

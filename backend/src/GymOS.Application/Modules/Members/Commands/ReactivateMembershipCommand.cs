@@ -35,6 +35,13 @@ public class ReactivateMembershipCommandHandler(IApplicationDbContext db, IDateT
         membership.Status = membership.EndDate < today ? MemberMembershipStatus.Expired : MemberMembershipStatus.Active;
         membership.CancellationReason = null;
 
+        // Cancel now settles any in-flight freeze, so no window should survive to this point — but
+        // rows cancelled before that fix, and imported ones, can still carry one. Reactivation must
+        // not hand it back as an unspent freeze: it was never charged to the ledger, and an Active
+        // row with a live window is exactly the state Resume turns into free membership time.
+        membership.FreezeStartDate = null;
+        membership.FreezeEndDate = null;
+
         if (membership.Member is not null && membership.Member.Status == MemberStatus.Cancelled)
         {
             membership.Member.Status = membership.Status == MemberMembershipStatus.Expired ? MemberStatus.Expired : MemberStatus.Active;
