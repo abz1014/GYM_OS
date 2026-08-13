@@ -333,8 +333,15 @@ public class MyClientsQueryTests : ApplicationTestBase
     {
         using var scope = CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
+        // TrainerAssignment is ITenantScoped now and the tenant filter fails closed, so a fixture
+        // that omits this seeds a row the query can never see. Derived from the trainer it belongs
+        // to, so this helper keeps its two-argument shape.
+        var tenantId = await db.Trainers.IgnoreQueryFilters()
+            .Where(t => t.Id == trainerId).Select(t => t.TenantId).SingleAsync();
+
         db.TrainerAssignments.Add(new TrainerAssignment
         {
+            TenantId = tenantId,
             TrainerId = trainerId, MemberId = memberId,
             StartDate = startDate ?? new DateOnly(2026, 1, 1), IsActive = isActive,
         });

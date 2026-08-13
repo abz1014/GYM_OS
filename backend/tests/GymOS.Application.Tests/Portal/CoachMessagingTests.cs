@@ -310,6 +310,8 @@ public class CoachMessagingTests : ApplicationTestBase
         var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
         db.TrainerAssignments.Add(new TrainerAssignment
         {
+            // See above: tenant-scoped, filter fails closed.
+            TenantId = ctx.TenantId,
             TrainerId = ctx.TrainerId,
             MemberId = ctx.MemberId,
             StartDate = DateOnly.FromDateTime(Thursday.UtcDateTime).AddDays(-30),

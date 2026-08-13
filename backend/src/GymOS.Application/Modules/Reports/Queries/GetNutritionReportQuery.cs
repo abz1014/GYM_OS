@@ -48,6 +48,10 @@ public class GetNutritionReportQueryHandler(IApplicationDbContext db, IDateTimeP
             meals.Count,
             Math.Round(meals.Sum(m => m.Quantity * m.CaloriesPerServing), 0),
             waterLogs.Count,
-            waterLogs.Sum(w => w.AmountMl));
+            // Summed as long, not int. The validator now bounds new rows, but a report is a READ over
+            // whatever history already exists — including rows written before the bound, or by a
+            // future import. An aggregate that throws on its own data is the wrong failure: the
+            // report should survive bad input and let the input be fixed.
+            waterLogs.Sum(w => (long)w.AmountMl));
     }
 }

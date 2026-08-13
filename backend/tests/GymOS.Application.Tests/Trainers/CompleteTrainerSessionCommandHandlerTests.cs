@@ -101,11 +101,14 @@ public class CompleteTrainerSessionCommandHandlerTests : ApplicationTestBase
         };
         db.Members.Add(member);
 
-        var assignment = new TrainerAssignment { TrainerId = trainer.Id, MemberId = member.Id, StartDate = new DateOnly(2025, 1, 1) };
+        // TenantId is explicit on both rows below: they are ITenantScoped now, and the tenant
+        // filter fails closed, so omitting it seeds records the handler cannot find.
+        var assignment = new TrainerAssignment { TenantId = tenant.Id, TrainerId = trainer.Id, MemberId = member.Id, StartDate = new DateOnly(2025, 1, 1) };
         db.TrainerAssignments.Add(assignment);
 
         var session = new TrainerSession
         {
+            TenantId = tenant.Id,
             TrainerAssignmentId = assignment.Id,
             ScheduledAt = DateTimeOffset.UtcNow.AddDays(-1),
             DurationMinutes = 60,

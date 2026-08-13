@@ -32,7 +32,8 @@ public record NutritionFoodItemRowDto(string FoodItemName, int TimesLogged, deci
 
 public record NutritionReportDto(
     List<NutritionFoodItemRowDto> TopFoodItems, int TotalMealEntriesLogged, decimal TotalCaloriesLogged,
-    int TotalWaterLogsLogged, int TotalWaterMlLogged);
+    // long, because this is a SUM over history and an int one overflowed into a tenant-wide 500.
+    int TotalWaterLogsLogged, long TotalWaterMlLogged);
 
 public record AtRiskMemberRowDto(
     Guid MemberId, string FullName, string MemberCode, DateOnly LastCheckInDate, int DaysSinceLastVisit);

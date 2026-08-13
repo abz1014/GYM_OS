@@ -12,10 +12,29 @@ public record LogWaterCommand(Guid MemberId, int AmountMl) : ICommand<Guid>;
 
 public class LogWaterCommandValidator : AbstractValidator<LogWaterCommand>
 {
+    /// <summary>
+    /// The most water one entry can plausibly record. A five-litre drink is already generous; this is
+    /// a sanity bound on a typo, not a hydration opinion.
+    /// </summary>
+    public const int MaxAmountMl = 5_000;
+
     public LogWaterCommandValidator()
     {
         RuleFor(x => x.MemberId).NotEmpty();
-        RuleFor(x => x.AmountMl).GreaterThan(0);
+
+        /*
+         * The upper bound lives HERE, on the shared write path, and that is the whole point.
+         *
+         * It used to exist only on LogMyWaterCommand — the member's own portal — while this command,
+         * which the portal DELEGATES INTO and which staff call directly, accepted anything above
+         * zero. The strict rule guarded the weaker caller and left the stronger one open.
+         *
+         * The cost was not a silly number in a list. GetNutritionReportQuery sums AmountMl, so a
+         * single int.MaxValue row overflowed the sum and returned 500 for EVERY role, tenant-wide,
+         * until somebody deleted the row by hand. One bad staff entry took the whole Nutrition
+         * report down.
+         */
+        RuleFor(x => x.AmountMl).GreaterThan(0).LessThanOrEqualTo(MaxAmountMl);
     }
 }
 

@@ -29,6 +29,8 @@ public class MemberAssignedTrainerTests : ApplicationTestBase
             var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
             db.TrainerAssignments.Add(new TrainerAssignment
             {
+                // Tenant-scoped now; the filter fails closed if this is left at Guid.Empty.
+                TenantId = seeded.TenantId,
                 TrainerId = seeded.TrainerId,
                 MemberId = seeded.MemberId,
                 StartDate = new DateOnly(2026, 1, 1),
@@ -54,6 +56,8 @@ public class MemberAssignedTrainerTests : ApplicationTestBase
             var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
             db.TrainerAssignments.Add(new TrainerAssignment
             {
+                // Tenant-scoped now; the filter fails closed if this is left at Guid.Empty.
+                TenantId = seeded.TenantId,
                 TrainerId = seeded.TrainerId,
                 MemberId = seeded.MemberId,
                 StartDate = new DateOnly(2025, 6, 1),

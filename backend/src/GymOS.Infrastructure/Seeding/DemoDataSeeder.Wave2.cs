@@ -142,6 +142,11 @@ public partial class DemoDataSeeder
             {
                 db.TrainerAssignments.Add(new TrainerAssignment
                 {
+                    // Explicit: the seeder has no authenticated user, so the ChangeTracker's
+                    // tenant auto-stamp cannot fire and the row would land on Guid.Empty — which
+                    // the tenant filter then hides, making a freshly seeded gym look trainer-less.
+                    // Taken from the trainer it belongs to, which is tenant-scoped already.
+                    TenantId = trainer.TenantId,
                     TrainerId = trainer.Id,
                     MemberId = member.Id,
                     StartDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-rng.Next(10, 200)),

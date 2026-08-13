@@ -741,6 +741,10 @@ public partial class DemoDataSeeder
             {
                 db.TrainerAssignments.Add(new TrainerAssignment
                 {
+                    // See Wave2: no authenticated user here, so TenantId must be set by hand.
+                    // Taken from the trainer this assignment belongs to, which is tenant-scoped
+                    // already — the same "derive it from the owning row" rule the backfill uses.
+                    TenantId = headTrainer.TenantId,
                     TrainerId = headTrainer.Id,
                     MemberId = coached.Id,
                     StartDate = today.AddDays(-60),

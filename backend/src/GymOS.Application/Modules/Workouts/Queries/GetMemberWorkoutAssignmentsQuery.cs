@@ -1,5 +1,6 @@
 using GymOS.Application.Common.Interfaces;
 using GymOS.Application.Common.Messaging;
+using GymOS.Application.Common.Security;
 using GymOS.Application.Modules.Workouts.Dtos;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,11 @@ public class GetMemberWorkoutAssignmentsQueryHandler(IApplicationDbContext db)
 {
     public async Task<List<WorkoutAssignmentListItemDto>> Handle(GetMemberWorkoutAssignmentsQuery request, CancellationToken cancellationToken)
     {
+        // Branch isolation: WorkoutLog/DietPlan/WaterLog carry no BranchId, so the global filter
+        // cannot narrow them. Ask the filtered Members set whether the caller may see this member at
+        // all — see MemberScope.
+        await MemberScope.EnsureVisibleAsync(db, request.MemberId, cancellationToken);
+
         var assignments = await db.WorkoutAssignments.AsNoTracking()
             .Where(a => a.MemberId == request.MemberId)
             .OrderByDescending(a => a.StartDate)
