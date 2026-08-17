@@ -111,3 +111,58 @@ export function useCreateCoupon() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons'] }),
   })
 }
+
+/**
+ * The kill switch discounts and coupons never had.
+ *
+ * Both entities have carried an `IsActive` flag since they were created — the redemption path reads
+ * it (`Coupon.IsRedeemable`) and the list screen already dims an inactive row. What was missing was
+ * any way to SET it: create was the only verb either had, so a code posted publicly, mispriced, or
+ * simply past its usefulness stayed live for good. A 100%-off code with no cap is unbounded revenue
+ * leakage, and the only remedy was a developer with database access.
+ *
+ * Reversible on purpose. Deleting would orphan the discount rows on invoices that already redeemed
+ * it and destroy the record of why someone paid less; switching it off stops all future redemptions
+ * and keeps the history intact.
+ */
+export function useSetCouponActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) =>
+      apiClient.post(`/api/membership-plans/coupons/${id}/set-active`, { isActive }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons'] }),
+  })
+}
+
+export function useSetDiscountActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) =>
+      apiClient.post(`/api/membership-plans/discounts/${id}/set-active`, { isActive }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['discounts'] }),
+  })
+}
+
+/**
+ * Editing a plan — price, name, freeze allowance, and whether it is still sold.
+ *
+ * `PUT /api/membership-plans/{id}` and UpdateMembershipPlanCommand have existed all along; the
+ * frontend only ever shipped CreatePlanDialog, so raising a price or retiring a plan was impossible
+ * from the console and required hitting the API by hand. Retiring is `isActive: false` rather than a
+ * delete, because members already on the plan keep a valid reference to it — deleting would orphan
+ * live memberships and every invoice that ever cited it.
+ */
+export function useUpdateMembershipPlan() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      id: string
+      name: string
+      description: string | null
+      price: number
+      maxFreezeDays: number
+      isActive: boolean
+    }) => apiClient.put(`/api/membership-plans/${input.id}`, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['membership-plans'] }),
+  })
+}

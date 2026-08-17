@@ -48,7 +48,17 @@ public class RenewMembershipCommandHandler(IApplicationDbContext db, ISender sen
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-            if (coupon?.Discount is null || !coupon.IsRedeemable
+            /*
+             * The DISCOUNT's own switch counts here too, not just the coupon's.
+             *
+             * Turning a discount off withdrew it from the catalogue while every coupon pointing at
+             * it kept discounting — so the one control an owner reaches for after a code leaks
+             * ("stop this offer") left the offer running. Checked here rather than by cascading
+             * IsActive down onto the coupons, because cascading destroys the information needed to
+             * undo it: reactivating the discount could not tell which coupons an owner had switched
+             * off deliberately and which the cascade had touched.
+             */
+            if (coupon?.Discount is null || !coupon.IsRedeemable || !coupon.Discount.IsActive
                 || (coupon.ValidFrom is not null && coupon.ValidFrom > today)
                 || (coupon.ValidTo is not null && coupon.ValidTo < today))
             {

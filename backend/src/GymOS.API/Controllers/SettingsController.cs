@@ -53,6 +53,47 @@ public class SettingsController(ISender mediator) : ControllerBase
     public async Task<ActionResult<Guid>> UpsertSystemPreference(UpsertSystemPreferenceCommand command, CancellationToken cancellationToken)
         => Ok(await mediator.Send(command, cancellationToken));
 
+    [HttpGet("staff")]
+    [RequirePermission(PermissionCodes.Settings.ManageStaff)]
+    public async Task<ActionResult<StaffListDto>> Staff(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetStaffListQuery(), cancellationToken));
+
+    [HttpPost("staff")]
+    [RequirePermission(PermissionCodes.Settings.ManageStaff)]
+    public async Task<ActionResult<CreateStaffResultDto>> CreateStaff(CreateStaffCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
+    [HttpPut("staff/{id:guid}")]
+    [RequirePermission(PermissionCodes.Settings.ManageStaff)]
+    public async Task<IActionResult> UpdateStaff(Guid id, UpdateStaffCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command with { Id = id }, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("staff/{id:guid}/deactivate")]
+    [RequirePermission(PermissionCodes.Settings.ManageStaff)]
+    public async Task<IActionResult> DeactivateStaff(Guid id, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new DeactivateStaffCommand(id), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("staff/{id:guid}/reactivate")]
+    [RequirePermission(PermissionCodes.Settings.ManageStaff)]
+    public async Task<IActionResult> ReactivateStaff(Guid id, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new ReactivateStaffCommand(id), cancellationToken);
+        return NoContent();
+    }
+
+    // Returns the new password in the response body and nowhere else — there is no mail sender in
+    // this product, so the manager reads it out. It is never persisted in the clear.
+    [HttpPost("staff/{id:guid}/reset-password")]
+    [RequirePermission(PermissionCodes.Settings.ManageStaff)]
+    public async Task<ActionResult<ResetStaffPasswordResultDto>> ResetStaffPassword(Guid id, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new ResetStaffPasswordCommand(id), cancellationToken));
+
     [HttpGet("audit-log")]
     [RequirePermission(PermissionCodes.Settings.View)]
     public async Task<ActionResult<PagedList<AuditLogDto>>> AuditLog(

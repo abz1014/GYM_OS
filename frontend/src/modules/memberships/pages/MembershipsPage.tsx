@@ -3,6 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { ListEmpty, ListError, ListSkeleton, PageHeader } from '@/shared/components/console'
 import { useCoupons, useDiscounts, useMembershipPlans } from '@/modules/memberships/api/membershipsApi'
+import { EditPlanDialog } from '@/modules/memberships/components/EditPlanDialog'
+import { ActiveToggle } from '@/modules/memberships/components/ActiveToggle'
 import { CreateCouponDialog } from '@/modules/memberships/components/CreateCouponDialog'
 import { CreateDiscountDialog } from '@/modules/memberships/components/CreateDiscountDialog'
 import { CreatePlanDialog } from '@/modules/memberships/components/CreatePlanDialog'
@@ -123,11 +125,12 @@ function PlansTab() {
                 Freeze allowance: {plan.maxFreezeDays > 0 ? `${plan.maxFreezeDays} days` : 'not allowed'}
               </p>
 
-              {!plan.isActive && (
-                <Badge variant="secondary" className="mt-3">
-                  Inactive
-                </Badge>
-              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {/* "Retired" rather than "Inactive": the plan is not broken, it is simply no longer
+                    sold, and everyone still on it has a perfectly live membership. */}
+                {!plan.isActive && <Badge variant="secondary">Retired</Badge>}
+                {canManagePlans && <EditPlanDialog plan={plan} />}
+              </div>
             </article>
           ))}
         </div>
@@ -205,6 +208,9 @@ function DiscountsAndCoupons() {
                   <Badge variant="outline">{planName(discount.membershipPlanId) ?? 'All plans'}</Badge>
                   {validity && <span className="tabular-nums">{validity}</span>}
                   {!discount.isActive && <Badge variant="secondary">Inactive</Badge>}
+                  {canManageDiscounts && (
+                    <ActiveToggle kind="discount" id={discount.id} label={discount.name} isActive={discount.isActive} />
+                  )}
                 </div>
               </article>
             )
@@ -262,6 +268,9 @@ function DiscountsAndCoupons() {
                   )}
                   {validity && <span className="tabular-nums">{validity}</span>}
                   {!coupon.isActive && <Badge variant="secondary">Inactive</Badge>}
+                  {canManageDiscounts && (
+                    <ActiveToggle kind="coupon" id={coupon.id} label={coupon.code} isActive={coupon.isActive} />
+                  )}
                 </div>
               </article>
             )

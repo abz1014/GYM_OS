@@ -32,6 +32,14 @@ public class TrainersController(ISender mediator) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.TrainerId }, result);
     }
 
+    [HttpPut("{id:guid}")]
+    [RequirePermission(PermissionCodes.Trainers.Manage)]
+    public async Task<IActionResult> Update(Guid id, UpdateTrainerCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command with { Id = id }, cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/assignments")]
     [RequirePermission(PermissionCodes.Trainers.Manage)]
     public async Task<ActionResult<Guid>> AssignClient(Guid id, AssignClientCommand command, CancellationToken cancellationToken)

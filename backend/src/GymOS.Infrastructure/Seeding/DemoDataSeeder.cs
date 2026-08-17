@@ -40,6 +40,22 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
 
     public async Task SeedAsync(SeedProfile profile = SeedProfile.Demo, CancellationToken cancellationToken = default)
     {
+        /*
+         * The permission catalogue is synced BEFORE the "already seeded" bail-out, and that ordering
+         * is the whole point.
+         *
+         * Permission ROWS are not reflection-generated — they come from GetPermissionCatalog() below,
+         * and they are only ever written on a first-time seed. Every deployed database is non-empty,
+         * so the seeder returns here and a permission code added in a release simply never exists in
+         * production: its authorization policy resolves, finds no row, and every endpoint behind it
+         * answers 403 for everybody. Caught exactly that way on this database — settings.manage_staff
+         * shipped with a working policy, no row, and a Staff screen that 403'd for the Owner.
+         *
+         * Retired codes have the mirror problem: members.delete was deleted from the catalogue and
+         * kept its row, so the permission matrix went on offering a switch that grants nothing.
+         */
+        await SyncPermissionCatalogAsync(cancellationToken);
+
         if (await db.Tenants.IgnoreQueryFilters().AnyAsync(cancellationToken))
         {
             logger.LogInformation("Demo data already present — skipping seed.");
@@ -177,51 +193,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
 
         await db.SaveChangesAsync(cancellationToken);
 
-        var rolePermissionMap = new Dictionary<string, string[]>
-        {
-            // Portal.View is the member self-service grant, not a staff capability — its own catalog
-            // entry reads "view OWN member profile". Owner/Manager are staff and are never linked to
-            // a Member row, so handing it to them (as a side effect of "all permissions") only put
-            // three dead sidebar links — My Account / My Classes / My Progress — that can render
-            // nothing but "ask the front desk to link your account". Excluded from every staff role;
-            // the Member role below is the only one that gets it.
-            [RoleNames.Owner] = permissions.Keys.Where(c => c != PermissionCodes.Portal.View).ToArray(),
-            [RoleNames.Manager] = permissions.Keys
-                .Where(c => c != PermissionCodes.Settings.ManagePermissions && c != PermissionCodes.Portal.View)
-                .ToArray(),
-            [RoleNames.Receptionist] =
-            [
-                PermissionCodes.Dashboard.View, PermissionCodes.Members.View, PermissionCodes.Members.Create, PermissionCodes.Members.Update,
-                PermissionCodes.Members.ManageMembership, PermissionCodes.Memberships.View, PermissionCodes.Billing.View,
-                PermissionCodes.Billing.CreateInvoice, PermissionCodes.Billing.RecordPayment, PermissionCodes.Attendance.View,
-                PermissionCodes.Attendance.CheckIn, PermissionCodes.Crm.View, PermissionCodes.Crm.ManageLeads,
-                PermissionCodes.Classes.View, PermissionCodes.Classes.Manage
-            ],
-            [RoleNames.Trainer] =
-            [
-                PermissionCodes.Dashboard.View, PermissionCodes.Members.View, PermissionCodes.Trainers.View,
-                PermissionCodes.Attendance.View, PermissionCodes.Workouts.View, PermissionCodes.Workouts.Manage,
-                PermissionCodes.Classes.View
-            ],
-            [RoleNames.Nutritionist] =
-            [
-                PermissionCodes.Dashboard.View, PermissionCodes.Members.View, PermissionCodes.Nutrition.View, PermissionCodes.Nutrition.Manage
-            ],
-            [RoleNames.Accountant] =
-            [
-                PermissionCodes.Dashboard.View, PermissionCodes.Billing.View, PermissionCodes.Billing.CreateInvoice,
-                PermissionCodes.Billing.RecordPayment, PermissionCodes.Billing.IssueRefund, PermissionCodes.Memberships.View,
-                PermissionCodes.Reports.View
-            ],
-            [RoleNames.Maintenance] =
-            [
-                PermissionCodes.Dashboard.View, PermissionCodes.Maintenance.View, PermissionCodes.Maintenance.Manage, PermissionCodes.Equipment.View
-            ],
-            // Deliberately NOT Attendance/Workouts/Nutrition/Dashboard.View — those grant staff-wide
-            // access to every member's records and every member's business figures. A gym member
-            // gets Portal.View instead, which only ever resolves to their own data server-side.
-            [RoleNames.Member] = [PermissionCodes.Portal.View]
-        };
+        var rolePermissionMap = GetRolePermissionMap(permissions.Keys);
 
         foreach (var (roleName, codes) in rolePermissionMap)
         {
@@ -244,7 +216,6 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         (PermissionCodes.Members.View, "members", "View members"),
         (PermissionCodes.Members.Create, "members", "Register new members"),
         (PermissionCodes.Members.Update, "members", "Edit member profiles"),
-        (PermissionCodes.Members.Delete, "members", "Delete members"),
         (PermissionCodes.Members.ManageMembership, "members", "Freeze/renew/transfer memberships"),
         (PermissionCodes.Memberships.View, "memberships", "View membership plans"),
         (PermissionCodes.Memberships.ManagePlans, "memberships", "Create/edit membership plans"),
@@ -261,6 +232,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         (PermissionCodes.Settings.ManageBranches, "settings", "Manage branches"),
         (PermissionCodes.Settings.ManagePermissions, "settings", "Manage the role permission matrix"),
         (PermissionCodes.Settings.ManageGymProfile, "settings", "Manage gym profile"),
+        (PermissionCodes.Settings.ManageStaff, "settings", "Create, edit, and deactivate staff accounts"),
         (PermissionCodes.Crm.View, "crm", "View CRM leads"),
         (PermissionCodes.Crm.ManageLeads, "crm", "Manage CRM leads"),
         (PermissionCodes.Trainers.View, "trainers", "View trainers"),
@@ -358,4 +330,151 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
         await db.SaveChangesAsync(cancellationToken);
         return plans;
     }
+
+    /// <summary>
+    /// Which role gets which permission codes — the declared authority matrix.
+    ///
+    /// Extracted from the seed path so the catalogue SYNC can reuse it. A brand-new permission
+    /// code has to reach the roles that are supposed to hold it on an ALREADY-SEEDED database,
+    /// otherwise it exists as a row nobody is granted and the feature behind it 403s for everyone.
+    /// </summary>
+    /// <param name="allCodes">Every code in the catalogue — Owner and Manager are defined as
+    /// catch-alls over it rather than as hand-listed sets that would go stale on every addition.</param>
+    private static Dictionary<string, string[]> GetRolePermissionMap(IEnumerable<string> allCodes)
+    {
+        var permissionCodes = allCodes.ToList();
+        return new Dictionary<string, string[]>
+        {
+            // Portal.View is the member self-service grant, not a staff capability — its own catalog
+            // entry reads "view OWN member profile". Owner/Manager are staff and are never linked to
+            // a Member row, so handing it to them (as a side effect of "all permissions") only put
+            // three dead sidebar links — My Account / My Classes / My Progress — that can render
+            // nothing but "ask the front desk to link your account". Excluded from every staff role;
+            // the Member role below is the only one that gets it.
+            //
+            // Settings.ManageStaff (hiring and deactivating logins) reaches Owner and Manager through
+            // these two catch-alls and nobody else, which is deliberate: it is the permission that can
+            // create an account holding any other permission, so a Receptionist who could grant it to
+            // themselves would make every other line in this map advisory.
+            [RoleNames.Owner] = permissionCodes.Where(c => c != PermissionCodes.Portal.View).ToArray(),
+            [RoleNames.Manager] = permissionCodes
+                .Where(c => c != PermissionCodes.Settings.ManagePermissions && c != PermissionCodes.Portal.View)
+                .ToArray(),
+            [RoleNames.Receptionist] =
+            [
+                PermissionCodes.Dashboard.View, PermissionCodes.Members.View, PermissionCodes.Members.Create, PermissionCodes.Members.Update,
+                PermissionCodes.Members.ManageMembership, PermissionCodes.Memberships.View, PermissionCodes.Billing.View,
+                PermissionCodes.Billing.CreateInvoice, PermissionCodes.Billing.RecordPayment, PermissionCodes.Attendance.View,
+                PermissionCodes.Attendance.CheckIn, PermissionCodes.Crm.View, PermissionCodes.Crm.ManageLeads,
+                PermissionCodes.Classes.View, PermissionCodes.Classes.Manage
+            ],
+            [RoleNames.Trainer] =
+            [
+                PermissionCodes.Dashboard.View, PermissionCodes.Members.View, PermissionCodes.Trainers.View,
+                PermissionCodes.Attendance.View, PermissionCodes.Workouts.View, PermissionCodes.Workouts.Manage,
+                PermissionCodes.Classes.View
+            ],
+            [RoleNames.Nutritionist] =
+            [
+                PermissionCodes.Dashboard.View, PermissionCodes.Members.View, PermissionCodes.Nutrition.View, PermissionCodes.Nutrition.Manage
+            ],
+            [RoleNames.Accountant] =
+            [
+                PermissionCodes.Dashboard.View, PermissionCodes.Billing.View, PermissionCodes.Billing.CreateInvoice,
+                PermissionCodes.Billing.RecordPayment, PermissionCodes.Billing.IssueRefund, PermissionCodes.Memberships.View,
+                PermissionCodes.Reports.View
+            ],
+            [RoleNames.Maintenance] =
+            [
+                PermissionCodes.Dashboard.View, PermissionCodes.Maintenance.View, PermissionCodes.Maintenance.Manage, PermissionCodes.Equipment.View
+            ],
+            // Deliberately NOT Attendance/Workouts/Nutrition/Dashboard.View — those grant staff-wide
+            // access to every member's records and every member's business figures. A gym member
+            // gets Portal.View instead, which only ever resolves to their own data server-side.
+            [RoleNames.Member] = [PermissionCodes.Portal.View]
+        };
+    }
+
+    /// <summary>
+    /// Brings the Permission rows in an EXISTING database into line with the code catalogue, and
+    /// grants brand-new codes to the roles the authority matrix says should hold them.
+    ///
+    /// Idempotent and safe to run on every start: it adds what is missing, removes what was retired,
+    /// and otherwise leaves the database alone.
+    ///
+    /// WHAT IT DELIBERATELY DOES NOT DO: re-apply the whole matrix. Grants are only written for
+    /// codes this run just created. An owner who revoked something through the permission matrix
+    /// made a decision, and a sync that reinstated it on every deploy would silently overrule them —
+    /// which is a worse failure than the one this method exists to fix.
+    /// </summary>
+    private async Task SyncPermissionCatalogAsync(CancellationToken cancellationToken)
+    {
+        var catalog = GetPermissionCatalog();
+        var catalogCodes = catalog.Select(c => c.Code).ToHashSet();
+
+        var existing = await db.Permissions.IgnoreQueryFilters().ToListAsync(cancellationToken);
+        var existingCodes = existing.Select(p => p.Code).ToHashSet();
+
+        // Retired codes: drop their grants first, since RolePermission has a required FK to them.
+        var retired = existing.Where(p => !catalogCodes.Contains(p.Code)).ToList();
+        if (retired.Count > 0)
+        {
+            var retiredIds = retired.Select(p => p.Id).ToList();
+            var deadGrants = await db.RolePermissions.IgnoreQueryFilters()
+                .Where(rp => retiredIds.Contains(rp.PermissionId))
+                .ToListAsync(cancellationToken);
+
+            db.RolePermissions.RemoveRange(deadGrants);
+            db.Permissions.RemoveRange(retired);
+            logger.LogInformation(
+                "Retiring {Count} permission code(s) no longer in the catalogue: {Codes}",
+                retired.Count, string.Join(", ", retired.Select(p => p.Code)));
+        }
+
+        var added = catalog
+            .Where(c => !existingCodes.Contains(c.Code))
+            .Select(c => new Permission { Code = c.Code, Module = c.Module, Description = c.Description })
+            .ToList();
+
+        if (added.Count > 0)
+        {
+            db.Permissions.AddRange(added);
+            logger.LogInformation(
+                "Adding {Count} new permission code(s): {Codes}", added.Count, string.Join(", ", added.Select(p => p.Code)));
+        }
+
+        if (retired.Count == 0 && added.Count == 0)
+        {
+            return;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        if (added.Count == 0)
+        {
+            return;
+        }
+
+        // Grant the new codes per the matrix, for every tenant — Role is tenant-scoped, so a
+        // multi-tenant database has one Owner row per gym and each needs its own grant.
+        var addedByCode = added.ToDictionary(p => p.Code);
+        var roles = await db.Roles.IgnoreQueryFilters().ToListAsync(cancellationToken);
+        var map = GetRolePermissionMap(catalogCodes);
+
+        foreach (var role in roles)
+        {
+            if (!map.TryGetValue(role.Name, out var codesForRole))
+            {
+                continue;
+            }
+
+            foreach (var code in codesForRole.Where(addedByCode.ContainsKey))
+            {
+                db.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = addedByCode[code].Id });
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
 }

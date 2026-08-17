@@ -13,6 +13,7 @@ import { PageHeader } from '@/shared/components/console'
 import { useAdminBranchesList, useAuditLogs, useSystemPreferences } from '@/modules/settings/api/settingsApi'
 import { AuditChangeSummary } from '@/modules/settings/components/AuditChangeDetail'
 import { CreateBranchDialog } from '@/modules/settings/components/CreateBranchDialog'
+import { StaffTab } from '@/modules/settings/components/StaffTab'
 import { EditBranchDialog } from '@/modules/settings/components/EditBranchDialog'
 import { GymProfileForm } from '@/modules/settings/components/GymProfileForm'
 import { PermissionMatrixTable } from '@/modules/settings/components/PermissionMatrixTable'
@@ -258,6 +259,7 @@ export default function SettingsPage() {
         <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="profile">Gym Profile</TabsTrigger>
           <TabsTrigger value="branches">Branches</TabsTrigger>
+          <TabsTrigger value="staff">Staff</TabsTrigger>
           <TabsTrigger value="permissions">Permission Matrix</TabsTrigger>
           <TabsTrigger value="preferences">System Preferences</TabsTrigger>
           <TabsTrigger value="audit-log">Audit Log</TabsTrigger>
@@ -270,6 +272,10 @@ export default function SettingsPage() {
 
         <TabsContent value="branches">
           <BranchesTab />
+        </TabsContent>
+
+        <TabsContent value="staff">
+          <StaffTab />
         </TabsContent>
 
         <TabsContent value="permissions">

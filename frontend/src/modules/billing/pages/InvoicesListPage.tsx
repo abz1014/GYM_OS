@@ -8,6 +8,7 @@ import { Pagination } from '@/shared/components/Pagination'
 import { FilterTabs, ListEmpty, ListError, ListSkeleton, PageHeader, SEVERITY_ROW, type FilterTab } from '@/shared/components/console'
 import { useInvoicesList, type InvoiceStatus } from '@/modules/billing/api/billingApi'
 import { CreateInvoiceDialog } from '@/modules/billing/components/CreateInvoiceDialog'
+import { DunningPanel } from '@/modules/billing/components/DunningPanel'
 import { isStale } from '@/shared/lib/queryTrust'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -67,6 +68,8 @@ const OVERDUE_ROW = SEVERITY_ROW.destructive
  */
 export default function InvoicesListPage() {
   const canCreateInvoice = useAuthStore((s) => s.hasPermission)('billing.create_invoice')
+  // Same permission that gates the invoice list itself — a failed renewal is billing information.
+  const canViewDunning = useAuthStore((s) => s.hasPermission)('billing.view')
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<InvoiceStatus | 'all'>('all')
@@ -107,6 +110,14 @@ export default function InvoicesListPage() {
         GET /api/invoices does not return, and summing the current page would produce a number that
         silently changes meaning when you turn the page.
       */}
+
+      {/*
+        Failed renewals sit ABOVE the invoice list on purpose. The list is a record; this is a to-do,
+        and it was previously invisible — the dunning rows existed in the database and no screen
+        could read them. It renders nothing at all when every renewal collected, so it costs a
+        healthy gym no attention.
+      */}
+      {canViewDunning && <DunningPanel />}
 
       <FilterTabs
         tabs={tabs}

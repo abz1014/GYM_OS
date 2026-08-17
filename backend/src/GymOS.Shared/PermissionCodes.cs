@@ -21,7 +21,12 @@ public static class PermissionCodes
         public const string View = "members.view";
         public const string Create = "members.create";
         public const string Update = "members.update";
-        public const string Delete = "members.delete";
+        // No "members.delete" code lives here. One used to, and it granted nothing: no controller
+        // action ever referenced it, but because this class is the source for both the authorization
+        // policies and the seeded catalog, it still rendered as a live switch in the owner's
+        // permission matrix. An owner could turn "Delete members" on or off all afternoon and change
+        // nothing. Members are retired by soft-delete/membership status, not by a delete endpoint —
+        // if one is ever added, add the code back alongside it, not before.
         public const string ManageMembership = "members.manage_membership";
     }
 
@@ -66,6 +71,10 @@ public static class PermissionCodes
         public const string ManageBranches = "settings.manage_branches";
         public const string ManagePermissions = "settings.manage_permissions";
         public const string ManageGymProfile = "settings.manage_gym_profile";
+
+        /// <summary>Hiring, editing and deactivating staff logins. Distinct from ManagePermissions,
+        /// which decides what a role may do; this decides who holds a role at all.</summary>
+        public const string ManageStaff = "settings.manage_staff";
     }
 
     public static class Crm

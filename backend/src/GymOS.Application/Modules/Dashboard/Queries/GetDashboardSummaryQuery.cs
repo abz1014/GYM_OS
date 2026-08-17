@@ -44,21 +44,94 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
          */
         decimal? todayRevenue = null;
         decimal? todayCash = null;
+        decimal? revenueThisMonth = null;
+        decimal? revenueLastMonth = null;
 
         if (currentUser.HasPermission(PermissionCodes.Billing.View))
         {
+            /*
+             * Month-to-date, and the SAME SPAN of the month before.
+             *
+             * Both windows run from the first of the month through the end of today, so a figure
+             * taken on the 17th is compared against seventeen days rather than thirty-one. Compared
+             * against a whole previous month, a healthy gym would show revenue collapsing every day
+             * of every month until roughly the 28th and then recovering — a lie manufactured by the
+             * comparison rather than read from the data, and a dashboard headline is exactly where
+             * it would be believed.
+             *
+             * The previous window is clamped at this month's start so a 31st-of-March reading cannot
+             * run February's window forward into March and count March's money on both sides.
+             */
+            var monthStartTs = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, now.Offset);
+            var previousMonthStartTs = monthStartTs.AddMonths(-1);
+            var previousMonthEndTs = previousMonthStartTs.AddDays(now.Day);
+            if (previousMonthEndTs > monthStartTs)
+            {
+                previousMonthEndTs = monthStartTs;
+            }
+
             var payments = db.Payments.AsNoTracking()
-                .Where(p => p.Status == PaymentStatus.Completed && p.PaidAt >= todayStart && p.PaidAt < todayEnd
-                    && accessibleBranchIds.Contains(p.Invoice!.BranchId));
+                .Where(p => p.Status == PaymentStatus.Completed && accessibleBranchIds.Contains(p.Invoice!.BranchId));
 
             if (request.BranchId is not null)
             {
                 payments = payments.Where(p => p.Invoice!.BranchId == request.BranchId);
             }
 
-            todayRevenue = await payments.SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
-            todayCash = await payments.Where(p => p.Method == PaymentMethod.Cash)
-                .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+            /*
+             * Branch and status filter in SQL; every date window below is applied in memory.
+             *
+             * PaidAt is a DateTimeOffset, and SQLite — the in-memory test provider — cannot
+             * range-filter one alongside a parameterised .Contains(), the same constraint every
+             * DateTimeOffset window in this codebase works around. This is not a stylistic
+             * preference: the previous in-SQL version of the today filter meant this whole handler
+             * threw on the test harness, which is why the dashboard had no Application tests at all
+             * and why its money arithmetic went unpinned. Only (amount, method, timestamp) is
+             * pulled, already narrowed to the branches the caller may see, and one materialisation
+             * answers all four figures instead of costing four queries.
+             */
+            var paymentRows = await payments
+                .Select(p => new PaymentEvent(p.Amount, p.Method, p.PaidAt))
+                .ToListAsync(cancellationToken);
+
+            // Today stays GROSS, deliberately unchanged: "cash collected today" is what went into
+            // the drawer, and it is reconciled against the drawer. The month figures below are the
+            // accounting question, and they net.
+            todayRevenue = paymentRows.Where(p => p.PaidAt >= todayStart && p.PaidAt < todayEnd).Sum(p => p.Amount);
+            todayCash = paymentRows
+                .Where(p => p.Method == PaymentMethod.Cash && p.PaidAt >= todayStart && p.PaidAt < todayEnd)
+                .Sum(p => p.Amount);
+
+            /*
+             * Completed payments MINUS completed refunds, matching InvoiceStatusPolicy,
+             * GetInvoicesQuery and RecurringBillingJob. A gym that took $500 and gave $400 of it
+             * back did not make $500, and this codebase has already been bitten once by two screens
+             * reading "revenue" differently — the invoice list summed payments and stopped there
+             * while the detail subtracted refunds, so the same invoice reported different money
+             * depending on which screen you came from. A third reading is not on offer.
+             *
+             * Refunds are dated by RefundedAt, not by the payment they reverse: a refund issued this
+             * month against last month's payment reduces THIS month, which is when the money left.
+             */
+            var refunds = db.Refunds.AsNoTracking()
+                .Where(r => r.Status == RefundStatus.Completed
+                    && accessibleBranchIds.Contains(r.Payment!.Invoice!.BranchId));
+
+            if (request.BranchId is not null)
+            {
+                refunds = refunds.Where(r => r.Payment!.Invoice!.BranchId == request.BranchId);
+            }
+
+            var refundRows = await refunds
+                .Select(r => new { r.Amount, r.RefundedAt })
+                .ToListAsync(cancellationToken);
+
+            decimal SumBetween(DateTimeOffset from, DateTimeOffset to) =>
+                paymentRows.Where(p => p.PaidAt >= from && p.PaidAt < to).Sum(p => p.Amount)
+                - refundRows.Where(r => r.RefundedAt >= from && r.RefundedAt < to).Sum(r => r.Amount);
+
+            revenueThisMonth = SumBetween(monthStartTs, todayEnd);
+            revenueLastMonth = SumBetween(previousMonthStartTs, previousMonthEndTs);
         }
 
         var members = db.Members.AsNoTracking().Where(m => accessibleBranchIds.Contains(m.BranchId));
@@ -82,14 +155,18 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
         var expiringCount = await expiringMemberships.CountAsync(cancellationToken);
 
         var attendanceToday = db.AttendanceRecords.AsNoTracking()
-            .Where(a => a.CheckInAt >= todayStart && a.CheckInAt < todayEnd && accessibleBranchIds.Contains(a.BranchId));
+            .Where(a => accessibleBranchIds.Contains(a.BranchId));
 
         if (request.BranchId is not null)
         {
             attendanceToday = attendanceToday.Where(a => a.BranchId == request.BranchId);
         }
 
-        var todayAttendanceCount = await attendanceToday.CountAsync(cancellationToken);
+        // Same reduction, same reason as the payment windows above: CheckInAt is a DateTimeOffset,
+        // which SQLite cannot range-filter alongside the branch .Contains(), so the day is cut in
+        // memory. Every other query over CheckInAt in this codebase already does this.
+        var todayAttendanceCount = (await attendanceToday.Select(a => a.CheckInAt).ToListAsync(cancellationToken))
+            .Count(checkInAt => checkInAt >= todayStart && checkInAt < todayEnd);
 
         var trainerSchedulesToday = db.TrainerSchedules.AsNoTracking()
             .Where(s => s.DayOfWeek == now.DayOfWeek && s.IsAvailable && s.Trainer!.IsActive
@@ -136,7 +213,12 @@ public class GetDashboardSummaryQueryHandler(IApplicationDbContext db, IDateTime
         var inventoryAlertsCount = await inventoryAlerts.CountAsync(cancellationToken);
 
         return new DashboardSummaryDto(
-            todayRevenue, todayCash, activeMembersCount, newMembersThisMonth, expiringCount, todayAttendanceCount,
+            todayRevenue, todayCash, revenueThisMonth, revenueLastMonth,
+            activeMembersCount, newMembersThisMonth, expiringCount, todayAttendanceCount,
             trainerScheduleTodayCount, equipmentAlertsCount, maintenanceRemindersCount, inventoryAlertsCount);
     }
+
+    /// <summary>A payment reduced to the three things every money figure on this dashboard needs,
+    /// so today and both month windows share one materialisation.</summary>
+    private sealed record PaymentEvent(decimal Amount, PaymentMethod Method, DateTimeOffset PaidAt);
 }
