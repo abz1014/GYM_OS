@@ -5,12 +5,18 @@ import {
 /**
  * Which cluster a module belongs to in the sidebar. Named after the JOB the person doing it is on
  * rather than the department that owns it — someone opening this console is running a shift, chasing
- * money, or looking after the building, and those are three different frames of mind. Anything that
- * isn't one of those three falls to `More`, which the sidebar collapses.
+ * money, looking after the building, or running the business. Anything outside those four falls to
+ * `More`, which the sidebar collapses.
+ *
+ * `Run the business` exists because the nav was optimised entirely for the front desk: Reports,
+ * the Notification Center and Settings — branches, permissions, the audit log, every report — sat
+ * inside a collapsed "More modules" drawer, so the person who OWNS the gym had to expand a tail
+ * list to reach their three most-used screens. They are gated on permissions only owners and
+ * managers hold, so this section is simply absent for everyone else.
  */
-export type NavSection = 'Operate' | 'Revenue' | 'Facility' | 'More'
+export type NavSection = 'Operate' | 'Revenue' | 'Facility' | 'Run the business' | 'More'
 
-export const NAV_SECTIONS: NavSection[] = ['Operate', 'Revenue', 'Facility']
+export const NAV_SECTIONS: NavSection[] = ['Operate', 'Revenue', 'Facility', 'Run the business']
 
 export interface NavModule {
   key: string
@@ -60,9 +66,9 @@ export const NAV_MODULES: NavModule[] = [
   { key: 'inventory', label: 'Inventory', path: '/inventory', icon: Package, permission: 'inventory.view', section: 'More' },
   { key: 'workouts', label: 'Workouts', path: '/workouts', icon: Activity, permission: 'workouts.view', section: 'More' },
   { key: 'nutrition', label: 'Nutrition', path: '/nutrition', icon: Apple, permission: 'nutrition.view', section: 'More' },
-  { key: 'reports', label: 'Reports', path: '/reports', icon: BarChart3, permission: 'reports.view', section: 'More' },
-  { key: 'notifications', label: 'Notification Center', path: '/notifications', icon: Bell, permission: 'notifications.view', section: 'More' },
+  { key: 'reports', label: 'Reports', path: '/reports', icon: BarChart3, permission: 'reports.view', section: 'Run the business' },
+  { key: 'notifications', label: 'Notification Center', path: '/notifications', icon: Bell, permission: 'notifications.view', section: 'Run the business' },
   { key: 'challenges', label: 'Community Challenges', path: '/challenges', icon: Flag, permission: 'experience.manage', section: 'More' },
   { key: 'migration', label: 'Migration Center', path: '/migration', icon: UploadCloud, permission: 'migration.manage', section: 'More' },
-  { key: 'settings', label: 'Settings', path: '/settings', icon: Settings, permission: 'settings.view', section: 'More' },
+  { key: 'settings', label: 'Settings', path: '/settings', icon: Settings, permission: 'settings.view', section: 'Run the business' },
 ]

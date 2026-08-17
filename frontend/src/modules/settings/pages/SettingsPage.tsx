@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Pagination } from '@/shared/components/Pagination'
 import { PageHeader } from '@/shared/components/console'
 import { useAdminBranchesList, useAuditLogs, useSystemPreferences } from '@/modules/settings/api/settingsApi'
+import { AuditChangeSummary } from '@/modules/settings/components/AuditChangeDetail'
 import { CreateBranchDialog } from '@/modules/settings/components/CreateBranchDialog'
 import { EditBranchDialog } from '@/modules/settings/components/EditBranchDialog'
 import { GymProfileForm } from '@/modules/settings/components/GymProfileForm'
@@ -83,15 +84,58 @@ function SystemPreferencesTab() {
   )
 }
 
+/**
+ * The modules an audit entry can belong to. Hardcoding the list would go stale the moment a module
+ * is added, so it is derived from the entries actually on this page — every option is therefore
+ * backed by a real row, and a module with no activity simply does not offer a filter that would
+ * return nothing.
+ */
+function modulesIn(entries: { entityType: string }[]): string[] {
+  return [...new Set(entries.map((e) => e.entityType))].sort()
+}
+
 function AuditLogTab() {
   const [page, setPage] = useState(1)
-  const { data, isLoading } = useAuditLogs({ page, pageSize: 25 })
+  const [entityType, setEntityType] = useState<string>('')
+  // The backend has always accepted an entityType filter; the screen never sent one, so an owner
+  // hunting one refund paged through every action the gym had taken.
+  const { data, isLoading } = useAuditLogs({ page, pageSize: 25, entityType: entityType || undefined })
+
+  const setModule = (value: string) => {
+    setEntityType(value)
+    setPage(1) // page 3 of "everything" is not page 3 of "Billing"
+  }
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        A record of every business action taken in the system — who did what, and when.
+        A record of every business action taken in the system — who did what, what changed, and when.
       </p>
+
+      {data && data.items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            size="sm"
+            variant={entityType === '' ? 'default' : 'outline'}
+            className="press"
+            onClick={() => setModule('')}
+          >
+            All modules
+          </Button>
+          {modulesIn(data.items).map((m) => (
+            <Button
+              key={m}
+              size="sm"
+              variant={entityType === m ? 'default' : 'outline'}
+              className="press"
+              onClick={() => setModule(m)}
+            >
+              {m}
+            </Button>
+          ))}
+        </div>
+      )}
+
       {isLoading && <Skeleton className="h-64 w-full" />}
       {data && (
         <>
@@ -114,6 +158,7 @@ function AuditLogTab() {
                     <p className="text-sm text-muted-foreground">
                       {entry.userName ?? 'System'} · <span className="tabular-nums">{new Date(entry.occurredAt).toLocaleString()}</span>
                     </p>
+                    <AuditChangeSummary dataAfter={entry.dataAfter} />
                   </div>
                 ))}
               </div>
@@ -125,6 +170,7 @@ function AuditLogTab() {
                     <TableRow>
                       <TableHead>Action</TableHead>
                       <TableHead>Module</TableHead>
+                      <TableHead>What changed</TableHead>
                       <TableHead>User</TableHead>
                       <TableHead>When</TableHead>
                     </TableRow>
@@ -135,6 +181,9 @@ function AuditLogTab() {
                         <TableCell className="font-mono text-xs">{entry.action}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{entry.entityType}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-xs">
+                          <AuditChangeSummary dataAfter={entry.dataAfter} />
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{entry.userName ?? '—'}</TableCell>
                         <TableCell className="text-sm text-muted-foreground tabular-nums">{new Date(entry.occurredAt).toLocaleString()}</TableCell>

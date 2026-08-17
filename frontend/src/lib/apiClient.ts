@@ -70,6 +70,19 @@ apiClient.interceptors.response.use(
       window.location.assign('/login')
     }
 
+    /*
+     * A 403 means the server disagrees with our cached permission list — the person's access was
+     * changed while this tab stayed open. Announce it so usePermissionSync can re-read the truth;
+     * the nav and route guards read from that cache, and until it refreshed they kept offering
+     * screens the API had already started refusing.
+     *
+     * An event rather than a direct import: apiClient is the lowest layer here and must not depend
+     * on the auth store, which depends on the query client, which is constructed with it.
+     */
+    if (error.response?.status === 403) {
+      window.dispatchEvent(new CustomEvent('gymos:permission-denied'))
+    }
+
     return Promise.reject(error)
   }
 )

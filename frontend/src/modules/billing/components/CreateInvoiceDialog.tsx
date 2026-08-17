@@ -16,6 +16,7 @@ import {
 import { useMembersList } from '@/modules/members/api/membersApi'
 import { useCreateInvoice } from '@/modules/billing/api/billingApi'
 import { isStale } from '@/shared/lib/queryTrust'
+import { useBranchesQuery } from '@/shared/hooks/useBranches'
 import { useUiStore } from '@/stores/uiStore'
 
 export function CreateInvoiceDialog() {
@@ -27,6 +28,16 @@ export function CreateInvoiceDialog() {
   const [amount, setAmount] = useState(0)
 
   const branchId = useUiStore((s) => s.selectedBranchId)
+  /*
+   * The branch's own currency, not a hardcoded 'USD'.
+   *
+   * Every manual invoice was issued in dollars regardless of where the gym is, and the amount field
+   * said so out loud — a gym in Karachi or Berlin billed its members in a currency it does not
+   * take. Branch.Currency has always been configurable and has always been on this payload; the
+   * dialog simply never read it.
+   */
+  const branches = useBranchesQuery()
+  const branchCurrency = branches.data?.find((b) => b.id === branchId)?.currency ?? null
   /*
    * The picker is a PREREQUISITE READ with its own permission, and it is not the one that opens this
    * dialog. Creating an invoice needs billing.create_invoice; finding the member to put on it needs
@@ -47,6 +58,12 @@ export function CreateInvoiceDialog() {
       toast.error('Select a member first.')
       return
     }
+    if (!branchCurrency) {
+      // Refuse rather than fall back to a guess: an invoice denominated in the wrong currency is a
+      // real financial record that somebody will later try to reconcile.
+      toast.error("Couldn't read this branch's currency — reload and try again.")
+      return
+    }
 
     const today = new Date().toISOString().slice(0, 10)
     const dueDate = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10)
@@ -59,7 +76,7 @@ export function CreateInvoiceDialog() {
         dueDate,
         taxAmount: 0,
         discountAmount: 0,
-        currency: 'USD',
+        currency: branchCurrency,
         lines: [{ itemType: 'MembershipFee', description, quantity: 1, unitPrice: amount }],
       },
       {
@@ -137,7 +154,7 @@ export function CreateInvoiceDialog() {
             <Input id="description" required value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="amount">Amount (USD)</Label>
+            <Label htmlFor="amount">Amount{branchCurrency ? ` (${branchCurrency})` : ''}</Label>
             <Input
               id="amount"
               type="number"

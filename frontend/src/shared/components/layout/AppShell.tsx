@@ -7,6 +7,7 @@ import { MemberTabBar } from '@/shared/components/layout/MemberTabBar'
 import { Sidebar } from '@/shared/components/layout/Sidebar'
 import { Topbar } from '@/shared/components/layout/Topbar'
 import { useIsMemberOnly } from '@/shared/nav/memberNav'
+import { usePermissionSync } from '@/shared/hooks/usePermissionSync'
 
 /**
  * Two shells, one route tree. Staff get the admin layout (sidebar + branch switcher); a member-only
@@ -18,6 +19,10 @@ import { useIsMemberOnly } from '@/shared/nav/memberNav'
  */
 export function AppShell() {
   const isMember = useIsMemberOnly()
+
+  // Re-reads permissions from the server on tab focus and after any 403, so an access change reaches
+  // an already-open tab instead of waiting for the person to log out. See usePermissionSync.
+  usePermissionSync()
 
   /*
    * The palette is staff-only, and mounting it here is what makes ⌘K work from every screen without
