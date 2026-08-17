@@ -38,7 +38,12 @@ public class CreateTrainerCommandHandler(IApplicationDbContext db, ICurrentUserS
         var trainerRole = await db.Roles.FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Name == RoleNames.Trainer, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Identity.Role), RoleNames.Trainer);
 
-        var emailTaken = await db.Users.AnyAsync(u => u.Email == request.Email, cancellationToken);
+        // Checked GLOBALLY (IgnoreQueryFilters), not tenant-scoped — LoginCommand resolves an email
+        // with no tenant context at all at sign-in time, so a tenant-scoped check here would let two
+        // different gyms create a login on the same address and leave the second one colliding with
+        // the first at sign-in instead of ever reaching its own account. Same reasoning as
+        // CreateStaffCommand and MemberLoginProvisioner.
+        var emailTaken = await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == request.Email, cancellationToken);
         if (emailTaken)
         {
             throw new ValidationException($"Email \"{request.Email}\" is already in use.");

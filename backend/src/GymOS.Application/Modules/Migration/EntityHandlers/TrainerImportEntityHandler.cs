@@ -40,7 +40,10 @@ public class TrainerImportEntityHandler(IApplicationDbContext db) : IImportEntit
             return ImportValidationResult.Invalid($"'{fields["CommissionRate"]}' is not a valid commission rate (0-100).");
         }
 
-        var alreadyExists = await db.Users.AnyAsync(u => u.Email == email, cancellationToken);
+        // Global, not tenant-scoped — see CreateTrainerCommand for why: LoginCommand resolves an
+        // email with no tenant context, so a tenant-scoped check here would let an import create a
+        // login that collides with another gym's account instead of catching it up front.
+        var alreadyExists = await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email, cancellationToken);
         if (alreadyExists)
         {
             return ImportValidationResult.Duplicate($"A user with email '{email}' already exists.");
