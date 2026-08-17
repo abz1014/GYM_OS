@@ -57,7 +57,17 @@ public record MemberDetailDto(
     IReadOnlyList<MedicalNoteDto> MedicalNotes,
     IReadOnlyList<MemberMeasurementDto> Measurements,
     IReadOnlyList<ProgressPhotoDto> ProgressPhotos,
+    // Drives the "Send/reset portal login" action: true only tells the desk a password can be reset
+    // rather than issued fresh, never anything about the member themselves.
+    bool HasLogin,
     IReadOnlyList<MemberMembershipDto> MemberMemberships);
+
+/// <summary>
+/// The temporary password is the entire handover for a member's portal account, exactly as it is for
+/// staff — there is no mail sender in this product, so whoever is at the desk reads it out (or copies
+/// it) once, and it is never recoverable again afterwards.
+/// </summary>
+public record CreateMemberResultDto(Guid Id, string TemporaryPassword);
 
 /// <summary>
 /// What happened to one member in a batch action. <c>Reason</c> is populated only on failure and is

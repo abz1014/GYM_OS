@@ -6,6 +6,7 @@ using GymOS.Domain.Identity;
 using GymOS.Domain.Members;
 using GymOS.Domain.Tenancy;
 using GymOS.Infrastructure.Persistence;
+using GymOS.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
@@ -25,12 +26,12 @@ public class MemberReferralTests : ApplicationTestBase
         var (tenantId, branchId, userId, referrerId) = await SeedAsync();
         SetAuthenticatedAs(tenantId, userId);
 
-        var newMemberId = await SendAsync(new CreateMemberCommand(
+        var created = await SendAsync(new CreateMemberCommand(
             "Ria", "Novak", $"{Guid.NewGuid():N}@example.com", null, null, null, null, branchId, referrerId));
 
         using var scope = CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GymOsDbContext>();
-        (await db.Members.IgnoreQueryFilters().SingleAsync(m => m.Id == newMemberId))
+        (await db.Members.IgnoreQueryFilters().SingleAsync(m => m.Id == created.Id))
             .ReferredByMemberId.ShouldBe(referrerId);
     }
 
@@ -112,6 +113,10 @@ public class MemberReferralTests : ApplicationTestBase
 
         var branch = new Branch { TenantId = tenant.Id, Name = "Main", AddressLine = "1 Main St", City = "City", Country = "US" };
         db.Branches.Add(branch);
+
+        // CreateMemberCommand now provisions a portal login alongside the Member row, and that
+        // requires the tenant's Member role to already exist — exactly as a real, seeded tenant has.
+        db.Roles.Add(new Role { TenantId = tenant.Id, Name = RoleNames.Member, IsSystemRole = true });
 
         var staffUser = new User
         {

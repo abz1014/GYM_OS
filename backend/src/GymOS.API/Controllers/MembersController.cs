@@ -42,11 +42,21 @@ public class MembersController(ISender mediator) : ControllerBase
 
     [HttpPost]
     [RequirePermission(PermissionCodes.Members.Create)]
-    public async Task<ActionResult<Guid>> Create(CreateMemberCommand command, CancellationToken cancellationToken)
+    public async Task<ActionResult<CreateMemberResultDto>> Create(CreateMemberCommand command, CancellationToken cancellationToken)
     {
-        var id = await mediator.Send(command, cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id }, id);
+        var result = await mediator.Send(command, cancellationToken);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
+
+    /// <summary>
+    /// One button that always leaves the member able to sign in: issues a first login for a member
+    /// who has never had one, or a fresh temporary password for a member who has lost theirs. See
+    /// ProvisionMemberLoginCommand for which of the two actually happens.
+    /// </summary>
+    [HttpPost("{id:guid}/login")]
+    [RequirePermission(PermissionCodes.Members.Update)]
+    public async Task<ActionResult<CreateMemberResultDto>> ProvisionLogin(Guid id, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new ProvisionMemberLoginCommand(id), cancellationToken));
 
     [HttpPut("{id:guid}")]
     [RequirePermission(PermissionCodes.Members.Update)]

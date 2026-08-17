@@ -34,9 +34,12 @@ public class UpdateLeadStageCommandHandler(IApplicationDbContext db, ISender sen
             // Moving a lead to the Member stage should produce a real Member record, not just a
             // label change — otherwise the pipeline's "converted" count is disconnected from
             // reality and nothing downstream (billing, attendance) ever sees this person.
-            lead.ConvertedMemberId = await sender.Send(
+            // The temporary password has no handover point in a stage-change request — the desk asks
+            // for that separately via "Send/reset portal login" once the member exists.
+            var created = await sender.Send(
                 new CreateMemberCommand(lead.FirstName, lead.LastName, lead.Email, lead.Phone, null, null, null, lead.BranchId),
                 cancellationToken);
+            lead.ConvertedMemberId = created.Id;
         }
 
         await db.SaveChangesAsync(cancellationToken);

@@ -164,7 +164,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          New here? Ask the front desk for an invite.
+          New here? Ask the front desk to set up your account.
         </p>
 
         {import.meta.env.DEV && (

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCreateMember, type MemberListItem } from '@/modules/members/api/membersApi'
+import { announceTemporaryPassword, serverReason } from '@/modules/members/lib/accountToast'
 import type { PagedList } from '@/types/paging'
 
 interface Branch {
@@ -72,12 +74,12 @@ export function CreateMemberDialog() {
     createMember.mutate(
       { firstName, lastName, email, phone: phone || undefined, branchId, referredByMemberId: referrer?.id ?? null },
       {
-        onSuccess: () => {
-          toast.success('Member registered.')
+        onSuccess: (result) => {
+          announceTemporaryPassword(result.temporaryPassword, `${firstName} ${lastName} registered`)
           reset()
           setOpen(false)
         },
-        onError: () => toast.error('Could not register member.'),
+        onError: (err) => toast.error(serverReason(err, 'Could not register member.')),
       }
     )
   }
@@ -93,6 +95,7 @@ export function CreateMemberDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Register a new member</DialogTitle>
+          <DialogDescription>They get a temporary password for the member portal, to change on first sign-in.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">

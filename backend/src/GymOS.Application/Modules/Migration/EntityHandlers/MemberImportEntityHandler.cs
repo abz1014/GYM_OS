@@ -49,11 +49,15 @@ public class MemberImportEntityHandler(IApplicationDbContext db, IDateTimeProvid
         return ImportValidationResult.Ok();
     }
 
-    public Task<Guid> CommitAsync(IReadOnlyDictionary<string, string> fields, Guid branchId, ISender sender, CancellationToken cancellationToken)
+    public async Task<Guid> CommitAsync(IReadOnlyDictionary<string, string> fields, Guid branchId, ISender sender, CancellationToken cancellationToken)
     {
         DateOnly? dateOfBirth = fields.TryGetValue("DateOfBirth", out var dob) && DateOnly.TryParse(dob, out var parsed) ? parsed : null;
 
-        return sender.Send(
+        // The temporary password CreateMemberCommand returns has nowhere to go in a bulk import — no
+        // row-by-row handover exists in this pipeline — so it is generated and discarded here. That is
+        // not a dead end: the member's login still exists, and "Send/reset portal login" on their
+        // detail screen issues a fresh, recoverable one on demand.
+        var result = await sender.Send(
             new CreateMemberCommand(
                 fields["FirstName"],
                 fields["LastName"],
@@ -64,6 +68,8 @@ public class MemberImportEntityHandler(IApplicationDbContext db, IDateTimeProvid
                 fields.GetValueOrDefault("Address"),
                 branchId),
             cancellationToken);
+
+        return result.Id;
     }
 
     public async Task RollbackAsync(Guid mappedEntityId, CancellationToken cancellationToken)

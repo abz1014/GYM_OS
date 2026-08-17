@@ -60,7 +60,15 @@ export interface MemberDetail extends MemberListItem {
   medicalNotes: { id: string; note: string; recordedAt: string }[]
   measurements: { id: string; measuredOn: string; weightKg: number | null; bodyFatPercentage: number | null }[]
   progressPhotos: { id: string; photoUrl: string; takenAt: string }[]
+  /** False for a member registered before portal logins existed, or imported via Migration Center. */
+  hasLogin: boolean
   memberMemberships: MemberMembership[]
+}
+
+/** The one-time password to hand over — never stored, see CreateMemberCommand / ProvisionMemberLoginCommand. */
+export interface MemberLoginResult {
+  id: string
+  temporaryPassword: string
 }
 
 interface ListParams {
@@ -266,8 +274,23 @@ interface CreateMemberInput {
 export function useCreateMember() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: CreateMemberInput) => (await apiClient.post<string>('/api/members', input)).data,
+    mutationFn: async (input: CreateMemberInput) =>
+      (await apiClient.post<MemberLoginResult>('/api/members', input)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }),
+  })
+}
+
+/**
+ * One button that always leaves a member able to sign in: a first login for a member who has never
+ * had one (pre-dates the feature, or arrived via Migration Center import), or a fresh temporary
+ * password for one who has lost theirs. See ProvisionMemberLoginCommand for which of the two happens.
+ */
+export function useProvisionMemberLogin() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (memberId: string) =>
+      (await apiClient.post<MemberLoginResult>(`/api/members/${memberId}/login`)).data,
+    onSuccess: (_, memberId) => queryClient.invalidateQueries({ queryKey: ['member', memberId] }),
   })
 }
 

@@ -4,6 +4,7 @@ using GymOS.Domain.Crm;
 using GymOS.Domain.Identity;
 using GymOS.Domain.Tenancy;
 using GymOS.Infrastructure.Persistence;
+using GymOS.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
@@ -71,6 +72,10 @@ public class UpdateLeadStageCommandHandlerTests : ApplicationTestBase
 
         var branch = new Branch { TenantId = tenant.Id, Name = "Main", AddressLine = "1 Main St", City = "City", Country = "US" };
         db.Branches.Add(branch);
+
+        // Converting a lead nests CreateMemberCommand, which now provisions a portal login and
+        // therefore needs the tenant's Member role to exist — exactly as a real, seeded tenant has.
+        db.Roles.Add(new Role { TenantId = tenant.Id, Name = RoleNames.Member, IsSystemRole = true });
 
         var staffUser = new User
         {

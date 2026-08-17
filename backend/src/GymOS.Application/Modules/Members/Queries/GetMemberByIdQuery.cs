@@ -52,6 +52,7 @@ public class GetMemberByIdQueryHandler(IApplicationDbContext db) : IRequestHandl
             member.Measurements.Select(x => new MemberMeasurementDto(
                 x.Id, x.MeasuredOn, x.WeightKg, x.BodyFatPercentage, x.ChestCm, x.WaistCm, x.HipCm, x.ArmCm, x.ThighCm, x.Notes)).ToList(),
             member.ProgressPhotos.Select(p => new ProgressPhotoDto(p.Id, p.PhotoUrl, p.TakenAt, p.Notes)).ToList(),
+            member.UserId is not null,
             // Deterministic order, live plan first. Unordered, two screens picked two different
             // "current" memberships from the same payload and could show two different plans.
             member.MemberMemberships

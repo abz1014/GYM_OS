@@ -54,6 +54,7 @@ import { FreezeMembershipDialog } from '@/modules/members/components/FreezeMembe
 import { ReactivateMembershipButton } from '@/modules/members/components/ReactivateMembershipButton'
 import { RenewMembershipDialog } from '@/modules/members/components/RenewMembershipDialog'
 import { ResumeMembershipButton } from '@/modules/members/components/ResumeMembershipButton'
+import { SendMemberLoginButton } from '@/modules/members/components/SendMemberLoginButton'
 import { TransferMemberDialog } from '@/modules/members/components/TransferMemberDialog'
 
 const monthYearFormat = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' })
@@ -672,6 +673,11 @@ export function MemberDetailPanel({ memberId, variant, onClose }: MemberDetailPa
                     rather than update — see MembersController.Transfer. */}
                 {canManageMembership && (
                   <TransferMemberDialog memberId={member.id} currentBranchId={member.branchId} />
+                )}
+                {/* Members registered before portal logins existed, or imported through Migration
+                    Center, have no User row at all — this is the only place either gets one. */}
+                {canUpdate && (
+                  <SendMemberLoginButton memberId={member.id} hasLogin={member.hasLogin} firstName={member.firstName} />
                 )}
               </div>
             )}
