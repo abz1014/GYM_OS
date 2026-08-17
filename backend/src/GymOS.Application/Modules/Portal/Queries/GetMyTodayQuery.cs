@@ -84,8 +84,16 @@ public class GetMyTodayQueryHandler(
                 b.ClassSession.StartsAt,
                 b.ClassSession.DurationMinutes,
                 b.ClassSession.Location,
-                b.Status))
+                b.Status,
+                // See GetMyClassBookingsQuery: the queue position is an ordering over BookedAt, so
+                // it is filled in below rather than projected.
+                (int?)null))
             .ToListAsync(cancellationToken);
+
+        // The home screen shows the same booking card as the classes screen, so it must be able to
+        // say "2nd on the waitlist" too — a card that dropped the position here would look like a
+        // different, worse version of the one the member had just seen.
+        myBookings = await WaitlistPositionResolver.FillAsync(db, myBookings, cancellationToken);
 
         var nextClassToday = myBookings
             .Where(b => b.StartsAt >= now && GymDay.Of(b.StartsAt, zone) == today)

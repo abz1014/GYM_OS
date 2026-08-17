@@ -1,4 +1,4 @@
-import { Apple, CalendarDays, Dumbbell, Home, LayoutGrid, MapPin, MessageCircle, NotebookPen, Shield, TrendingUp, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { Apple, Bell, CalendarDays, Dumbbell, Home, LayoutGrid, MapPin, MessageCircle, NotebookPen, Shield, TrendingUp, ShieldCheck, type LucideIcon } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/authStore'
 
@@ -92,7 +92,7 @@ export const MEMBER_TABS: MemberTab[] = [
     // absent on purpose: they are their own tabs, and listing them would light two tabs at once.)
     alsoMatches: [
       '/my-nutrition', '/my-coach', '/my-passport', '/my-progress',
-      '/membership', '/account', '/log-activity',
+      '/membership', '/account', '/log-activity', '/my-notifications',
     ],
   },
 ]
@@ -125,5 +125,9 @@ export const MEMBER_MORE_LINKS: MemberMoreLink[] = [
   // Membership is deliberately absent: the More screen already opens with a full-bleed membership
   // hero card linking to the same place, and one screen offering one destination twice is how a
   // menu starts feeling longer than it is.
-  { group: 'Account', label: 'Account & security', description: 'Password, two-factor and sign-in', path: '/account', icon: ShieldCheck },
+  // Renewal reminders and gym announcements were going out by email and SMS with no record inside
+  // the app, so a member who lost the email had no way to find out what they'd been told. This is
+  // the only place in the portal that record is readable.
+  { group: 'Account', label: 'Notifications', description: 'Renewal reminders and messages from your gym', path: '/my-notifications', icon: Bell },
+  { group: 'Account', label: 'Account & security', description: 'Your details, password and two-factor', path: '/account', icon: ShieldCheck },
 ]

@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/apiClient'
 import type { CoachMessageSession } from '@/shared/components/coaching/SessionAttachment'
 import type { MemberDetail } from '@/modules/members/api/membersApi'
 import type { AttendanceRecord } from '@/modules/attendance/api/attendanceApi'
+import type { InvoiceStatus } from '@/modules/billing/api/billingApi'
 import type { ClassBookingStatus } from '@/modules/classes/api/classesApi'
 import type { WorkoutAssignmentListItem, WorkoutLog } from '@/modules/workouts/api/workoutsApi'
 import type { DietPlanListItem, WaterLog } from '@/modules/nutrition/api/nutritionApi'
@@ -90,6 +91,14 @@ export interface MyClassBooking {
   durationMinutes: number
   location: string | null
   status: ClassBookingStatus
+  /**
+   * Where in the queue, for a Waitlisted booking; null for every other status.
+   *
+   * "Waitlisted" on its own is the same word for first in line and fourteenth, and a member reads it
+   * as "I'm probably not getting in" either way. Null is a real state and must stay one — the chip
+   * says plain "Waitlisted" rather than inventing a position when the server didn't send one.
+   */
+  waitlistPosition: number | null
 }
 
 export function useMyClassSchedule() {
@@ -1208,6 +1217,214 @@ export function useMyPassport() {
     queryFn: async () => (await apiClient.get<MyPassport>('/api/me/passport')).data,
     retry: false,
   })
+}
+
+// ---------------------------------------------------------------------------
+// The account axis.
+//
+// Everything above this line is about training. This is about the membership as a thing the member
+// is PARTY TO: what they paid, what they can pause, what they have been billed, where the building
+// is, who to ring if something happens to them on the gym floor, and what the gym has been sending
+// them. None of it was reachable from the app — a member could see a status chip and nothing behind
+// it, and every question about it ended at "ask the front desk".
+//
+// The four membership actions all return 204 and refuse with a ProblemDetails whose `title` names
+// the rule that fired. That title is the only place the allowance arithmetic ("you have 3 of your 30
+// freeze days left") is stated, so every caller surfaces it verbatim rather than substituting a
+// generic sentence — see the onError convention on each screen.
+
+/**
+ * One bill, as the member's own copy of it.
+ *
+ * `paidAmount` is what has actually landed against the invoice, and the gap to `totalAmount` is the
+ * only honest way to say "part paid" — a Paid/Unpaid chip alone hides a deposit.
+ */
+export interface MyInvoice {
+  id: string
+  invoiceNumber: string
+  issueDate: string
+  dueDate: string
+  status: InvoiceStatus
+  totalAmount: number
+  paidAmount: number
+  currency: string
+}
+
+export function useMyInvoices() {
+  return useQuery({
+    queryKey: ['portal', 'invoices'],
+    queryFn: async () => (await apiClient.get<MyInvoice[]>('/api/me/invoices')).data,
+    retry: false,
+  })
+}
+
+/**
+ * Every membership action rewrites the row the profile payload carries — the status, the freeze
+ * dates, the days used, the auto-renew flag — and the profile is where every screen reads the
+ * membership from (this page's status card, the More screen's hero). Invalidating it is the whole
+ * job; nothing else caches a membership.
+ */
+function invalidateMyMembership(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['portal', 'profile'] })
+}
+
+export function useFreezeMyMembership() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { freezeStartDate: string; freezeEndDate: string }) =>
+      apiClient.post('/api/me/membership/freeze', payload),
+    onSuccess: () => invalidateMyMembership(queryClient),
+  })
+}
+
+export function useResumeMyMembership() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => apiClient.post('/api/me/membership/resume'),
+    onSuccess: () => invalidateMyMembership(queryClient),
+  })
+}
+
+export function useSetMyAutoRenew() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (enabled: boolean) => apiClient.post('/api/me/membership/auto-renew', { enabled }),
+    onSuccess: () => invalidateMyMembership(queryClient),
+  })
+}
+
+/**
+ * Files a request with the front desk. Deliberately does NOT invalidate the membership: nothing about
+ * the membership changed, and refetching it would be the one thing that could make the screen look
+ * like something did. The dialog says the same thing in words.
+ */
+export function useRequestMyCancellation() {
+  return useMutation({
+    mutationFn: async (reason: string) => apiClient.post('/api/me/membership/cancel-request', { reason }),
+  })
+}
+
+/** Something the gym sent, after it was sent. Not a to-do list and not dismissible — a record. */
+export interface MyNotification {
+  id: string
+  title: string
+  /** Null when the template carries no body: the member gets a title and nothing else, which the
+   *  screen renders as a title and nothing else rather than an empty paragraph. */
+  body: string | null
+  channel: string
+  occurredAt: string
+}
+
+export function useMyNotifications() {
+  return useQuery({
+    queryKey: ['portal', 'notifications'],
+    queryFn: async () => (await apiClient.get<MyNotification[]>('/api/me/notifications')).data,
+    retry: false,
+  })
+}
+
+/**
+ * Classes already sat through. Past only, so `status` here is a verdict — did they turn up — where
+ * the same field on an upcoming booking is an intention.
+ */
+export interface MyClassHistoryEntry {
+  classTypeName: string
+  startsAt: string
+  durationMinutes: number
+  status: ClassBookingStatus
+}
+
+export function useMyClassHistory() {
+  return useQuery({
+    queryKey: ['portal', 'class-history'],
+    queryFn: async () => (await apiClient.get<MyClassHistoryEntry[]>('/api/me/class-history')).data,
+    retry: false,
+  })
+}
+
+/**
+ * The member's own branch: where it is and how to reach a human there.
+ *
+ * Every field is typed nullable even though the branch's own columns are currently non-null on the
+ * server, because the support contacts genuinely are optional and a gym that has not filled in its
+ * address is a state this screen must survive. The card prints each line only when it has one — an
+ * invented address sends somebody across town.
+ */
+export interface MyGym {
+  branchName: string | null
+  addressLine: string | null
+  city: string | null
+  country: string | null
+  supportEmail: string | null
+  supportPhone: string | null
+}
+
+export function useMyGym() {
+  return useQuery({
+    queryKey: ['portal', 'gym'],
+    queryFn: async () => (await apiClient.get<MyGym>('/api/me/gym')).data,
+    // A branch address changes when someone edits it in the console, which is close to never.
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+}
+
+/**
+ * The member editing their own contact number. The one field on their record they could previously
+ * neither see nor correct without standing at the desk — and the number the gym rings when a class
+ * is cancelled.
+ */
+export function useUpdateMyProfile() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { phone: string }) => apiClient.put('/api/me/profile', payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'profile'] }),
+  })
+}
+
+export interface MyEmergencyContactInput {
+  name: string
+  phone: string
+  relationship: string
+}
+
+export function useAddMyEmergencyContact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: MyEmergencyContactInput) =>
+      (await apiClient.post<string>('/api/me/emergency-contacts', input)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'profile'] }),
+  })
+}
+
+export function useUpdateMyEmergencyContact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...input }: MyEmergencyContactInput & { id: string }) =>
+      apiClient.put(`/api/me/emergency-contacts/${id}`, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'profile'] }),
+  })
+}
+
+export function useDeleteMyEmergencyContact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => apiClient.delete(`/api/me/emergency-contacts/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', 'profile'] }),
+  })
+}
+
+/**
+ * The one reading of a server refusal on this axis.
+ *
+ * Every membership endpoint answers a refusal with a ProblemDetails whose `title` is the actual
+ * rule — the freeze allowance left, the fact it is already frozen, the date it would have to start
+ * after. Replacing that with "Could not freeze your membership" throws away the only sentence that
+ * tells the member what to do differently, so the fallback here is reached only when the server
+ * genuinely said nothing.
+ */
+export function serverReason(err: unknown, fallback: string): string {
+  return (err as { response?: { data?: { title?: string } } })?.response?.data?.title ?? fallback
 }
 
 // ── Shared readings of the profile payload ──────────────────────────────────────────────────────

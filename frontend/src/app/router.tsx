@@ -22,6 +22,7 @@ const MyNutritionPage = lazy(() => import('@/modules/portal/pages/MyNutritionPag
 const MyChallengesPage = lazy(() => import('@/modules/portal/pages/MyChallengesPage'))
 const MyCoachPage = lazy(() => import('@/modules/portal/pages/MyCoachPage'))
 const MyPassportPage = lazy(() => import('@/modules/portal/pages/MyPassportPage'))
+const MyNotificationsPage = lazy(() => import('@/modules/portal/pages/MyNotificationsPage'))
 const LeaderboardPage = lazy(() => import('@/modules/portal/pages/LeaderboardPage'))
 const MorePage = lazy(() => import('@/modules/portal/pages/MorePage'))
 const TodayPage = lazy(() => import('@/modules/portal/pages/TodayPage'))
@@ -87,6 +88,10 @@ export const router = createBrowserRouter([
           { path: 'my-challenges', element: withSuspense(<MyChallengesPage />) },
           { path: 'my-coach', element: withSuspense(<MyCoachPage />) },
           { path: 'my-passport', element: withSuspense(<MyPassportPage />) },
+          // The member's own record of what the gym has sent them. /notifications is the staff
+          // console's dispatch screen (templates, schedules, logs) and is a different job entirely,
+          // so this gets its own path rather than trying to share one.
+          { path: 'my-notifications', element: withSuspense(<MyNotificationsPage />) },
           { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
           /*
            * Community folded into Rank as tabs. This route stays and now RENDERS Rank rather than

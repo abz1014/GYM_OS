@@ -21,16 +21,14 @@ public class GetMyClassBookingsQueryHandler(IApplicationDbContext db, ICurrentUs
         var memberId = await MyMemberResolver.ResolveMemberIdAsync(db, currentUser, cancellationToken);
         var now = dateTimeProvider.UtcNow;
 
-        return await db.ClassBookings.AsNoTracking()
+        var bookings = await db.ClassBookings.AsNoTracking()
             .Include(b => b.ClassSession!).ThenInclude(s => s.ClassType)
             .Include(b => b.ClassSession!).ThenInclude(s => s.Trainer!).ThenInclude(t => t.User)
             .Where(b => b.MemberId == memberId
                         && (b.Status == ClassBookingStatus.Booked || b.Status == ClassBookingStatus.Waitlisted)
                         // Belt to the write-side braces: session cancellation releases bookings, but
                         // rows stranded before that fix must still never render as classes to attend.
-                        && b.ClassSession!.Status != ClassSessionStatus.Cancelled
-                        && b.ClassSession!.StartsAt >= now)
-            .OrderBy(b => b.ClassSession!.StartsAt)
+                        && b.ClassSession!.Status != ClassSessionStatus.Cancelled)
             .Select(b => new MyClassBookingDto(
                 b.Id,
                 b.ClassSessionId,
@@ -40,7 +38,25 @@ public class GetMyClassBookingsQueryHandler(IApplicationDbContext db, ICurrentUs
                 b.ClassSession.StartsAt,
                 b.ClassSession.DurationMinutes,
                 b.ClassSession.Location,
-                b.Status))
+                b.Status,
+                // Filled in below — a queue position cannot be projected in SQL here, because it is
+                // an ordering over BookedAt (a DateTimeOffset) across OTHER members' bookings.
+                (int?)null))
             .ToListAsync(cancellationToken);
+
+        /*
+         * "Still ahead" and "soonest first" are decided here rather than in SQL, and that move is a
+         * fix, not a preference. Both touch StartsAt across the booking->session join, and the SQLite
+         * provider the whole test suite runs on cannot translate a DateTimeOffset comparison — the
+         * query threw InvalidOperationException the moment anything tried to exercise it, which is
+         * precisely why this endpoint had no test while GetMyTodayQuery (which already reduced in
+         * memory, and says so) had several. Same rows, same order, now pinnable.
+         */
+        var upcoming = bookings
+            .Where(b => b.StartsAt >= now)
+            .OrderBy(b => b.StartsAt)
+            .ToList();
+
+        return await WaitlistPositionResolver.FillAsync(db, upcoming, cancellationToken);
     }
 }

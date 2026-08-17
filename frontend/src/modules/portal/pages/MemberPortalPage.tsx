@@ -1,12 +1,23 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, Flame, Gift, NotebookPen, QrCode, Zap } from 'lucide-react'
+import { Building2, CalendarDays, Flame, Gift, Mail, NotebookPen, Phone, QrCode, Receipt, Zap } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/shared/components/StatCard'
 import { useAuthStore } from '@/stores/authStore'
-import { MemberLoadError, SectionCard, dateFormat, dateTimeFormat, classTimeFormat } from '@/modules/portal/components/portalShared'
+import type { InvoiceStatus } from '@/modules/billing/api/billingApi'
+import { ManageMembership } from '@/modules/portal/components/ManageMembership'
+import {
+  MemberEmptyState,
+  MemberLoadError,
+  SectionCard,
+  classTimeFormat,
+  dateFormat,
+  dateTimeFormat,
+  money,
+} from '@/modules/portal/components/portalShared'
 import {
   checkInMethodLabel,
   currentMembership,
@@ -14,10 +25,64 @@ import {
   useMyAttendance,
   useMyClassBookings,
   useMyExperience,
+  useMyGym,
+  useMyInvoices,
   useMyProfile,
   useMyReferrals,
+  type MyInvoice,
 } from '@/modules/portal/api/portalApi'
 import { isStale } from '@/shared/lib/queryTrust'
+
+const MS_PER_DAY = 86_400_000
+
+/** DateOnly wire values ("2026-08-27") are calendar dates — parse at local midnight, not UTC. */
+function parseDateOnly(value: string): Date {
+  return new Date(`${value.slice(0, 10)}T00:00:00`)
+}
+
+/**
+ * An invoice's state, coloured by what it asks of the member: nothing (Paid), attention (Overdue),
+ * or simply information. Every status the billing enum has is listed — a chip that falls through to
+ * a default would print a state nobody chose a colour for.
+ */
+const INVOICE_STATUS_VARIANT: Record<InvoiceStatus, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
+  Draft: 'outline',
+  Issued: 'secondary',
+  PartiallyPaid: 'warning',
+  Paid: 'success',
+  Overdue: 'destructive',
+  Cancelled: 'outline',
+  Refunded: 'outline',
+}
+
+function InvoiceRow({ invoice }: { invoice: MyInvoice }) {
+  // "Paid X of Y" only where it says something the total and the chip do not: a deposit against a
+  // bill that is still open. A fully paid invoice already reads as paid, and a wholly unpaid one has
+  // nothing part-paid about it.
+  const partlyPaid = invoice.paidAmount > 0 && invoice.paidAmount < invoice.totalAmount
+
+  return (
+    <li className="flex items-start justify-between gap-3 border-b py-3 last:border-0">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{invoice.invoiceNumber}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {dateFormat.format(parseDateOnly(invoice.issueDate))}
+        </p>
+        {partlyPaid && (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Paid {money(invoice.paidAmount, invoice.currency)} of {money(invoice.totalAmount, invoice.currency)}
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span className="text-sm font-semibold tabular-nums">
+          {money(invoice.totalAmount, invoice.currency)}
+        </span>
+        <Badge variant={INVOICE_STATUS_VARIANT[invoice.status]}>{statusLabel(invoice.status)}</Badge>
+      </div>
+    </li>
+  )
+}
 
 /**
  * The member's home: who they are, whether their membership is healthy, and what's next.
@@ -34,6 +99,8 @@ export default function MemberPortalPage() {
   const classBookings = useMyClassBookings()
   const referrals = useMyReferrals()
   const experience = useMyExperience()
+  const invoices = useMyInvoices()
+  const gym = useMyGym()
 
   if (isStale(profile)) {
     const status = (profile.error as { response?: { status?: number } })?.response?.status
@@ -52,11 +119,39 @@ export default function MemberPortalPage() {
   // The same helper the More card uses — the two screens used to compute "current" differently
   // and could name different plans for the same person.
   const membership = currentMembership(profile.data?.memberMemberships)
+  // parseDateOnly, not `new Date(...)`: the end date is a calendar date, and parsing it as UTC
+  // midnight renders as the PREVIOUS day for anyone west of Greenwich. That would now disagree
+  // by one day with the auto-renew line right below, which states the same date from the same field.
   const currentPlanLabel = membership?.status === 'Active'
-    ? `${membership.membershipPlanName} — active through ${dateFormat.format(new Date(membership.endDate))}`
+    ? `${membership.membershipPlanName} — active through ${dateFormat.format(parseDateOnly(membership.endDate))}`
     : membership
       ? `${membership.membershipPlanName} — ${statusLabel(membership.status).toLowerCase()}`
       : 'No membership on file'
+
+  /*
+   * What it cost and over what term — the first question anyone asks about a membership, and the app
+   * held the answer (pricePaid, currency, the two dates) without ever printing it. The term is
+   * measured between the membership's own dates rather than read off a plan duration, because those
+   * dates are what the member is actually bought for; a renewal that started late is a shorter term
+   * and saying otherwise would be a rate the gym never charged.
+   */
+  const priceLabel = membership
+    ? `${money(membership.pricePaid, membership.currency)} / ${Math.max(
+        1,
+        Math.round(
+          (parseDateOnly(membership.endDate).getTime() - parseDateOnly(membership.startDate).getTime()) / MS_PER_DAY,
+        ),
+      )} days`
+    : null
+
+  // Only where the plan actually grants freeze days. "0 of 0 freeze days left" on a plan that has no
+  // freeze allowance invents an entitlement and then reports it exhausted.
+  const freezeLabel =
+    membership && membership.planMaxFreezeDays !== null && membership.planMaxFreezeDays > 0
+      ? `${Math.max(0, membership.planMaxFreezeDays - membership.freezeDaysUsed)} of ${
+          membership.planMaxFreezeDays
+        } freeze days left`
+      : null
 
   return (
     <div className="space-y-6">
@@ -88,7 +183,7 @@ export default function MemberPortalPage() {
             value={profile.data?.status ?? '—'}
             icon={CalendarDays}
             tone={profile.data?.status === 'Active' ? 'success' : 'warning'}
-            hint={currentPlanLabel}
+            hint={[currentPlanLabel, priceLabel, freezeLabel].filter(Boolean).join(' · ')}
           />
           <StatCard label="Member Code" value={profile.data?.memberCode ?? '—'} icon={QrCode} />
           {/*
@@ -107,6 +202,119 @@ export default function MemberPortalPage() {
           />
         </div>
       )}
+
+      {/*
+        The membership as something a member can act on, not only read.
+        Everything reachable here used to require standing at the desk during opening hours.
+      */}
+      <SectionCard title="Manage membership">
+        {profile.isLoading ? (
+          <Skeleton className="h-40 w-full" />
+        ) : membership ? (
+          <ManageMembership membership={membership} />
+        ) : (
+          // The profile loaded and genuinely has no membership row. Not an error, and not a set of
+          // dead buttons either — there is nothing here to freeze, renew or cancel.
+          <p className="py-2 text-sm text-muted-foreground">
+            There's no membership on your record to manage yet. The front desk can set one up for you.
+          </p>
+        )}
+      </SectionCard>
+
+      <SectionCard title="Invoices &amp; payments">
+        {invoices.isLoading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : isStale(invoices) ? (
+          /* An empty billing list reads as "I owe nothing", which is the single most expensive thing
+             a dropped request could say on this page. */
+          <MemberLoadError
+            title="We couldn't load your invoices"
+            hint="Every payment you've made is still recorded against your account."
+            onRetry={() => void invoices.refetch()}
+            isRetrying={invoices.isFetching}
+          />
+        ) : invoices.data && invoices.data.length > 0 ? (
+          <ul>
+            {invoices.data.map((invoice) => (
+              <InvoiceRow key={invoice.id} invoice={invoice} />
+            ))}
+          </ul>
+        ) : (
+          <MemberEmptyState
+            icon={Receipt}
+            title="Nothing billed yet"
+            hint="Invoices for your membership and anything you buy at the gym will appear here."
+          />
+        )}
+      </SectionCard>
+
+      {/*
+        Where the gym actually is, and how to reach a human in it.
+        Half the copy in this app used to end at "ask at the front desk" without ever saying where the
+        front desk is or how to call it. Each field is printed only when the gym has filled it in —
+        an invented address sends someone across town.
+      */}
+      <SectionCard title="Your gym">
+        {gym.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : isStale(gym) ? (
+          <MemberLoadError
+            title="We couldn't load your gym's details"
+            hint="Your branch hasn't gone anywhere — we just can't reach it right now."
+            onRetry={() => void gym.refetch()}
+            isRetrying={gym.isFetching}
+          />
+        ) : gym.data ? (
+          (() => {
+            const address = [gym.data.addressLine, gym.data.city, gym.data.country].filter(Boolean).join(', ')
+            const hasAnything = Boolean(
+              gym.data.branchName || address || gym.data.supportEmail || gym.data.supportPhone,
+            )
+
+            if (!hasAnything) {
+              return (
+                <p className="py-2 text-sm text-muted-foreground">
+                  Your gym hasn't added its address or contact details yet.
+                </p>
+              )
+            }
+
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    {gym.data.branchName && <p className="font-medium">{gym.data.branchName}</p>}
+                    <p className="text-muted-foreground">
+                      {address || 'No address on file for this branch yet.'}
+                    </p>
+                  </div>
+                </div>
+                {/* Links, not text: on a phone this is the difference between contacting the gym and
+                    copying a number out by hand. */}
+                {gym.data.supportPhone && (
+                  <a
+                    className="flex min-h-11 items-center gap-2 font-medium text-primary"
+                    href={`tel:${gym.data.supportPhone}`}
+                  >
+                    <Phone className="size-4 shrink-0" />
+                    {gym.data.supportPhone}
+                  </a>
+                )}
+                {gym.data.supportEmail && (
+                  <a
+                    className="flex min-h-11 items-center gap-2 font-medium break-all text-primary"
+                    href={`mailto:${gym.data.supportEmail}`}
+                  >
+                    <Mail className="size-4 shrink-0" />
+                    {gym.data.supportEmail}
+                  </a>
+                )}
+              </div>
+            )
+          })()
+        ) : null}
+      </SectionCard>
 
       {/* A compact level readout; the XP ledger and the badges they've unlocked live on My Progress,
           the latter on the timeline alongside the session that earned each one. */}

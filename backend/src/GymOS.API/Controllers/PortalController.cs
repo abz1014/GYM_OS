@@ -353,4 +353,113 @@ public class PortalController(ISender mediator) : ControllerBase
         await mediator.Send(new LeaveChallengeCommand(challengeId), cancellationToken);
         return NoContent();
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // The account axis: the member's relationship with the GYM rather than with their training.
+    //
+    // Everything above this line is about what the member does in the building. Everything below is
+    // what they were previously unable to do without phoning it: read their own bills, pause or
+    // resume their membership, stop an automatic renewal, ask to cancel, correct the phone number
+    // every reminder is sent to, fix who should be called in an emergency, and find out where the
+    // gym actually is. Each one existed as a staff-only capability, which meant "self-service" ended
+    // at the point the member had a question about their own money or their own contract.
+    //
+    // Same identity rule as the rest of this controller — no member id, no membership id, no
+    // branch id is ever accepted from the caller.
+    // ---------------------------------------------------------------------------------------------
+
+    [HttpGet("invoices")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyInvoiceDto>>> Invoices(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyInvoicesQuery(), cancellationToken));
+
+    /// <summary>
+    /// Pauses the member's own current membership. The allowance and window rules are the staff
+    /// ones, applied by the same command — see FreezeMyMembershipCommand.
+    /// </summary>
+    [HttpPost("membership/freeze")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> FreezeMembership(FreezeMyMembershipCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("membership/resume")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> ResumeMembership(CancellationToken cancellationToken)
+    {
+        await mediator.Send(new ResumeMyMembershipCommand(), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("membership/auto-renew")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> SetAutoRenew(SetMyAutoRenewCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Records that the member has asked to cancel. Deliberately does not cancel anything — see
+    /// RequestMyCancellationCommand for why that stays a staff decision.
+    /// </summary>
+    [HttpPost("membership/cancel-request")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> RequestCancellation(RequestMyCancellationCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpGet("notifications")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyNotificationDto>>> Notifications(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyNotificationsQuery(), cancellationToken));
+
+    [HttpGet("class-history")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<List<MyClassHistoryDto>>> ClassHistory(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyClassHistoryQuery(), cancellationToken));
+
+    [HttpGet("gym")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<MyGymDto>> Gym(CancellationToken cancellationToken)
+        => Ok(await mediator.Send(new GetMyGymQuery(), cancellationToken));
+
+    /// <summary>Phone only — see UpdateMyProfileCommand for why the member cannot rewrite the rest.</summary>
+    [HttpPut("profile")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> UpdateProfile(UpdateMyProfileCommand command, CancellationToken cancellationToken)
+    {
+        await mediator.Send(command, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("emergency-contacts")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<ActionResult<Guid>> AddEmergencyContact(
+        AddMyEmergencyContactCommand command, CancellationToken cancellationToken)
+        => Ok(await mediator.Send(command, cancellationToken));
+
+    // The id comes from the route and the member from the JWT, so the body carries neither. A
+    // contact belonging to somebody else answers 404, not 403 — see AddMyEmergencyContactCommand.
+    [HttpPut("emergency-contacts/{id:guid}")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> UpdateEmergencyContact(
+        Guid id, MyEmergencyContactInput input, CancellationToken cancellationToken)
+    {
+        await mediator.Send(
+            new UpdateMyEmergencyContactCommand(id, input.Name, input.Phone, input.Relationship), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpDelete("emergency-contacts/{id:guid}")]
+    [RequirePermission(PermissionCodes.Portal.View)]
+    public async Task<IActionResult> DeleteEmergencyContact(Guid id, CancellationToken cancellationToken)
+    {
+        await mediator.Send(new DeleteMyEmergencyContactCommand(id), cancellationToken);
+        return NoContent();
+    }
 }

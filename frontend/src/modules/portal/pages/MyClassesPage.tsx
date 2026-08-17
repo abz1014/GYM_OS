@@ -1,14 +1,18 @@
 import { useLayoutEffect, useMemo, useState } from 'react'
-import { CalendarCheck, Check, Loader2 } from 'lucide-react'
+import { CalendarCheck, Check, ChevronDown, History, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import type { ClassBookingStatus } from '@/modules/classes/api/classesApi'
 import { MemberLoadError } from '@/modules/portal/components/portalShared'
 import {
   useBookMyClass,
   useCancelMyClassBooking,
+  useMyClassBookings,
+  useMyClassHistory,
   useMyClassSchedule,
   type MyClassSession,
 } from '@/modules/portal/api/portalApi'
@@ -42,7 +46,7 @@ const NEARLY_FULL_SPOTS = 5
  */
 const DAYS_PER_PAGE = 5
 
-function ClassAction({ session }: { session: MyClassSession }) {
+function ClassAction({ session, waitlistPosition }: { session: MyClassSession; waitlistPosition: number | null }) {
   const book = useBookMyClass()
   const cancel = useCancelMyClassBooking()
 
@@ -80,8 +84,12 @@ function ClassAction({ session }: { session: MyClassSession }) {
   if (session.myBookingStatus === 'Waitlisted') {
     return (
       <div className="flex shrink-0 flex-col items-end gap-1">
+        {/* "Waitlisted" is the same word for first in line and fourteenth, and a member reads it as
+            "I'm not getting in" either way — first in line at a gym class usually does. The position
+            is appended only when the bookings call actually returned one; a missing position leaves
+            the plain word rather than guessing at #1. */}
         <span className="rounded-xl border border-border px-3 py-2 text-sm font-bold text-muted-foreground">
-          Waitlisted
+          {waitlistPosition === null ? 'Waitlisted' : `Waitlisted · #${waitlistPosition}`}
         </span>
         <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-muted-foreground" disabled={busy} onClick={handleCancel}>
           Leave
@@ -145,7 +153,7 @@ function Capacity({ session }: { session: MyClassSession }) {
 
 /** One class. Booked state is signalled once — by the action on the right, which also says what to
  *  do about it. It used to be signalled three times: a card tint, a coloured time, and a pill. */
-function SessionRow({ session }: { session: MyClassSession }) {
+function SessionRow({ session, waitlistPosition }: { session: MyClassSession; waitlistPosition: number | null }) {
   const booked = session.myBookingStatus === 'Booked' || session.myBookingStatus === 'CheckedIn'
 
   return (
@@ -169,12 +177,20 @@ function SessionRow({ session }: { session: MyClassSession }) {
         <Capacity session={session} />
       </div>
 
-      <ClassAction session={session} />
+      <ClassAction session={session} waitlistPosition={waitlistPosition} />
     </div>
   )
 }
 
-function DayGroups({ sessions }: { sessions: MyClassSession[] }) {
+function DayGroups({
+  sessions,
+  waitlistPositions,
+}: {
+  sessions: MyClassSession[]
+  /** sessionId -> queue position. Empty when the bookings call hasn't landed, which is why the chip
+   *  treats a missing entry as "no position known" rather than as position zero. */
+  waitlistPositions: Map<string, number>
+}) {
   const grouped = sessions.reduce<Record<string, MyClassSession[]>>((acc, s) => {
     const key = s.startsAt.slice(0, 10)
     ;(acc[key] ??= []).push(s)
@@ -189,11 +205,103 @@ function DayGroups({ sessions }: { sessions: MyClassSession[] }) {
             {dayFmt.format(new Date(`${date}T00:00:00Z`))}
           </h3>
           {daySessions.map((s) => (
-            <SessionRow key={s.sessionId} session={s} />
+            <SessionRow key={s.sessionId} session={s} waitlistPosition={waitlistPositions.get(s.sessionId) ?? null} />
           ))}
         </section>
       ))}
     </>
+  )
+}
+
+/**
+ * A finished class, as a verdict rather than an intention.
+ *
+ * Only three of the five booking statuses can survive into history, but all five are mapped: a
+ * status with no entry here would render as the raw enum name, and "NoShow" is a developer's word.
+ */
+const HISTORY_STATUS: Record<ClassBookingStatus, { label: string; variant: 'success' | 'secondary' | 'outline' | 'destructive' }> = {
+  CheckedIn: { label: 'Attended', variant: 'success' },
+  NoShow: { label: 'No-show', variant: 'destructive' },
+  Booked: { label: 'Booked', variant: 'secondary' },
+  Waitlisted: { label: 'Waitlisted', variant: 'outline' },
+  Cancelled: { label: 'Cancelled', variant: 'outline' },
+}
+
+const historyDayFmt = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+})
+
+/**
+ * What they've already done, folded away by default.
+ *
+ * Collapsed because this screen exists to answer "what am I in and what can I join" — a member's
+ * class history is a thing they go looking for (was I marked down as a no-show?), not something to
+ * scroll past on the way to booking. Expanded state is local and deliberately not remembered: the
+ * default question this page answers is about the future.
+ */
+function PastClasses() {
+  const [open, setOpen] = useState(false)
+  const history = useMyClassHistory()
+
+  return (
+    <div className="space-y-2">
+      <Button
+        variant="ghost"
+        className="h-11 w-full justify-between rounded-xl px-3"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-2 font-display text-base font-bold">
+          <History className="size-4 text-muted-foreground" />
+          Past classes
+          {/* The count comes from real rows, so it appears only once they've arrived. */}
+          {history.data && (
+            <span className="text-sm font-semibold text-muted-foreground tabular-nums">{history.data.length}</span>
+          )}
+        </span>
+        <ChevronDown className={cn('size-4 shrink-0 transition-transform', open && 'rotate-180')} />
+      </Button>
+
+      {open &&
+        (history.isLoading ? (
+          <Skeleton className="h-24 w-full rounded-2xl shimmer" />
+        ) : isStale(history) ? (
+          <MemberLoadError
+            title="We couldn't load your past classes"
+            hint="Every class you've been to is still on your record."
+            onRetry={() => void history.refetch()}
+            isRetrying={history.isFetching}
+          />
+        ) : history.data && history.data.length > 0 ? (
+          <ul className="space-y-2">
+            {history.data.map((entry, i) => (
+              /* No id on a history row, so the key is composed from what makes it unique — the
+                 class and the minute it started. The index is the tiebreak and nothing more. */
+              <li
+                key={`${entry.startsAt}-${entry.classTypeName}-${i}`}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{entry.classTypeName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {historyDayFmt.format(new Date(entry.startsAt))} · {entry.durationMinutes} min
+                  </p>
+                </div>
+                <Badge variant={HISTORY_STATUS[entry.status].variant} className="shrink-0">
+                  {HISTORY_STATUS[entry.status].label}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+            You haven't been to a class here yet.
+          </p>
+        ))}
+    </div>
   )
 }
 
@@ -207,7 +315,25 @@ function DayGroups({ sessions }: { sessions: MyClassSession[] }) {
  */
 export default function MyClassesPage() {
   const schedule = useMyClassSchedule()
+  /*
+   * A second call purely for the waitlist positions.
+   *
+   * /api/me/classes says WHETHER the member is on a waitlist; only /api/me/class-bookings says where
+   * in it. They are joined on sessionId here rather than the schedule being asked to carry the
+   * position, because the schedule is the branch's timetable and the queue position is personal.
+   * This query failing costs the "#N" suffix and nothing else — the chip and the Leave button both
+   * come from the schedule — so it deliberately does not raise a load error of its own.
+   */
+  const bookings = useMyClassBookings()
   const [page, setPage] = useState(1)
+
+  const waitlistPositions = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const b of bookings.data ?? []) {
+      if (b.waitlistPosition !== null) map.set(b.sessionId, b.waitlistPosition)
+    }
+    return map
+  }, [bookings.data])
 
   const { mine, browse, totalDays, totalPages } = useMemo(() => {
     const all = schedule.data ?? []
@@ -279,7 +405,13 @@ export default function MyClassesPage() {
             Your classes
             <span className="ml-2 text-sm font-semibold text-muted-foreground tabular-nums">{mine.length}</span>
           </h2>
-          <DayGroups sessions={mine} />
+          {/* The actual rule, stated once, where the Cancel button is. The app enforces exactly this
+              and nothing more — no cut-off window, no penalty — and a member who doesn't know that
+              hedges by not booking. */}
+          <p className="text-xs text-muted-foreground">
+            You can cancel a booking any time before the class starts.
+          </p>
+          <DayGroups sessions={mine} waitlistPositions={waitlistPositions} />
         </div>
       )}
 
@@ -296,7 +428,7 @@ export default function MyClassesPage() {
             </div>
           ) : (
             <>
-              <DayGroups sessions={browse} />
+              <DayGroups sessions={browse} waitlistPositions={waitlistPositions} />
               {/*
                 Counted in DAYS, not sessions, because days are what the pages are made of — saying
                 "60 classes" beside a control that moves five days at a time invites the member to
@@ -320,6 +452,9 @@ export default function MyClassesPage() {
           )}
         </div>
       )}
+
+      {/* Last on the page, and behind a tap: the future is what this screen is for. */}
+      <PastClasses />
     </div>
   )
 }

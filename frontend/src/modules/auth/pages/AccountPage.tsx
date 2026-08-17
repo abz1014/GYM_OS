@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/stores/authStore'
+import { MemberProfileSection } from '@/modules/portal/components/MemberProfileSection'
+import { useIsMemberOnly } from '@/shared/nav/memberNav'
 import {
   useChangePassword,
   useConfirmMfaSetup,
@@ -232,13 +234,30 @@ function MfaCard() {
   )
 }
 
+/**
+ * One account screen for everyone who signs in, plus the member's own record on top of it.
+ *
+ * The profile section is gated on the login being member-only rather than rendered for all: it is
+ * built entirely from /api/me, which resolves "whose data" from the JWT and has no answer at all for
+ * a receptionist. Rendering it for staff would put a permanent "we couldn't load your profile" panel
+ * above the password form for every member of staff in the building.
+ */
 export default function AccountPage() {
+  const isMember = useIsMemberOnly()
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">My Account</h1>
-        <p className="text-sm text-muted-foreground">Manage your password and security settings.</p>
+        <p className="text-sm text-muted-foreground">
+          {isMember
+            ? 'Your details, your password and your security settings.'
+            : 'Manage your password and security settings.'}
+        </p>
       </div>
+      {/* Above the password card on purpose: an emergency contact nobody can reach is a worse
+          problem than a weak password, and it is the one a member never thinks to check. */}
+      {isMember && <MemberProfileSection />}
       <ChangePasswordCard />
       <MfaCard />
     </div>

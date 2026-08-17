@@ -275,3 +275,29 @@ export const SUGGESTION_CONFIG: Record<OverloadSuggestion, { label: string; icon
 
 export const dateFormat = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
 export const dateTimeFormat = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+
+/**
+ * Money in the currency the row itself carries — never a hardcoded symbol.
+ *
+ * Every amount that reaches a member comes off a record that also states its currency (a membership
+ * row, an invoice), and a literal '$' is a WRONG number rather than an unstyled one: it silently
+ * relabels 129.99 EUR as 129.99 USD for every gym outside the US. Mirrors the `money()` helpers the
+ * staff modules already use (MemberDetailPanel, DashboardPage) so the same invoice reads identically
+ * to the member and to the receptionist looking at it.
+ */
+export function money(amount: number, currency: string): string {
+  return amount.toLocaleString('en-US', { style: 'currency', currency })
+}
+
+/**
+ * How long ago, in words a member would use. The exact timestamp of a renewal reminder is not what
+ * they are reading for — "3 days ago" is, and it needs no arithmetic to place.
+ */
+export function relativeWhen(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  if (days <= 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 14) return `${days} days ago`
+  if (days < 60) return `${Math.round(days / 7)} weeks ago`
+  return dateFormat.format(new Date(iso))
+}
