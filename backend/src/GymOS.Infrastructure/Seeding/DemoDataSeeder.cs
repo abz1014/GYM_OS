@@ -55,6 +55,7 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
          * kept its row, so the permission matrix went on offering a switch that grants nothing.
          */
         await SyncPermissionCatalogAsync(cancellationToken);
+        await BackfillOrphanedTrainerAssignmentsAsync(cancellationToken);
 
         if (await db.Tenants.IgnoreQueryFilters().AnyAsync(cancellationToken))
         {
@@ -474,6 +475,56 @@ public partial class DemoDataSeeder(GymOsDbContext db, IPasswordHasher passwordH
             }
         }
 
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// AssignClientCommand shipped without stamping TenantId on the TrainerAssignment it creates.
+    /// TrainerAssignment is tenant-scoped, so every row it wrote landed with the column defaulted to
+    /// Guid.Empty — invisible to the global query filter the instant it was saved, in every query that
+    /// reads assignments, not just display. Not a bug that can be fixed by editing the row through the
+    /// app either: the same filter blocks the handler that would end or reassign it. Run on every
+    /// deploy, before the "already seeded" bail-out, so an affected production database repairs itself
+    /// without a manual migration or direct database access.
+    ///
+    /// The correct tenant is derived from the Trainer the row references — Trainer.TenantId was always
+    /// stamped correctly by CreateTrainerCommand — rather than assumed to be "the only tenant", so this
+    /// stays correct even if a deployment ever has more than one.
+    /// </summary>
+    private async Task BackfillOrphanedTrainerAssignmentsAsync(CancellationToken cancellationToken)
+    {
+        var orphaned = await db.TrainerAssignments.IgnoreQueryFilters()
+            .Where(a => a.TenantId == Guid.Empty)
+            .ToListAsync(cancellationToken);
+
+        if (orphaned.Count == 0)
+        {
+            return;
+        }
+
+        var trainerIds = orphaned.Select(a => a.TrainerId).Distinct().ToList();
+        var trainerTenants = await db.Trainers.IgnoreQueryFilters()
+            .Where(t => trainerIds.Contains(t.Id))
+            .Select(t => new { t.Id, t.TenantId })
+            .ToDictionaryAsync(t => t.Id, t => t.TenantId, cancellationToken);
+
+        var repaired = 0;
+        foreach (var assignment in orphaned)
+        {
+            if (trainerTenants.TryGetValue(assignment.TrainerId, out var tenantId))
+            {
+                assignment.TenantId = tenantId;
+                repaired++;
+            }
+        }
+
+        if (repaired == 0)
+        {
+            return;
+        }
+
+        logger.LogInformation(
+            "Repairing {Count} trainer assignment(s) created before TenantId was stamped on write.", repaired);
         await db.SaveChangesAsync(cancellationToken);
     }
 

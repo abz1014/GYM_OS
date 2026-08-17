@@ -19,11 +19,13 @@ public class AssignClientCommandValidator : AbstractValidator<AssignClientComman
     }
 }
 
-public class AssignClientCommandHandler(IApplicationDbContext db, IDateTimeProvider dateTimeProvider)
+public class AssignClientCommandHandler(IApplicationDbContext db, ICurrentUserService currentUser, IDateTimeProvider dateTimeProvider)
     : IRequestHandler<AssignClientCommand, Guid>
 {
     public async Task<Guid> Handle(AssignClientCommand request, CancellationToken cancellationToken)
     {
+        var tenantId = currentUser.TenantId ?? throw new ForbiddenAccessException("No tenant context.");
+
         var trainerExists = await db.Trainers.AnyAsync(t => t.Id == request.TrainerId, cancellationToken);
         if (!trainerExists)
         {
@@ -36,8 +38,12 @@ public class AssignClientCommandHandler(IApplicationDbContext db, IDateTimeProvi
             throw new NotFoundException(nameof(Domain.Members.Member), request.MemberId);
         }
 
+        // TrainerAssignment is tenant-scoped like everything else, and an unstamped row is not a
+        // display bug — the global query filter makes it permanently unreachable the instant it's
+        // saved, by this same handler's own "end assignment" and "my clients" counterparts included.
         var assignment = new TrainerAssignment
         {
+            TenantId = tenantId,
             TrainerId = request.TrainerId,
             MemberId = request.MemberId,
             StartDate = DateOnly.FromDateTime(dateTimeProvider.UtcNow.UtcDateTime),
